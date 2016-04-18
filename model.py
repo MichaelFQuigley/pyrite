@@ -111,6 +111,22 @@ class MyNodeWalker(NodeWalker):
                 result.append(self.walk(el))
         return result
 
+    def walk_ListExpr(self, node):
+        debug_print("in ListExpr")
+        list_inst = builder.call(functionsDict['list_init'],[]) 
+        if node.arguments is not None:
+            args = self.walk(node.arguments)
+            for arg in args:
+                if str(arg.type) == 'i64':
+                    builder.call(functionsDict['list_add_int'],[list_inst, arg]) 
+                elif str(arg.type) == 'double':
+                    builder.call(functionsDict['list_add_float'],[list_inst, arg]) 
+                else:
+                    assert False, "Type for list not implemented yet"
+
+
+        return list_inst
+
     def walk_LoopStmt(self, node):
         assert False, "Loops not done yet"
 
@@ -129,6 +145,9 @@ class MyNodeWalker(NodeWalker):
     def walk_AssignStmt(self,node):
         debug_print('in AssignStmt')
         lhs = str(node.lhs)
+        #if node.rhs == '[]':
+            #rhs = builder.call(functionsDict['list_init'],[]) 
+        #else: 
         rhs = self.walk(node.rhs)
         if lhs not in named_values:
             named_values[lhs] =  builder.alloca(rhs.type, 

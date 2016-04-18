@@ -6,8 +6,6 @@
 #include <assert.h>
 #include "list.h"
 
-extern struct list;
-
 list_t* list_init()
 {
     list_t* list_inst = calloc(1, sizeof(list_t));
@@ -25,7 +23,7 @@ void list_uninit(list_t* list_inst)
     free(list_inst);
 }
 
-void list_add(list_t* list_inst, 
+static void list_add(list_t* list_inst, 
                 union list_value element, 
                 list_element_types_t element_type)
 {
@@ -42,20 +40,42 @@ void list_add(list_t* list_inst,
     list_inst->size++;
 }
 
+void list_add_int(list_t* list_inst, int64_t element)
+//void list_add_int(list_t* list_inst, union list_value element)
+{
+    list_add(list_inst, (union list_value) element, INT64_TYPE);
+}
+
+
+void list_add_float(list_t* list_inst, double element)
+//void list_add_float(list_t* list_inst, union list_value element)
+{
+    list_add(list_inst, (union list_value) element, DOUBLE_TYPE);
+}
+
+void list_add_ptr(list_t* list_inst, void* element)
+//void list_add_float(list_t* list_inst, union list_value element)
+{
+    list_add(list_inst, (union list_value) element, DOUBLE_TYPE);
+}
+
+
+
 void print_list(list_t* list_inst)
 {
     list_node_t *curr_node;
     curr_node = list_inst->head.next;
 
+    printf("[");
     for(int i = 0; i < list_inst->size; i++)
     {
         switch(curr_node->element.type)
         {
             case INT64_TYPE:
-                printf("list el: %ld\n", curr_node->element.value.i);
+                printf("%ld", curr_node->element.value.i);
                 break;
             case DOUBLE_TYPE:
-                printf("list el: %f\n", curr_node->element.value.d);
+                printf("%f", curr_node->element.value.d);
                 break;
             case PTR_TYPE:
                 break;
@@ -63,8 +83,13 @@ void print_list(list_t* list_inst)
                 assert(1 && "Print not implemented for type");
                 break;
         }
+        if( i < list_inst->size - 1 )
+        {
+            printf(", ");
+        }
         curr_node = curr_node->next;
     }
+    printf("]\n");
 }
 
 /*

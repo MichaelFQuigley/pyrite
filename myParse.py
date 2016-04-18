@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS  # noqa
 
 
-__version__ = (2016, 4, 16, 21, 39, 15, 5)
+__version__ = (2016, 4, 17, 23, 59, 7, 6)
 
 __all__ = [
     'grammarParser',
@@ -93,6 +93,8 @@ class grammarParser(Parser):
                 with self._option():
                     self._comparison_()
                 with self._option():
+                    self._list_expr_()
+                with self._option():
                     self._expr_stmt_()
                 self._error('no available options')
         self.ast['simple'] = self.last_node
@@ -115,6 +117,19 @@ class grammarParser(Parser):
 
         self.ast._define(
             ['arg1', 'argrest'],
+            []
+        )
+
+    @graken('ListExpr')
+    def _list_expr_(self):
+        self._token('[')
+        with self._optional():
+            self._args_()
+        self.ast['arguments'] = self.last_node
+        self._token(']')
+
+        self.ast._define(
+            ['arguments'],
             []
         )
 
@@ -429,6 +444,9 @@ class grammarSemantics(object):
         return ast
 
     def args(self, ast):
+        return ast
+
+    def list_expr(self, ast):
         return ast
 
     def loop_stmt(self, ast):

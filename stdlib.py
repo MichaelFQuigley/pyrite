@@ -12,7 +12,27 @@ class StdLib:
                 'list_init':
                 ir.Function(module,
                     ir.FunctionType(ir.PointerType(list_struct_t), tuple()),
-                    'list_init')
+                    'list_init'),
+                'list_add_int':
+                ir.Function(module,
+                    ir.FunctionType(ir.VoidType(), 
+                        (ir.PointerType(list_struct_t), IntType(64))),
+                    'list_add_int'),
+                'list_add_float':
+                ir.Function(module,
+                    ir.FunctionType(ir.VoidType(), 
+                        (ir.PointerType(list_struct_t), DoubleType())),
+                    'list_add_float'),
+                'print_list':
+                ir.Function(module,
+                    ir.FunctionType(ir.VoidType(), 
+                        (ir.PointerType(list_struct_t),)),
+                    'print_list'),
+                'list_add_ptr':
+                ir.Function(module,
+                    ir.FunctionType(ir.VoidType(), 
+                        (ir.PointerType(list_struct_t),ir.PointerType(list_struct_t))),
+                    'list_add_ptr'),
                 }
         '''
         with open(lib_file, 'r') as std_lib_ir:
