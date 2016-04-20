@@ -31,8 +31,13 @@ class StdLib:
                 'list_add_ptr':
                 ir.Function(module,
                     ir.FunctionType(ir.VoidType(), 
-                        (ir.PointerType(list_struct_t),ir.PointerType(list_struct_t))),
+                        (ir.PointerType(list_struct_t),ir.PointerType(IntType(8)))),
                     'list_add_ptr'),
+                'list_add_bool':
+                ir.Function(module,
+                    ir.FunctionType(ir.VoidType(), 
+                        (ir.PointerType(list_struct_t),IntType(8))),
+                    'list_add_bool'),
                 }
         '''
         with open(lib_file, 'r') as std_lib_ir:

@@ -14,16 +14,25 @@
 from __future__ import print_function, division, absolute_import, unicode_literals
 
 from grako.parsing import graken, Parser
-from grako.util import re, RE_FLAGS  # noqa
+from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 17, 23, 59, 7, 6)
+__version__ = (2016, 4, 20, 1, 25, 49, 2)
 
 __all__ = [
     'grammarParser',
     'grammarSemantics',
     'main'
 ]
+
+KEYWORDS = set([
+    'elif',
+    'else',
+    'false',
+    'if',
+    'loop',
+    'true',
+])
 
 
 class grammarParser(Parser):
@@ -34,6 +43,7 @@ class grammarParser(Parser):
                  eol_comments_re=None,
                  ignorecase=None,
                  left_recursion=True,
+                 keywords=KEYWORDS,
                  **kwargs):
         super(grammarParser, self).__init__(
             whitespace=whitespace,
@@ -42,6 +52,7 @@ class grammarParser(Parser):
             eol_comments_re=eol_comments_re,
             ignorecase=ignorecase,
             left_recursion=left_recursion,
+            keywords=keywords,
             **kwargs
         )
 
@@ -57,7 +68,7 @@ class grammarParser(Parser):
                     self._stmt_()
                 self._error('no available options')
         self._closure(block1)
-        self.ast['stmts'] = self.last_node
+        self.name_last_node('stmts')
         self._check_eof()
 
         self.ast._define(
@@ -73,7 +84,7 @@ class grammarParser(Parser):
             with self._if():
                 self._NEWLINE_()
         self._closure(block1)
-        self.ast['simple'] = self.last_node
+        self.name_last_node('simple')
 
         self.ast._define(
             ['simple'],
@@ -85,11 +96,11 @@ class grammarParser(Parser):
         with self._group():
             with self._choice():
                 with self._option():
-                    self._loop_stmt_()
+                    self._assign_stmt_()
                 with self._option():
                     self._if_stmt_()
                 with self._option():
-                    self._assign_stmt_()
+                    self._loop_stmt_()
                 with self._option():
                     self._comparison_()
                 with self._option():
@@ -97,7 +108,7 @@ class grammarParser(Parser):
                 with self._option():
                     self._expr_stmt_()
                 self._error('no available options')
-        self.ast['simple'] = self.last_node
+        self.name_last_node('simple')
 
         self.ast._define(
             ['simple'],
@@ -107,13 +118,13 @@ class grammarParser(Parser):
     @graken('Args')
     def _args_(self):
         self._comparison_()
-        self.ast['arg1'] = self.last_node
+        self.name_last_node('arg1')
 
         def block2():
             self._token(',')
             self._comparison_()
         self._closure(block2)
-        self.ast['argrest'] = self.last_node
+        self.name_last_node('argrest')
 
         self.ast._define(
             ['arg1', 'argrest'],
@@ -125,7 +136,7 @@ class grammarParser(Parser):
         self._token('[')
         with self._optional():
             self._args_()
-        self.ast['arguments'] = self.last_node
+        self.name_last_node('arguments')
         self._token(']')
 
         self.ast._define(
@@ -136,51 +147,75 @@ class grammarParser(Parser):
     @graken('LoopStmt')
     def _loop_stmt_(self):
         self._token('loop')
+        self._token('(')
         with self._optional():
             self._simple_stmt_()
+        self.name_last_node('first_stmt')
         self._token(';')
         with self._optional():
             self._comparison_()
+        self.name_last_node('second_stmt')
         self._token(';')
         with self._optional():
             self._simple_stmt_()
-        self._token('{')
-        self._stmt_()
-        self._token('}')
+        self.name_last_node('third_stmt')
+        self._token(')')
+        self._scope_block_()
+        self.name_last_node('loop_block')
+
+        self.ast._define(
+            ['first_stmt', 'second_stmt', 'third_stmt', 'loop_block'],
+            []
+        )
 
     @graken('IfStmt')
     def _if_stmt_(self):
         self._token('if')
+        self._token('(')
         self._comparison_()
+        self.name_last_node('iif_comp')
+        self._token(')')
+        self._scope_block_()
+        self.name_last_node('iif_stmt')
+        with self._optional():
+            self._token('else')
+            with self._group():
+                with self._choice():
+                    with self._option():
+                        self._scope_block_()
+                        self.name_last_node('eelse_stmt')
+                    with self._option():
+                        with self._group():
+                            self._simple_stmt_()
+                            self.name_last_node('simple')
+                    self._error('no available options')
+        self.name_last_node('eelse')
+
+        self.ast._define(
+            ['iif_comp', 'iif_stmt', 'eelse', 'eelse_stmt', 'simple'],
+            []
+        )
+
+    @graken('ScopeBlock')
+    def _scope_block_(self):
         self._token('{')
         self._stmt_()
+        self.name_last_node('statement')
         self._token('}')
-        with self._optional():
 
-            def block0():
-                self._token('elif')
-                self._comparison_()
-                self._token('{')
-                self._stmt_()
-                self._token('}')
-            self._positive_closure(block0)
-
-            with self._optional():
-                self._token('else')
-                self._token('{')
-                self._stmt_()
-                self._token('}')
+        self.ast._define(
+            ['statement'],
+            []
+        )
 
     @graken('Comparison')
     def _comparison_(self):
         self._expr_stmt_()
-        self.ast['lhs'] = self.last_node
-
-        def block2():
+        self.name_last_node('lhs')
+        with self._optional():
             self._comp_op_()
             self._expr_stmt_()
-        self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -190,10 +225,10 @@ class grammarParser(Parser):
     @graken('AssignStmt')
     def _assign_stmt_(self):
         self._NAME_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
         self._token('=')
         self._simple_stmt_()
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -203,13 +238,13 @@ class grammarParser(Parser):
     @graken('ExprStmt')
     def _expr_stmt_(self):
         self._xor_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             self._token('|')
             self._xor_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -219,13 +254,13 @@ class grammarParser(Parser):
     @graken('XorStmt')
     def _xor_expr_(self):
         self._and_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             self._token('^')
             self._and_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -235,13 +270,13 @@ class grammarParser(Parser):
     @graken('AndExpr')
     def _and_expr_(self):
         self._shift_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             self._token('&')
             self._shift_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -251,7 +286,7 @@ class grammarParser(Parser):
     @graken('ShiftExpr')
     def _shift_expr_(self):
         self._addition_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             with self._group():
@@ -263,7 +298,7 @@ class grammarParser(Parser):
                     self._error('expecting one of: << >>')
             self._addition_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -273,7 +308,7 @@ class grammarParser(Parser):
     @graken('AdditionExpr')
     def _addition_expr_(self):
         self._mult_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             with self._group():
@@ -285,7 +320,7 @@ class grammarParser(Parser):
                     self._error('expecting one of: + -')
             self._mult_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -295,7 +330,7 @@ class grammarParser(Parser):
     @graken('MultExpr')
     def _mult_expr_(self):
         self._atom_expr_()
-        self.ast['lhs'] = self.last_node
+        self.name_last_node('lhs')
 
         def block2():
             with self._group():
@@ -307,7 +342,7 @@ class grammarParser(Parser):
                     self._error('expecting one of: * /')
             self._atom_expr_()
         self._closure(block2)
-        self.ast['rhs'] = self.last_node
+        self.name_last_node('rhs')
 
         self.ast._define(
             ['lhs', 'rhs'],
@@ -324,10 +359,10 @@ class grammarParser(Parser):
                     with self._optional():
                         self._args_()
                     self._token(')')
-                self.ast['fcall'] = self.last_node
+                self.name_last_node('fcall')
             with self._option():
                 self._atom_()
-                self.ast['at'] = self.last_node
+                self.name_last_node('at')
             self._error('no available options')
 
         self.ast._define(
@@ -352,7 +387,7 @@ class grammarParser(Parser):
                 with self._option():
                     self._token('!=')
                 self._error('expecting one of: != < <= == > >=')
-        self.ast['op'] = self.last_node
+        self.name_last_node('op')
 
         self.ast._define(
             ['op'],
@@ -365,20 +400,20 @@ class grammarParser(Parser):
             with self._choice():
                 with self._option():
                     self._token('false')
-                    self.ast['bool'] = self.last_node
+                    self.name_last_node('bool')
                 with self._option():
                     self._token('true')
-                    self.ast['bool'] = self.last_node
+                    self.name_last_node('bool')
                 with self._option():
                     self._NAME_()
-                    self.ast['name'] = self.last_node
+                    self.name_last_node('name')
                 with self._option():
                     with self._group():
                         self._number_()
-                    self.ast['num'] = self.last_node
+                    self.name_last_node('num')
                 with self._option():
                     self._STRING_()
-                    self.ast['string'] = self.last_node
+                    self.name_last_node('string')
                 self._error('expecting one of: false true')
 
         self.ast._define(
@@ -390,16 +425,16 @@ class grammarParser(Parser):
     def _number_(self):
         with self._optional():
             self._token('-')
-        self.ast['sign'] = self.last_node
+        self.name_last_node('sign')
         with self._group():
             with self._choice():
                 with self._option():
                     with self._group():
                         self._FLOAT_()
-                    self.ast['float'] = self.last_node
+                    self.name_last_node('float')
                 with self._option():
                     self._UINT_()
-                    self.ast['uint'] = self.last_node
+                    self.name_last_node('uint')
                 self._error('no available options')
 
         self.ast._define(
@@ -455,6 +490,9 @@ class grammarSemantics(object):
     def if_stmt(self, ast):
         return ast
 
+    def scope_block(self, ast):
+        return ast
+
     def comparison(self, ast):
         return ast
 
@@ -507,8 +545,18 @@ class grammarSemantics(object):
         return ast
 
 
-def main(filename, startrule, trace=False, whitespace=None, nameguard=None):
-    import json
+def main(
+        filename,
+        startrule,
+        trace=False,
+        whitespace=None,
+        nameguard=None,
+        comments_re=None,
+        eol_comments_re=None,
+        ignorecase=None,
+        left_recursion=True,
+        **kwargs):
+
     with open(filename) as f:
         text = f.read()
     parser = grammarParser(parseinfo=False)
@@ -518,46 +566,17 @@ def main(filename, startrule, trace=False, whitespace=None, nameguard=None):
         filename=filename,
         trace=trace,
         whitespace=whitespace,
-        nameguard=nameguard)
+        nameguard=nameguard,
+        ignorecase=ignorecase,
+        **kwargs)
+    return ast
+
+if __name__ == '__main__':
+    import json
+    ast = generic_main(main, grammarParser, name='grammar')
     print('AST:')
     print(ast)
     print()
     print('JSON:')
     print(json.dumps(ast, indent=2))
     print()
-
-if __name__ == '__main__':
-    import argparse
-    import string
-    import sys
-
-    class ListRules(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string):
-            print('Rules:')
-            for r in grammarParser.rule_list():
-                print(r)
-            print()
-            sys.exit(0)
-
-    parser = argparse.ArgumentParser(description="Simple parser for grammar.")
-    parser.add_argument('-l', '--list', action=ListRules, nargs=0,
-                        help="list all rules and exit")
-    parser.add_argument('-n', '--no-nameguard', action='store_true',
-                        dest='no_nameguard',
-                        help="disable the 'nameguard' feature")
-    parser.add_argument('-t', '--trace', action='store_true',
-                        help="output trace information")
-    parser.add_argument('-w', '--whitespace', type=str, default=string.whitespace,
-                        help="whitespace specification")
-    parser.add_argument('file', metavar="FILE", help="the input file to parse")
-    parser.add_argument('startrule', metavar="STARTRULE",
-                        help="the start rule for parsing")
-    args = parser.parse_args()
-
-    main(
-        args.file,
-        args.startrule,
-        trace=args.trace,
-        whitespace=args.whitespace,
-        nameguard=not args.no_nameguard
-    )

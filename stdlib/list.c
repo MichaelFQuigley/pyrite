@@ -56,7 +56,13 @@ void list_add_float(list_t* list_inst, double element)
 void list_add_ptr(list_t* list_inst, void* element)
 //void list_add_float(list_t* list_inst, union list_value element)
 {
-    list_add(list_inst, (union list_value) element, DOUBLE_TYPE);
+    list_add(list_inst, (union list_value) element, PTR_TYPE);
+}
+
+void list_add_bool(list_t* list_inst, int8_t element)
+//void list_add_float(list_t* list_inst, union list_value element)
+{
+    list_add(list_inst, (union list_value) element, BOOL_TYPE);
 }
 
 
@@ -78,6 +84,12 @@ void print_list(list_t* list_inst)
                 printf("%f", curr_node->element.value.d);
                 break;
             case PTR_TYPE:
+                break;
+            case BOOL_TYPE:
+                if(curr_node->element.value.b)
+                    printf("true");
+                else
+                    printf("false");
                 break;
             default:
                 assert(1 && "Print not implemented for type");

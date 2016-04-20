@@ -40,15 +40,13 @@ class MyNodeWalker(NodeWalker):
         opFn = None
         result = lhs
         for el in rhs:
-            if i % 2 == 0:
-                for opStr in opFnMap:
-                    if str(el) == opStr:
-                        opFn = opFnMap[opStr]
-                        break
+            for opStr in opFnMap:
+                if str(el[0]) == opStr:
+                    opFn = opFnMap[opStr]
+                    break
             assert opFn is not None, 'opFn is not correct'
-            if i % 2 != 0:
-                result = opFn(result, self.walk(el))
-                opFn = None
+            result = opFn(result, self.walk(el[1]))
+            opFn = None
             i += 1
         return result
 
@@ -61,15 +59,13 @@ class MyNodeWalker(NodeWalker):
 
         i = 0
         for el in rhs:
-            if i % 2 == 0:
-                for opStr in opFnMap:
-                    if str(el) == opStr:
-                        ops.append(opStr)
-                        break
-            else:
-                rhs_walk = self.walk(el)
-                promoteToFloat = promoteToFloat if str(rhs_walk.type) != 'double' else True
-                rhs_results.append(rhs_walk)
+            for opStr in opFnMap:
+                if str(el[0]) == opStr:
+                    ops.append(opStr)
+                    break
+            rhs_walk = self.walk(el[1])
+            promoteToFloat = promoteToFloat if str(rhs_walk.type) != 'double' else True
+            rhs_results.append(rhs_walk)
             i += 1
 
         opIndex = 0
@@ -106,9 +102,7 @@ class MyNodeWalker(NodeWalker):
         i = 0
         if node.argrest is not None:
             for el in node.argrest:
-                if str(el) == ',':
-                    continue
-                result.append(self.walk(el))
+                result.append(self.walk(el[1]))
         return result
 
     def walk_ListExpr(self, node):
@@ -121,33 +115,81 @@ class MyNodeWalker(NodeWalker):
                     builder.call(functionsDict['list_add_int'],[list_inst, arg]) 
                 elif str(arg.type) == 'double':
                     builder.call(functionsDict['list_add_float'],[list_inst, arg]) 
+                elif str(arg.type) == 'i1':
+                    int8_val = builder.zext(arg, IntType(8))
+                    builder.call(functionsDict['list_add_bool'],[list_inst, int8_val]) 
                 else:
-                    assert False, "Type for list not implemented yet"
+                    builder.call(functionsDict['list_add_ptr'],[list_inst, arg]) 
 
 
         return list_inst
 
     def walk_LoopStmt(self, node):
-        assert False, "Loops not done yet"
+        debug_print('in LoopStmt')
+        if node.first_stmt: self.walk(node.first_stmt)
+        top_of_loop    = builder.append_basic_block(module.get_unique_name())
+        body_of_loop   = builder.append_basic_block(module.get_unique_name())
+        bottom_of_loop = builder.append_basic_block(module.get_unique_name())
+        
+        builder.branch(top_of_loop)
+        builder.position_at_end(top_of_loop)
+        if node.second_stmt: 
+            comparison = self.walk(node.second_stmt)
+            assert str(comparison.type) == 'i1', "Wrong type for loop"
+            builder.cbranch(comparison, body_of_loop, bottom_of_loop)
+
+        builder.position_at_end(body_of_loop)
+        self.walk(node.loop_block)
+        if node.third_stmt: self.walk(node.third_stmt)
+        builder.branch(top_of_loop)
+        builder.position_at_end(bottom_of_loop)
+
 
     def walk_IfStmt(self,node):
-        pass
- 
+        debug_print('in IfStmt')
+        first_comp = self.walk(node.iif_comp)
+        if node.eelse:
+            if len(node.eelse) == 4:
+                eelse_block = node.eelse[2]
+            else:
+                eelse_block = node.eelse[1]
+            if_name    = module.get_unique_name()
+            else_name  = module.get_unique_name()
+            endif_name = module.get_unique_name()
+            if_label = builder.append_basic_block(if_name)
+            else_label = builder.append_basic_block(if_name)
+            endif_label = builder.append_basic_block(if_name)
+
+            builder.cbranch(first_comp, if_label, else_label)
+            builder.position_at_end(if_label)
+            self.walk(node.iif_stmt)
+            builder.branch(endif_label)
+            builder.position_at_end(else_label)
+            self.walk(eelse_block)
+            builder.branch(endif_label)
+            builder.position_at_end(endif_label)
+        #if-then case
+        else:
+            with builder.if_then(first_comp) as bbend:
+                    self.walk(node.iif_stmt)
+
+
+    def walk_ScopeBlock(self, node):
+        debug_print('in ScopeBlock')
+        return self.walk(node.statement)
+
     def walk_Comparison(self,node):
         debug_print('in Comparison')
         result = self.walk(node.lhs)
-        for el in node.rhs:
-            assert False, "Comparison not done yet"
-            self.walk(el)
-        debug_print(result)
+        if node.rhs is not None:
+            comp_op = node.rhs[0].op
+            rhs = self.walk(node.rhs[1])
+            result = builder.icmp_signed(comp_op, result, rhs)
         return result 
 
     def walk_AssignStmt(self,node):
         debug_print('in AssignStmt')
         lhs = str(node.lhs)
-        #if node.rhs == '[]':
-            #rhs = builder.call(functionsDict['list_init'],[]) 
-        #else: 
         rhs = self.walk(node.rhs)
         if lhs not in named_values:
             named_values[lhs] =  builder.alloca(rhs.type, 
@@ -172,7 +214,6 @@ class MyNodeWalker(NodeWalker):
     def walk_ShiftExpr(self,node):
         debug_print('in ShiftExpr')
         lhs = self.walk(node.lhs)
-        debug_print([str(self.walk(el)) for el in node.rhs])
         return self.handle_rhs_ops(lhs, 
                 node.rhs, 
                 {'>>':builder.lshr, '<<':builder.shl})
@@ -220,7 +261,9 @@ class MyNodeWalker(NodeWalker):
 
     def walk_Atom(self, node):
         debug_print('in Atom')
-        if node.bool or node.name:
+        if node.bool:
+            return Constant(IntType(1), int(0 if str(node.bool) == 'false' else 1))
+        elif node.name:
             debug_print('in atom bool or name')
         elif node.num:
             return self.walk(node.num)
@@ -247,7 +290,7 @@ class MyNodeWalker(NodeWalker):
             assert False, "Number parse failed"
 filename = 'myTest.my'
 
-parser = grammarParser(parseInfo=True, comments_re=';.*\n')
+parser = grammarParser(parseInfo=True, comments_re='\#.*\n')
 with open(filename) as f:
     text = f.read()
 ast = parser.parse(
