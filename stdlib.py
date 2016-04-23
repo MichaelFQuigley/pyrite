@@ -39,14 +39,14 @@ class StdLib:
                         (ir.PointerType(list_struct_t),IntType(8))),
                     'list_add_bool'),
                 }
-        '''
-        with open(lib_file, 'r') as std_lib_ir:
-            llvm_ir = std_lib_ir.read()
-            self.std_mod = llvmlite.binding.parse_assembly(llvm_ir)
-            for func in self.std_mod.functions:
-                self.func_dict[func.name] = self.std_mod.get_function(func.name)
-                print llvmlite.binding.address_of_symbol(func.name)#self.func_dict[func.name]
-        '''
+        self.typesMap = {
+                'i32': ir.IntType(32),
+                'i64': ir.IntType(64),
+                'float': ir.DoubleType(),
+                'void': ir.VoidType(),
+                'string': ir.PointerType(ir.IntType(8)),
+                'list'  : ir.PointerType(list_struct_t),
+                }
     def get_funcs(self):
         return self.func_dict
 

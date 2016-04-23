@@ -12,9 +12,9 @@ output_filename = 'foo.ll'
 llvm_gen = []
 
 module      = ir.Module(name=output_filename, triple=binding.get_default_triple())
-globalScope = ir.Function(module, ir.FunctionType(IntType(32),[]), name='main')
-globalBlock = globalScope.append_basic_block()
-builder     = ir.IRBuilder(globalBlock)
+currScope = {'parent':None, 'scope':None}#ir.Function(module, ir.FunctionType(IntType(32),[]), name='main')
+globalBlock = None #currScope.append_basic_block()
+builder     = None #ir.IRBuilder(globalBlock)
 
 named_values = {}
 
@@ -87,10 +87,15 @@ class MyNodeWalker(NodeWalker):
         for el in node.stmts:
             self.walk(el)
 
+    def walk_TopLvl(self, node):
+        debug_print('in TopLvl')
+        for top_stmt in node.top:
+            self.walk(top_stmt)
+
     def walk_Stmt(self,node):
         debug_print("in stmt")
         for el in node.simple:
-            llvm_gen.append(self.walk(el))
+            self.walk(el)
 
     def walk_SimpleStmt(self, node):
         debug_print("in simpleStmt")
@@ -175,9 +180,30 @@ class MyNodeWalker(NodeWalker):
 
 
     def walk_FuncStmt(self, node):
+        global builder
+        global currScope
+        global functionsDict
         debug_print('in FuncStmt')
-        print node
+        fn_name  = str(node.name)
+        ret_type = None
+        #return type
+        if str(node.ret_type) in stdLibModule.typesMap: 
+            ret_type = stdLibModule.typesMap[str(node.ret_type)]
+        else:
+            assert False, str(node.ret_type) + " is invalid return type"
+        currScope = {'parent':currScope,
+                     'scope':ir.Function(module, 
+                                    ir.FunctionType(ret_type,[]), 
+                                    name=fn_name)}
+        functionsDict[fn_name] = currScope['scope']
+        currBlock = currScope['scope'].append_basic_block()
+        builder     = ir.IRBuilder(currBlock)
+        self.walk(node.func_block)
 
+    def walk_RetStmt(self,node):
+        debug_print('in RetStmt')
+        ret_val = self.walk(node.ret_val)
+        return builder.ret(ret_val)
 
     def walk_ScopeBlock(self, node):
         debug_print('in ScopeBlock')
@@ -307,7 +333,6 @@ ast = parser.parse(
 walker = MyNodeWalker()
 walker.walk(ast)
 
-builder.ret(Constant(IntType(32), int(0)))
 
 with open(output_filename,'w') as f:
     f.write(str(module))

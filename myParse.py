@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 23, 4, 55, 5, 5)
+__version__ = (2016, 4, 23, 22, 15, 53, 5)
 
 __all__ = [
     'grammarParser',
@@ -65,7 +65,7 @@ class grammarParser(Parser):
                     with self._if():
                         self._NEWLINE_()
                 with self._option():
-                    self._stmt_()
+                    self._top_lvl_()
                 self._error('no available options')
         self._closure(block1)
         self.name_last_node('stmts')
@@ -91,18 +91,33 @@ class grammarParser(Parser):
             []
         )
 
+    @graken('TopLvl')
+    def _top_lvl_(self):
+
+        def block1():
+            self._func_stmt_()
+            with self._if():
+                self._NEWLINE_()
+        self._closure(block1)
+        self.name_last_node('top')
+
+        self.ast._define(
+            ['top'],
+            []
+        )
+
     @graken('SimpleStmt')
     def _simple_stmt_(self):
         with self._group():
             with self._choice():
                 with self._option():
-                    self._func_stmt_()
-                with self._option():
-                    self._assign_stmt_()
+                    self._return_stmt_()
                 with self._option():
                     self._if_stmt_()
                 with self._option():
                     self._loop_stmt_()
+                with self._option():
+                    self._assign_stmt_()
                 with self._option():
                     self._comparison_()
                 with self._option():
@@ -114,6 +129,17 @@ class grammarParser(Parser):
 
         self.ast._define(
             ['simple'],
+            []
+        )
+
+    @graken('RetStmt')
+    def _return_stmt_(self):
+        self._token('return ')
+        self._simple_stmt_()
+        self.name_last_node('ret_val')
+
+        self.ast._define(
+            ['ret_val'],
             []
         )
 
@@ -201,20 +227,27 @@ class grammarParser(Parser):
     @graken('FuncStmt')
     def _func_stmt_(self):
         self._token('func ')
-        self._NAME_()
+        self._name_ws_()
         self.name_last_node('name')
         self._token('(')
         with self._optional():
             self._args_()
         self.name_last_node('arguments')
         self._token(')')
+        self._token('->')
+        self._name_ws_()
+        self.name_last_node('ret_type')
         self._scope_block_()
         self.name_last_node('func_block')
 
         self.ast._define(
-            ['name', 'arguments', 'func_block'],
+            ['name', 'arguments', 'ret_type', 'func_block'],
             []
         )
+
+    @graken()
+    def _name_ws_(self):
+        self._NAME_()
 
     @graken('ScopeBlock')
     def _scope_block_(self):
@@ -495,7 +528,13 @@ class grammarSemantics(object):
     def stmt(self, ast):
         return ast
 
+    def top_lvl(self, ast):
+        return ast
+
     def simple_stmt(self, ast):
+        return ast
+
+    def return_stmt(self, ast):
         return ast
 
     def args(self, ast):
@@ -511,6 +550,9 @@ class grammarSemantics(object):
         return ast
 
     def func_stmt(self, ast):
+        return ast
+
+    def name_ws(self, ast):
         return ast
 
     def scope_block(self, ast):
