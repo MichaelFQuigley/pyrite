@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 20, 1, 25, 49, 2)
+__version__ = (2016, 4, 23, 4, 55, 5, 5)
 
 __all__ = [
     'grammarParser',
@@ -95,6 +95,8 @@ class grammarParser(Parser):
     def _simple_stmt_(self):
         with self._group():
             with self._choice():
+                with self._option():
+                    self._func_stmt_()
                 with self._option():
                     self._assign_stmt_()
                 with self._option():
@@ -193,6 +195,24 @@ class grammarParser(Parser):
 
         self.ast._define(
             ['iif_comp', 'iif_stmt', 'eelse', 'eelse_stmt', 'simple'],
+            []
+        )
+
+    @graken('FuncStmt')
+    def _func_stmt_(self):
+        self._token('func ')
+        self._NAME_()
+        self.name_last_node('name')
+        self._token('(')
+        with self._optional():
+            self._args_()
+        self.name_last_node('arguments')
+        self._token(')')
+        self._scope_block_()
+        self.name_last_node('func_block')
+
+        self.ast._define(
+            ['name', 'arguments', 'func_block'],
             []
         )
 
@@ -488,6 +508,9 @@ class grammarSemantics(object):
         return ast
 
     def if_stmt(self, ast):
+        return ast
+
+    def func_stmt(self, ast):
         return ast
 
     def scope_block(self, ast):

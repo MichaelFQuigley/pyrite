@@ -174,6 +174,11 @@ class MyNodeWalker(NodeWalker):
                     self.walk(node.iif_stmt)
 
 
+    def walk_FuncStmt(self, node):
+        debug_print('in FuncStmt')
+        print node
+
+
     def walk_ScopeBlock(self, node):
         debug_print('in ScopeBlock')
         return self.walk(node.statement)
