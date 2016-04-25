@@ -1,8 +1,8 @@
 all:
-	bash compile.sh
+	bash compile.sh foo
 
 parser:
 	bash updateParser.sh
 
 clean:
-	rm *.ll *.o
+	rm *.ll *.o *.bc *.pyc

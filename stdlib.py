@@ -42,6 +42,7 @@ class StdLib:
         self.typesMap = {
                 'i32': ir.IntType(32),
                 'i64': ir.IntType(64),
+                'int': ir.IntType(64),
                 'float': ir.DoubleType(),
                 'void': ir.VoidType(),
                 'string': ir.PointerType(ir.IntType(8)),
@@ -50,7 +51,11 @@ class StdLib:
     def get_funcs(self):
         return self.func_dict
 
-
+    def getType(self, type_name, fail_message= ' is not a known type.'):
+        type_str = str(type_name)
+        assert type_str in self.typesMap, type_str + fail_message
+        return self.typesMap[type_str]
+       
 
 #stdLibModule = StdLib('stdlib/stdlib.ll')
 

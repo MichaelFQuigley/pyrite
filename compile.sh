@@ -1,4 +1,4 @@
-filename=foo
+filename=$1
 
 echo 'Parsing'
 python model.py
@@ -10,7 +10,7 @@ python model.py
 
 cat ${filename}.ll stdlib/stdlib.ll > ${filename}2.ll
 echo 'Optimization pass'
-opt -O1 ${filename}2.ll > ${filename}.bc
+opt -O3 ${filename}2.ll > ${filename}.bc
 #cp ${filename}.ll ${filename}.temp.ll
 #opt -O1 ${filename}.ll -o ${filename}.bc
 #llvm-dis ${filename}.bc -o ${filename}.optimized.ll

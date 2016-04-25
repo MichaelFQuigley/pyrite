@@ -6,6 +6,7 @@ from llvmlite import binding
 from llvmlite.ir import Constant, IntType, DoubleType, ArrayType
 from parse_util import *
 from stdlib import *
+from scope_helper import ScopeHelper
 
 output_filename = 'foo.ll'
 
@@ -15,8 +16,7 @@ module      = ir.Module(name=output_filename, triple=binding.get_default_triple(
 currScope = {'parent':None, 'scope':None}#ir.Function(module, ir.FunctionType(IntType(32),[]), name='main')
 globalBlock = None #currScope.append_basic_block()
 builder     = None #ir.IRBuilder(globalBlock)
-
-named_values = {}
+scopeHelper = ScopeHelper()
 
 stdLibModule = StdLib('stdlib/stdlib.ll', module)
 #print functionsDict
@@ -131,7 +131,10 @@ class MyNodeWalker(NodeWalker):
 
     def walk_LoopStmt(self, node):
         debug_print('in LoopStmt')
+        scopeHelper.pushScope()
+
         if node.first_stmt: self.walk(node.first_stmt)
+        
         top_of_loop    = builder.append_basic_block(module.get_unique_name())
         body_of_loop   = builder.append_basic_block(module.get_unique_name())
         bottom_of_loop = builder.append_basic_block(module.get_unique_name())
@@ -148,10 +151,12 @@ class MyNodeWalker(NodeWalker):
         if node.third_stmt: self.walk(node.third_stmt)
         builder.branch(top_of_loop)
         builder.position_at_end(bottom_of_loop)
-
+        scopeHelper.popScope()
 
     def walk_IfStmt(self,node):
         debug_print('in IfStmt')
+
+        scopeHelper.pushScope()
         first_comp = self.walk(node.iif_comp)
         if node.eelse:
             if len(node.eelse) == 4:
@@ -177,7 +182,23 @@ class MyNodeWalker(NodeWalker):
         else:
             with builder.if_then(first_comp) as bbend:
                     self.walk(node.iif_stmt)
+        scopeHelper.popScope()
 
+    def walkTypedArgs(self, typed_args):
+        #returns list of tuples for typed args
+        #[(name, type), ...]
+        args_list = []
+        if typed_args is None:
+            return args_list
+        args_list.append((str(typed_args[0]), 
+                            stdLibModule.getType(typed_args[2])))
+        if len(typed_args) == 3:
+            return args_list
+        args_rest = typed_args[3]
+        for arg in args_rest:
+            args_list.append((str(arg[1]),
+                                stdLibModule.getType(arg[3])))
+        return args_list
 
     def walk_FuncStmt(self, node):
         global builder
@@ -186,19 +207,23 @@ class MyNodeWalker(NodeWalker):
         debug_print('in FuncStmt')
         fn_name  = str(node.name)
         ret_type = None
+        fn_args  = self.walkTypedArgs(node.arguments)
         #return type
-        if str(node.ret_type) in stdLibModule.typesMap: 
-            ret_type = stdLibModule.typesMap[str(node.ret_type)]
-        else:
-            assert False, str(node.ret_type) + " is invalid return type"
-        currScope = {'parent':currScope,
-                     'scope':ir.Function(module, 
-                                    ir.FunctionType(ret_type,[]), 
-                                    name=fn_name)}
-        functionsDict[fn_name] = currScope['scope']
-        currBlock = currScope['scope'].append_basic_block()
+        ret_type = stdLibModule.getType(node.ret_type)
+        func = ir.Function(module, 
+                            ir.FunctionType(ret_type,
+                            [arg[1] for arg in fn_args]), 
+                            name=fn_name)
+        scopeHelper.pushScope(isFunctionScope=True)
+        #adding arg_vars to named values
+        for i in range(len(fn_args)):
+            scopeHelper.setNamedVal(fn_args[i][0], func.args[i])
+
+        functionsDict[fn_name] = func
+        currBlock = func.append_basic_block()
         builder     = ir.IRBuilder(currBlock)
         self.walk(node.func_block)
+        scopeHelper.popScope()
 
     def walk_RetStmt(self,node):
         debug_print('in RetStmt')
@@ -220,12 +245,20 @@ class MyNodeWalker(NodeWalker):
 
     def walk_AssignStmt(self,node):
         debug_print('in AssignStmt')
-        lhs = str(node.lhs)
         rhs = self.walk(node.rhs)
-        if lhs not in named_values:
-            named_values[lhs] =  builder.alloca(rhs.type, 
-                                    name=module.get_unique_name(lhs))
-        return builder.store(rhs,named_values[lhs])
+        var_type = rhs.type
+        #if type is list, then left side is declaration
+        if type(node.lhs) == list:
+            var_name = str(node.lhs[1])
+            if len(node.lhs) == 4:
+                assert scopeHelper.getNamedVal(var_name,walkScopes=False) is None, "Variable " + var_name + " already declared"
+                var_type  = stdLibModule.getType(node.lhs[3])
+            scopeHelper.setNamedVal(var_name,
+                                    builder.alloca(var_type, name=module.get_unique_name(var_name)))
+        else:
+            var_name = str(node.lhs)
+            assert scopeHelper.getNamedVal(var_name,walkScopes=True) is not None, "Variable " + var_name + " is not declared"
+        return builder.store(rhs,scopeHelper.getNamedVal(var_name,walkScopes=True))
 
     def walk_ExprStmt(self,node):
         debug_print('in ExprStmt')
@@ -271,8 +304,12 @@ class MyNodeWalker(NodeWalker):
         if node.at:
             #check if it is a variable
             if node.at.name:
-                return builder.load(named_values[str(node.at.name)], 
-                        str(node.at.name))
+                #is it a function argument?
+                atom_var = scopeHelper.getNamedVal(str(node.at.name), walkScopes=True)
+                if type(atom_var) == ir.Argument:
+                    return atom_var
+                else:
+                    return builder.load(atom_var, str(node.at.name))
             return self.walk(node.at)
         elif node.fcall:
             fname = str(list(node.fcall)[0])

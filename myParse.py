@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 23, 22, 15, 53, 5)
+__version__ = (2016, 4, 24, 21, 22, 6, 6)
 
 __all__ = [
     'grammarParser',
@@ -224,6 +224,27 @@ class grammarParser(Parser):
             []
         )
 
+    @graken()
+    def _typed_args_(self):
+        with self._group():
+            self._name_ws_()
+            self._token(':')
+            self._name_ws_()
+        self.name_last_node('arg1')
+
+        def block2():
+            self._token(',')
+            self._name_ws_()
+            self._token(':')
+            self._name_ws_()
+        self._closure(block2)
+        self.name_last_node('argrest')
+
+        self.ast._define(
+            ['arg1', 'argrest'],
+            []
+        )
+
     @graken('FuncStmt')
     def _func_stmt_(self):
         self._token('func ')
@@ -231,7 +252,19 @@ class grammarParser(Parser):
         self.name_last_node('name')
         self._token('(')
         with self._optional():
-            self._args_()
+            with self._group():
+                self._name_ws_()
+                self._token(':')
+                self._name_ws_()
+            self.name_last_node('arg1')
+
+            def block4():
+                self._token(',')
+                self._name_ws_()
+                self._token(':')
+                self._name_ws_()
+            self._closure(block4)
+            self.name_last_node('argrest')
         self.name_last_node('arguments')
         self._token(')')
         self._token('->')
@@ -241,7 +274,7 @@ class grammarParser(Parser):
         self.name_last_node('func_block')
 
         self.ast._define(
-            ['name', 'arguments', 'ret_type', 'func_block'],
+            ['name', 'arguments', 'arg1', 'argrest', 'ret_type', 'func_block'],
             []
         )
 
@@ -277,14 +310,27 @@ class grammarParser(Parser):
 
     @graken('AssignStmt')
     def _assign_stmt_(self):
-        self._NAME_()
+        with self._group():
+            with self._choice():
+                with self._option():
+                    with self._group():
+                        self._token('let ')
+                        self._name_ws_()
+                        with self._optional():
+                            self._token(':')
+                            self._name_ws_()
+                        self.name_last_node('type_name')
+                with self._option():
+                    with self._group():
+                        self._NAME_()
+                self._error('no available options')
         self.name_last_node('lhs')
         self._token('=')
         self._simple_stmt_()
         self.name_last_node('rhs')
 
         self.ast._define(
-            ['lhs', 'rhs'],
+            ['lhs', 'type_name', 'rhs'],
             []
         )
 
@@ -547,6 +593,9 @@ class grammarSemantics(object):
         return ast
 
     def if_stmt(self, ast):
+        return ast
+
+    def typed_args(self, ast):
         return ast
 
     def func_stmt(self, ast):
