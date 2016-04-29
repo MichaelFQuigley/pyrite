@@ -28,6 +28,14 @@ functionsDict = {
                                 (ir.PointerType(IntType(8)),),
                                 var_arg=True),
                         'printf'),
+            'llvm.init.trampoline':ir.Function(module,
+                                                ir.FunctionType(ir.VoidType(),
+                                                    (ir.PointerType(IntType(8)),ir.PointerType(IntType(8)),ir.PointerType(IntType(8)),)),
+                                    'llvm.init.trampoline'),
+            'llvm.adjust.trampoline':ir.Function(module,
+                                                ir.FunctionType(ir.PointerType(ir.IntType(8)),
+                                                    (ir.PointerType(IntType(8)),)),
+                                    'llvm.adjust.trampoline')
         }
 
 functionsDict.update(stdLibModule.get_funcs())
@@ -202,11 +210,9 @@ class MyNodeWalker(NodeWalker):
 
     def walk_FuncStmt(self, node):
         global builder
-        global currScope
         global functionsDict
         debug_print('in FuncStmt')
         fn_name  = str(node.name)
-        ret_type = None
         fn_args  = self.walkTypedArgs(node.arguments)
         #return type
         ret_type = stdLibModule.getType(node.ret_type)
@@ -223,7 +229,64 @@ class MyNodeWalker(NodeWalker):
         currBlock = func.append_basic_block()
         builder     = ir.IRBuilder(currBlock)
         self.walk(node.func_block)
+        self.processLambdas()
         scopeHelper.popScope()
+
+    def processLambdas(self):
+        if not scopeHelper.hasLambdas():
+            return
+        global builder
+        currLambdas = scopeHelper.currLambdas()
+        for lam in currLambdas:
+            lamAttrs = currLambdas[lam]
+            lamNode = lamAttrs[1]
+            ret_type = stdLibModule.getType(lamNode.ret_type)
+            #add nest param
+            func     = lamAttrs[0]
+            fn_args  = lamAttrs[2]
+            scopeHelper.pushScope(isFunctionScope=True)
+            print func.args
+            for i in range(len(fn_args)):
+                scopeHelper.setNamedVal(fn_args[i][0], func.args[i])
+            currBlock = func.append_basic_block()
+            builder     = ir.IRBuilder(currBlock)
+            self.walk(lamNode.lambda_block)
+            if scopeHelper.hasLambdas():
+                self.processLambdas()
+            builder     = ir.IRBuilder(currBlock)
+            scopeHelper.clearLambdas()
+
+            scopeHelper.popScope()
+            scopeHelper.clearLambdas()
+
+    def walk_LambdaStmt(self, node):
+        global functionsDict
+        debug_print('in LambdaStmt')
+        ret_type = stdLibModule.getType(node.ret_type)
+        fn_name  = module.get_unique_name('')
+        #first arg for lambda is nest parameter
+        fn_args  = [(module.get_unique_name(''), ir.PointerType(IntType(8)))] + self.walkTypedArgs(node.arguments)
+        func = ir.Function(module, 
+                            ir.FunctionType(ret_type,
+                            [arg[1] for arg in fn_args]), 
+                            name=module.get_unique_name(fn_name))
+        func.args[0].add_attribute('nest')
+        #SHOULD CREATE ENVIRONMENT HERE
+        #ALLOCA NEEDS TO ALLOCATE STACK SIZE
+        closure_data = builder.alloca(ir.IntType(64), align=16)
+        builder.store(Constant(IntType(64),0xffffffff), closure_data)
+        env = builder.bitcast(closure_data, ir.PointerType(IntType(8)))
+
+        tramp = builder.alloca(ir.ArrayType(ir.IntType(8), 72), align=16)
+        tramp1 = builder.gep(tramp, [Constant(IntType(32),0), Constant(IntType(32),0)])
+        builder.call(functionsDict['llvm.init.trampoline'],[tramp1, func.bitcast(ir.PointerType(IntType(8))) , env])
+        temp_func = builder.call(functionsDict['llvm.adjust.trampoline'],[tramp1])
+        sanitizedArgs = [arg[1] for arg in fn_args[1:]] if len(fn_args) > 0 else []
+        #args with extra nest apram passed in for now
+        scopeHelper.setLambda(fn_name, [func, node, fn_args])
+        result_func = builder.bitcast(temp_func, ir.PointerType(ir.FunctionType(ret_type, sanitizedArgs)))
+
+        return result_func
 
     def walk_RetStmt(self,node):
         debug_print('in RetStmt')
@@ -255,6 +318,15 @@ class MyNodeWalker(NodeWalker):
                 var_type  = stdLibModule.getType(node.lhs[3])
             scopeHelper.setNamedVal(var_name,
                                     builder.alloca(var_type, name=module.get_unique_name(var_name)))
+            #could be a lambda assignment
+            #TODO fix to account for scoping
+            #tests if variable is function
+            try:
+                rhs.function_type
+                functionsDict[var_name] = rhs
+            except:
+                if ir.Function == type(rhs):
+                    functionsDict[var_name] = rhs
         else:
             var_name = str(node.lhs)
             assert scopeHelper.getNamedVal(var_name,walkScopes=True) is not None, "Variable " + var_name + " is not declared"
@@ -372,5 +444,7 @@ walker.walk(ast)
 
 
 with open(output_filename,'w') as f:
+    f.write('declare void @llvm.init.trampoline(i8* , i8*, i8* )\n')
+    f.write('declare i8* @llvm.adjust.trampoline( i8* )\n')
     f.write(str(module))
 

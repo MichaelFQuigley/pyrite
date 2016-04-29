@@ -9,4 +9,4 @@ all: $(CSRC)
 	chmod 775 $(LIB_NAME).o
 
 clean:
-	rm *.ll *.o
+	rm *.ll *.o *.bc *.out

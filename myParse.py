@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 24, 21, 22, 6, 6)
+__version__ = (2016, 4, 28, 23, 23, 4, 3)
 
 __all__ = [
     'grammarParser',
@@ -26,12 +26,11 @@ __all__ = [
 ]
 
 KEYWORDS = set([
-    'elif',
     'else',
-    'false',
+    'func',
     'if',
     'loop',
-    'true',
+    'return',
 ])
 
 
@@ -110,6 +109,8 @@ class grammarParser(Parser):
     def _simple_stmt_(self):
         with self._group():
             with self._choice():
+                with self._option():
+                    self._lambda_stmt_()
                 with self._option():
                     self._return_stmt_()
                 with self._option():
@@ -278,6 +279,37 @@ class grammarParser(Parser):
             []
         )
 
+    @graken('LambdaStmt')
+    def _lambda_stmt_(self):
+        self._token('(')
+        with self._optional():
+            with self._group():
+                self._name_ws_()
+                self._token(':')
+                self._name_ws_()
+            self.name_last_node('arg1')
+
+            def block3():
+                self._token(',')
+                self._name_ws_()
+                self._token(':')
+                self._name_ws_()
+            self._closure(block3)
+            self.name_last_node('argrest')
+        self.name_last_node('arguments')
+        self._token(')')
+        self._token('->')
+        self._name_ws_()
+        self.name_last_node('ret_type')
+        self._token('in')
+        self._scope_block_()
+        self.name_last_node('lambda_block')
+
+        self.ast._define(
+            ['arguments', 'arg1', 'argrest', 'ret_type', 'lambda_block'],
+            []
+        )
+
     @graken()
     def _name_ws_(self):
         self._NAME_()
@@ -326,8 +358,11 @@ class grammarParser(Parser):
                 self._error('no available options')
         self.name_last_node('lhs')
         self._token('=')
-        self._simple_stmt_()
+        with self._group():
+            self._simple_stmt_()
         self.name_last_node('rhs')
+        with self._optional():
+            self._spaces_()
 
         self.ast._define(
             ['lhs', 'type_name', 'rhs'],
@@ -453,7 +488,7 @@ class grammarParser(Parser):
         with self._choice():
             with self._option():
                 with self._group():
-                    self._NAME_()
+                    self._name_ws_()
                     self._token('(')
                     with self._optional():
                         self._args_()
@@ -555,6 +590,7 @@ class grammarParser(Parser):
     @graken()
     def _NAME_(self):
         self._pattern(r'[a-zA-Z$._][-a-zA-Z$._0-9]*')
+        self._check_name()
 
     @graken()
     def _NEWLINE_(self):
@@ -565,6 +601,10 @@ class grammarParser(Parser):
         self._token("'")
         self._pattern(r"[^']*(\\')?[^']*")
         self._token("'")
+
+    @graken()
+    def _spaces_(self):
+        self._pattern(r'[\t ]+')
 
 
 class grammarSemantics(object):
@@ -599,6 +639,9 @@ class grammarSemantics(object):
         return ast
 
     def func_stmt(self, ast):
+        return ast
+
+    def lambda_stmt(self, ast):
         return ast
 
     def name_ws(self, ast):
@@ -656,6 +699,9 @@ class grammarSemantics(object):
         return ast
 
     def STRING(self, ast):
+        return ast
+
+    def spaces(self, ast):
         return ast
 
 
