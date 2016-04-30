@@ -5,4 +5,5 @@ parser:
 	bash updateParser.sh
 
 clean:
-	rm *.ll *.o *.bc *.pyc
+	rm *.ll *.o *.bc *.pyc *.s
+

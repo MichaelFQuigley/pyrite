@@ -4,6 +4,7 @@ from grako.model import ModelBuilderSemantics, Node, NodeWalker
 from llvmlite import ir
 from llvmlite import binding
 from llvmlite.ir import Constant, IntType, DoubleType, ArrayType
+from types_util import *
 from parse_util import *
 from stdlib import *
 from scope_helper import ScopeHelper
@@ -13,13 +14,16 @@ output_filename = 'foo.ll'
 llvm_gen = []
 
 module      = ir.Module(name=output_filename, triple=binding.get_default_triple())
-currScope = {'parent':None, 'scope':None}#ir.Function(module, ir.FunctionType(IntType(32),[]), name='main')
-globalBlock = None #currScope.append_basic_block()
-builder     = None #ir.IRBuilder(globalBlock)
+#currScope = {'parent':None, 'scope':None}
+globalBlock = None 
+builder     = None 
 scopeHelper = ScopeHelper()
 
+#format of currLambdas is {'name': [Function, lambda_node, fn_args, named_val_tup]}
+#named_val_tup is of the format [(name, value, size), ...]
+currLambdas = {}
+
 stdLibModule = StdLib('stdlib/stdlib.ll', module)
-#print functionsDict
 
 functionsDict = {
         'print':
@@ -143,9 +147,9 @@ class MyNodeWalker(NodeWalker):
 
         if node.first_stmt: self.walk(node.first_stmt)
         
-        top_of_loop    = builder.append_basic_block(module.get_unique_name())
-        body_of_loop   = builder.append_basic_block(module.get_unique_name())
-        bottom_of_loop = builder.append_basic_block(module.get_unique_name())
+        top_of_loop    = builder.append_basic_block(module.get_unique_name('loop_top'))
+        body_of_loop   = builder.append_basic_block(module.get_unique_name('loop_body'))
+        bottom_of_loop = builder.append_basic_block(module.get_unique_name('loop_bottom'))
         
         builder.branch(top_of_loop)
         builder.position_at_end(top_of_loop)
@@ -221,7 +225,7 @@ class MyNodeWalker(NodeWalker):
                             [arg[1] for arg in fn_args]), 
                             name=fn_name)
         scopeHelper.pushScope(isFunctionScope=True)
-        #adding arg_vars to named values
+        #adding function arguments to scope
         for i in range(len(fn_args)):
             scopeHelper.setNamedVal(fn_args[i][0], func.args[i])
 
@@ -229,35 +233,41 @@ class MyNodeWalker(NodeWalker):
         currBlock = func.append_basic_block()
         builder     = ir.IRBuilder(currBlock)
         self.walk(node.func_block)
-        self.processLambdas()
         scopeHelper.popScope()
+        self.processLambdas()
 
     def processLambdas(self):
-        if not scopeHelper.hasLambdas():
+        if len(currLambdas) == 0:
             return
         global builder
-        currLambdas = scopeHelper.currLambdas()
-        for lam in currLambdas:
-            lamAttrs = currLambdas[lam]
+        for lamKey in currLambdas.keys():
+            lamAttrs = currLambdas[lamKey]
+            del currLambdas[lamKey]
             lamNode = lamAttrs[1]
             ret_type = stdLibModule.getType(lamNode.ret_type)
             #add nest param
             func     = lamAttrs[0]
             fn_args  = lamAttrs[2]
             scopeHelper.pushScope(isFunctionScope=True)
-            print func.args
-            for i in range(len(fn_args)):
-                scopeHelper.setNamedVal(fn_args[i][0], func.args[i])
+            
             currBlock = func.append_basic_block()
             builder     = ir.IRBuilder(currBlock)
-            self.walk(lamNode.lambda_block)
-            if scopeHelper.hasLambdas():
-                self.processLambdas()
-            builder     = ir.IRBuilder(currBlock)
-            scopeHelper.clearLambdas()
+            named_vals = lamAttrs[3]
+            currInd = 0
+            env_array = builder.bitcast(func.args[0], 
+                                        ir.PointerType(ir.ArrayType(IntType(8),reduce(lambda x,y: x + y[2],named_vals,0))))
+            for named_val_name, named_val_value, named_val_size in named_vals:
+                arr_ind = builder.gep(env_array, [Constant(IntType(32), 0), Constant(IntType(32), currInd)], inbounds=True)
+                val_ptr = builder.bitcast(arr_ind, ir.PointerType(named_val_value.type))
+                scopeHelper.setNamedVal(named_val_name, val_ptr)
+                currInd += named_val_size
+            #add function arguments to scope    
+            for i in range(len(fn_args)):
+                scopeHelper.setNamedVal(fn_args[i][0], func.args[i])
 
+            self.walk(lamNode.lambda_block)
             scopeHelper.popScope()
-            scopeHelper.clearLambdas()
+            self.processLambdas()
 
     def walk_LambdaStmt(self, node):
         global functionsDict
@@ -271,21 +281,37 @@ class MyNodeWalker(NodeWalker):
                             [arg[1] for arg in fn_args]), 
                             name=module.get_unique_name(fn_name))
         func.args[0].add_attribute('nest')
-        #SHOULD CREATE ENVIRONMENT HERE
-        #ALLOCA NEEDS TO ALLOCATE STACK SIZE
-        closure_data = builder.alloca(ir.IntType(64), align=16)
-        builder.store(Constant(IntType(64),0xffffffff), closure_data)
+
+        #format is [(name, value, size), ...]
+        closure_data_vars = []
+        for val in scopeHelper.getNamedVals():
+            size = None
+            if type(val[1]) == ir.Argument:
+                closure_data_vars += [(val[0], val[1], get_type_size(val[1].type))]
+            else:
+                value = builder.load(val[1])
+                closure_data_vars += [(val[0], value, get_type_size(value.type))]
+        
+        closure_data_size = reduce(lambda x,y: x + y[2], closure_data_vars, 0)
+
+        closure_data = builder.alloca(ir.ArrayType(ir.IntType(8), closure_data_size))
+        currInd = 0
+        for value in closure_data_vars:
+            arr_ind = builder.gep(closure_data, [Constant(IntType(32), 0), Constant(IntType(32), currInd)], inbounds=True)
+            arr_ind = builder.bitcast(arr_ind, ir.PointerType(value[1].type))
+            builder.store(value[1], arr_ind)
+            currInd += value[2] 
+
         env = builder.bitcast(closure_data, ir.PointerType(IntType(8)))
 
-        tramp = builder.alloca(ir.ArrayType(ir.IntType(8), 72), align=16)
+        tramp = builder.alloca(ir.ArrayType(ir.IntType(8), 72), align=8)
         tramp1 = builder.gep(tramp, [Constant(IntType(32),0), Constant(IntType(32),0)])
         builder.call(functionsDict['llvm.init.trampoline'],[tramp1, func.bitcast(ir.PointerType(IntType(8))) , env])
         temp_func = builder.call(functionsDict['llvm.adjust.trampoline'],[tramp1])
         sanitizedArgs = [arg[1] for arg in fn_args[1:]] if len(fn_args) > 0 else []
-        #args with extra nest apram passed in for now
-        scopeHelper.setLambda(fn_name, [func, node, fn_args])
+        #args with extra nest param passed in for now
+        currLambdas[fn_name] = [func, node, fn_args, closure_data_vars]
         result_func = builder.bitcast(temp_func, ir.PointerType(ir.FunctionType(ret_type, sanitizedArgs)))
-
         return result_func
 
     def walk_RetStmt(self,node):
@@ -317,16 +343,8 @@ class MyNodeWalker(NodeWalker):
                 assert scopeHelper.getNamedVal(var_name,walkScopes=False) is None, "Variable " + var_name + " already declared"
                 var_type  = stdLibModule.getType(node.lhs[3])
             scopeHelper.setNamedVal(var_name,
-                                    builder.alloca(var_type, name=module.get_unique_name(var_name)))
-            #could be a lambda assignment
-            #TODO fix to account for scoping
-            #tests if variable is function
-            try:
-                rhs.function_type
-                functionsDict[var_name] = rhs
-            except:
-                if ir.Function == type(rhs):
-                    functionsDict[var_name] = rhs
+                                    builder.alloca(var_type, name=module.get_unique_name(var_name)), 
+                                    isDeclaration=True)
         else:
             var_name = str(node.lhs)
             assert scopeHelper.getNamedVal(var_name,walkScopes=True) is not None, "Variable " + var_name + " is not declared"
@@ -385,12 +403,17 @@ class MyNodeWalker(NodeWalker):
             return self.walk(node.at)
         elif node.fcall:
             fname = str(list(node.fcall)[0])
+            func = None
             if fname in functionsDict:
-                return builder.call(functionsDict[fname], 
-                    [] if len(node.fcall) == 3 
-                    else self.walk(node.fcall[2]))
+                func = functionsDict[fname]
+            elif scopeHelper.getNamedVal(fname, walkScopes=True) is not None:
+                func = builder.load(scopeHelper.getNamedVal(fname, walkScopes=True), fname)
+                #func = scopeHelper.getNamedVal(fname) 
             else:
                 assert False, "Undeclared function: " + str(fname)
+            return builder.call(func, 
+                    [] if len(node.fcall) == 3 
+                    else self.walk(node.fcall[2]))
         else:
             assert False, "AtomExpr parse failed"
 
@@ -428,6 +451,7 @@ class MyNodeWalker(NodeWalker):
             return Constant(IntType(64), int(node.uint))
         else:
             assert False, "Number parse failed"
+
 filename = 'myTest.my'
 
 parser = grammarParser(parseInfo=True, comments_re='\#.*\n')
@@ -441,7 +465,6 @@ ast = parser.parse(
     parseInfo=True)
 walker = MyNodeWalker()
 walker.walk(ast)
-
 
 with open(output_filename,'w') as f:
     f.write('declare void @llvm.init.trampoline(i8* , i8*, i8* )\n')
