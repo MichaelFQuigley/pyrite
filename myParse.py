@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 4, 28, 23, 23, 4, 3)
+__version__ = (2016, 5, 1, 20, 11, 1, 6)
 
 __all__ = [
     'grammarParser',
@@ -80,8 +80,6 @@ class grammarParser(Parser):
 
         def block1():
             self._simple_stmt_()
-            with self._if():
-                self._NEWLINE_()
         self._closure(block1)
         self.name_last_node('simple')
 
@@ -95,8 +93,6 @@ class grammarParser(Parser):
 
         def block1():
             self._func_stmt_()
-            with self._if():
-                self._NEWLINE_()
         self._closure(block1)
         self.name_last_node('top')
 
@@ -301,7 +297,7 @@ class grammarParser(Parser):
         self._token('->')
         self._name_ws_()
         self.name_last_node('ret_type')
-        self._token('in')
+        self._in_ws_()
         self._scope_block_()
         self.name_last_node('lambda_block')
 
@@ -309,6 +305,10 @@ class grammarParser(Parser):
             ['arguments', 'arg1', 'argrest', 'ret_type', 'lambda_block'],
             []
         )
+
+    @graken()
+    def _in_ws_(self):
+        self._token('in')
 
     @graken()
     def _name_ws_(self):
@@ -539,11 +539,10 @@ class grammarParser(Parser):
                     self._token('true')
                     self.name_last_node('bool')
                 with self._option():
-                    self._NAME_()
+                    self._name_ws_()
                     self.name_last_node('name')
                 with self._option():
-                    with self._group():
-                        self._number_()
+                    self._number_()
                     self.name_last_node('num')
                 with self._option():
                     self._STRING_()
@@ -604,7 +603,7 @@ class grammarParser(Parser):
 
     @graken()
     def _spaces_(self):
-        self._pattern(r'[\t ]+')
+        self._pattern(r'[\t \s]+')
 
 
 class grammarSemantics(object):
@@ -642,6 +641,9 @@ class grammarSemantics(object):
         return ast
 
     def lambda_stmt(self, ast):
+        return ast
+
+    def in_ws(self, ast):
         return ast
 
     def name_ws(self, ast):

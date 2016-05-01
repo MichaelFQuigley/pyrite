@@ -97,6 +97,7 @@ class MyNodeWalker(NodeWalker):
     def walk_Start(self, node):
         debug_print('in start')
         for el in node.stmts:
+            print el
             self.walk(el)
 
     def walk_TopLvl(self, node):
@@ -245,7 +246,6 @@ class MyNodeWalker(NodeWalker):
             del currLambdas[lamKey]
             lamNode = lamAttrs[1]
             ret_type = stdLibModule.getType(lamNode.ret_type)
-            #add nest param
             func     = lamAttrs[0]
             fn_args  = lamAttrs[2]
             scopeHelper.pushScope(isFunctionScope=True)
@@ -343,8 +343,7 @@ class MyNodeWalker(NodeWalker):
                 assert scopeHelper.getNamedVal(var_name,walkScopes=False) is None, "Variable " + var_name + " already declared"
                 var_type  = stdLibModule.getType(node.lhs[3])
             scopeHelper.setNamedVal(var_name,
-                                    builder.alloca(var_type, name=module.get_unique_name(var_name)), 
-                                    isDeclaration=True)
+                                    builder.alloca(var_type, name=module.get_unique_name(var_name)))
         else:
             var_name = str(node.lhs)
             assert scopeHelper.getNamedVal(var_name,walkScopes=True) is not None, "Variable " + var_name + " is not declared"
@@ -408,7 +407,6 @@ class MyNodeWalker(NodeWalker):
                 func = functionsDict[fname]
             elif scopeHelper.getNamedVal(fname, walkScopes=True) is not None:
                 func = builder.load(scopeHelper.getNamedVal(fname, walkScopes=True), fname)
-                #func = scopeHelper.getNamedVal(fname) 
             else:
                 assert False, "Undeclared function: " + str(fname)
             return builder.call(func, 
