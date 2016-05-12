@@ -155,6 +155,8 @@ expr_stmt::ExprStmt
     fcall:( name_ws '(' [args] ')' )
     |
     at:atom
+    |
+    ( '(' sub_expr:expr_stmt ')' )
     ;
 
     comp_op::CompOp

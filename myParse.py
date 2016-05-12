@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 5, 12, 0, 29, 20, 3)
+__version__ = (2016, 5, 12, 1, 19, 35, 3)
 
 __all__ = [
     'grammarParser',
@@ -558,10 +558,16 @@ class grammarParser(Parser):
             with self._option():
                 self._atom_()
                 self.name_last_node('at')
+            with self._option():
+                with self._group():
+                    self._token('(')
+                    self._expr_stmt_()
+                    self.name_last_node('sub_expr')
+                    self._token(')')
             self._error('no available options')
 
         self.ast._define(
-            ['fcall', 'at'],
+            ['fcall', 'at', 'sub_expr'],
             []
         )
 

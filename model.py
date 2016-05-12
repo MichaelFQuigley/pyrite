@@ -441,6 +441,9 @@ class MyNodeWalker(NodeWalker):
             return builder.call(func, 
                     [] if len(node.fcall) == 3 
                     else self.walk(node.fcall[2]))
+        elif node.sub_expr:
+            return self.walk(node.sub_expr)
+
         else:
             assert False, "AtomExpr parse failed"
 
