@@ -1,0 +1,224 @@
+@@keyword :: if else loop return func
+
+start::Start
+    =
+    stmts:{&NEWLINE | top_lvl} $
+    ;
+
+stmt::Stmt
+    =
+    simple:{simple_stmt}
+    ;
+
+top_lvl::TopLvl
+    =
+    top:{func_stmt}
+    ;
+
+simple_stmt::SimpleStmt
+    =
+    simple:(
+      lambda_stmt
+      |
+      return_stmt
+      |
+      if_stmt
+      |
+      loop_stmt
+      |
+      assign_stmt
+      |
+      comparison
+      |
+      list_expr
+      |
+      expr_stmt
+    )
+    ;
+
+return_stmt::RetStmt
+    =
+    'return ' ret_val:simple_stmt
+    ;
+
+args::Args
+    =
+    arg1:(comparison|lambda_stmt) argrest:{',' (comparison|lambda_stmt)}*
+    ;
+
+list_expr::ListExpr
+    =
+    '[' arguments:[args] ']'
+    ;
+
+loop_stmt::LoopStmt
+    =
+    'loop' '(' first_stmt:[simple_stmt] ';' second_stmt:[comparison] ';' third_stmt:[simple_stmt] ')' 
+    loop_block:scope_block
+    ;
+    
+
+if_stmt::IfStmt
+    =
+    'if' '(' iif_comp:comparison ')' iif_stmt:scope_block
+     eelse:['else' (eelse_stmt:scope_block | (simple:simple_stmt))]
+    ;
+
+typed_args
+    =
+    arg1:(name_ws ':' type_format) argrest:{',' name_ws ':' type_format}*
+    ;
+
+typed_args_no_name
+    =
+    arg1:(type_format) argrest:{',' type_format}*
+    ;
+
+type_format
+    =
+    simple_arg:name_ws
+    |
+    func_arg:('(' arguments:[>typed_args_no_name] ')'  '->' ret_type:type_format)
+    ;
+
+func_stmt::FuncStmt
+    =
+    'func ' name:name_ws '(' arguments:[>typed_args] ')'  '->' ret_type:type_format
+    func_block:scope_block
+    ;
+
+lambda_stmt::LambdaStmt
+    =
+    '(' arguments:[>typed_args] ')' '->' ret_type:type_format
+    in_ws lambda_block:scope_block
+    ;
+
+in_ws
+    =
+    'in'
+    ;
+
+#name that will traverse over whitespace before parsing
+name_ws
+    =
+    NAME
+    ;
+
+scope_block::ScopeBlock
+    =
+    '{' statement:stmt '}'
+    ;
+
+comparison::Comparison
+    =
+    lhs:expr_stmt rhs:[comp_op expr_stmt]
+    ;
+
+assign_stmt::AssignStmt
+    =
+    lhs:(('let ' name_ws type_name:[':' type_format]) | (NAME)) 
+    '=' rhs:(simple_stmt) [spaces]
+    ;
+
+expr_stmt::ExprStmt
+    =
+    lhs:xor_expr rhs:{'|' xor_expr}*
+    ;
+
+    xor_expr::XorStmt
+    =
+    lhs:and_expr rhs:{'^' and_expr}*
+    ;
+
+    and_expr::AndExpr
+    =
+    lhs:shift_expr rhs:{'&' shift_expr}*
+    ;
+
+    shift_expr::ShiftExpr
+    =
+    lhs:addition_expr rhs:{( '<<' | '>>') addition_expr}*
+    ;
+
+    addition_expr::AdditionExpr
+    =
+    lhs:mult_expr rhs:{( '+' | '-') mult_expr}*
+    ;
+
+    mult_expr::MultExpr
+    =
+    lhs:atom_expr rhs:{( '*' | '/') atom_expr}*
+    ;
+
+    atom_expr::AtomExpr
+    =
+    fcall:( name_ws '(' [args] ')' )
+    |
+    at:atom
+    ;
+
+    comp_op::CompOp
+    =
+    op:(
+      '<'
+    | '>'
+    | '=='
+    | '>='
+    | '<='
+    | '!=')
+    ;
+
+    atom::Atom
+    =
+    (
+        bool:'false'
+    |
+        bool:'true'
+    |
+        name:name_ws
+    |
+        num:number
+    |
+        string:STRING
+    )
+    ;
+
+number::Number
+    =
+    sign:['-']
+    (float:(FLOAT)
+    |
+    uint:UINT)
+    ;
+
+UINT
+    =
+    /[0-9]+/ 
+    ;
+
+FLOAT
+    =
+    >UINT '.' >UINT
+    ;
+
+@name
+NAME
+    =
+    /[a-zA-Z$._][-a-zA-Z$._0-9]*/
+    ;
+
+NEWLINE
+    =
+    /\r?\n|\r/;
+
+STRING
+    =
+    '"' /[^"]*(\\")?[^"]*/ '"'
+    ;
+
+
+spaces
+    =
+    /[\t \s]+/
+    ;
+

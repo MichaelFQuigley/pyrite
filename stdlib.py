@@ -40,9 +40,8 @@ class StdLib:
                     'list_add_bool'),
                 }
         self.typesMap = {
-                'i32': ir.IntType(32),
-                'i64': ir.IntType(64),
                 'int': ir.IntType(64),
+                'bool': ir.IntType(1),
                 'float': ir.DoubleType(),
                 'void': ir.VoidType(),
                 'string': ir.PointerType(ir.IntType(8)),

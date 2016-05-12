@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 5, 1, 20, 11, 1, 6)
+__version__ = (2016, 5, 11, 21, 47, 1, 2)
 
 __all__ = [
     'grammarParser',
@@ -142,13 +142,25 @@ class grammarParser(Parser):
 
     @graken('Args')
     def _args_(self):
-        self._comparison_()
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._comparison_()
+                with self._option():
+                    self._lambda_stmt_()
+                self._error('no available options')
         self.name_last_node('arg1')
 
-        def block2():
+        def block3():
             self._token(',')
-            self._comparison_()
-        self._closure(block2)
+            with self._group():
+                with self._choice():
+                    with self._option():
+                        self._comparison_()
+                    with self._option():
+                        self._lambda_stmt_()
+                    self._error('no available options')
+        self._closure(block3)
         self.name_last_node('argrest')
 
         self.ast._define(
@@ -226,19 +238,68 @@ class grammarParser(Parser):
         with self._group():
             self._name_ws_()
             self._token(':')
-            self._name_ws_()
+            self._type_format_()
         self.name_last_node('arg1')
 
         def block2():
             self._token(',')
             self._name_ws_()
             self._token(':')
-            self._name_ws_()
+            self._type_format_()
         self._closure(block2)
         self.name_last_node('argrest')
 
         self.ast._define(
             ['arg1', 'argrest'],
+            []
+        )
+
+    @graken()
+    def _typed_args_no_name_(self):
+        with self._group():
+            self._type_format_()
+        self.name_last_node('arg1')
+
+        def block2():
+            self._token(',')
+            self._type_format_()
+        self._closure(block2)
+        self.name_last_node('argrest')
+
+        self.ast._define(
+            ['arg1', 'argrest'],
+            []
+        )
+
+    @graken()
+    def _type_format_(self):
+        with self._choice():
+            with self._option():
+                self._name_ws_()
+                self.name_last_node('simple_arg')
+            with self._option():
+                with self._group():
+                    self._token('(')
+                    with self._optional():
+                        with self._group():
+                            self._type_format_()
+                        self.name_last_node('arg1')
+
+                        def block5():
+                            self._token(',')
+                            self._type_format_()
+                        self._closure(block5)
+                        self.name_last_node('argrest')
+                    self.name_last_node('arguments')
+                    self._token(')')
+                    self._token('->')
+                    self._type_format_()
+                    self.name_last_node('ret_type')
+                self.name_last_node('func_arg')
+            self._error('no available options')
+
+        self.ast._define(
+            ['simple_arg', 'func_arg', 'arguments', 'arg1', 'argrest', 'ret_type'],
             []
         )
 
@@ -252,20 +313,20 @@ class grammarParser(Parser):
             with self._group():
                 self._name_ws_()
                 self._token(':')
-                self._name_ws_()
+                self._type_format_()
             self.name_last_node('arg1')
 
             def block4():
                 self._token(',')
                 self._name_ws_()
                 self._token(':')
-                self._name_ws_()
+                self._type_format_()
             self._closure(block4)
             self.name_last_node('argrest')
         self.name_last_node('arguments')
         self._token(')')
         self._token('->')
-        self._name_ws_()
+        self._type_format_()
         self.name_last_node('ret_type')
         self._scope_block_()
         self.name_last_node('func_block')
@@ -282,20 +343,20 @@ class grammarParser(Parser):
             with self._group():
                 self._name_ws_()
                 self._token(':')
-                self._name_ws_()
+                self._type_format_()
             self.name_last_node('arg1')
 
             def block3():
                 self._token(',')
                 self._name_ws_()
                 self._token(':')
-                self._name_ws_()
+                self._type_format_()
             self._closure(block3)
             self.name_last_node('argrest')
         self.name_last_node('arguments')
         self._token(')')
         self._token('->')
-        self._name_ws_()
+        self._type_format_()
         self.name_last_node('ret_type')
         self._in_ws_()
         self._scope_block_()
@@ -350,7 +411,7 @@ class grammarParser(Parser):
                         self._name_ws_()
                         with self._optional():
                             self._token(':')
-                            self._name_ws_()
+                            self._type_format_()
                         self.name_last_node('type_name')
                 with self._option():
                     with self._group():
@@ -371,115 +432,23 @@ class grammarParser(Parser):
 
     @graken('ExprStmt')
     def _expr_stmt_(self):
-        self._xor_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            self._token('|')
-            self._xor_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
-
-        self.ast._define(
-            ['lhs', 'rhs'],
-            []
-        )
-
-    @graken('XorStmt')
-    def _xor_expr_(self):
-        self._and_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            self._token('^')
-            self._and_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
+        with self._choice():
+            with self._option():
+                with self._group():
+                    self._expr_stmt_()
+                    self.name_last_node('lhs')
+                    self._bin_op_()
+                    self.name_last_node('op')
+                    self._expr_stmt_()
+                    self.name_last_node('rhs')
+            with self._option():
+                with self._group():
+                    self._atom_expr_()
+                    self.name_last_node('at')
+            self._error('no available options')
 
         self.ast._define(
-            ['lhs', 'rhs'],
-            []
-        )
-
-    @graken('AndExpr')
-    def _and_expr_(self):
-        self._shift_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            self._token('&')
-            self._shift_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
-
-        self.ast._define(
-            ['lhs', 'rhs'],
-            []
-        )
-
-    @graken('ShiftExpr')
-    def _shift_expr_(self):
-        self._addition_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            with self._group():
-                with self._choice():
-                    with self._option():
-                        self._token('<<')
-                    with self._option():
-                        self._token('>>')
-                    self._error('expecting one of: << >>')
-            self._addition_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
-
-        self.ast._define(
-            ['lhs', 'rhs'],
-            []
-        )
-
-    @graken('AdditionExpr')
-    def _addition_expr_(self):
-        self._mult_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            with self._group():
-                with self._choice():
-                    with self._option():
-                        self._token('+')
-                    with self._option():
-                        self._token('-')
-                    self._error('expecting one of: + -')
-            self._mult_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
-
-        self.ast._define(
-            ['lhs', 'rhs'],
-            []
-        )
-
-    @graken('MultExpr')
-    def _mult_expr_(self):
-        self._atom_expr_()
-        self.name_last_node('lhs')
-
-        def block2():
-            with self._group():
-                with self._choice():
-                    with self._option():
-                        self._token('*')
-                    with self._option():
-                        self._token('/')
-                    self._error('expecting one of: * /')
-            self._atom_expr_()
-        self._closure(block2)
-        self.name_last_node('rhs')
-
-        self.ast._define(
-            ['lhs', 'rhs'],
+            ['lhs', 'op', 'rhs', 'at'],
             []
         )
 
@@ -501,6 +470,48 @@ class grammarParser(Parser):
 
         self.ast._define(
             ['fcall', 'at'],
+            []
+        )
+
+    @graken('BinOp')
+    def _bin_op_(self):
+        with self._group():
+            with self._choice():
+                with self._option():
+                    with self._group():
+                        with self._choice():
+                            with self._option():
+                                self._token('*')
+                            with self._option():
+                                self._token('/')
+                            self._error('expecting one of: * /')
+                with self._option():
+                    with self._group():
+                        with self._choice():
+                            with self._option():
+                                self._token('+')
+                            with self._option():
+                                self._token('-')
+                            self._error('expecting one of: + -')
+                with self._option():
+                    with self._group():
+                        with self._choice():
+                            with self._option():
+                                self._token('<<')
+                            with self._option():
+                                self._token('>>')
+                            self._error('expecting one of: << >>')
+                with self._option():
+                    self._token('&')
+                with self._option():
+                    self._token('^')
+                with self._option():
+                    self._token('|')
+                self._error('expecting one of: & * + - / << >> ^ |')
+        self.name_last_node('op')
+
+        self.ast._define(
+            ['op'],
             []
         )
 
@@ -597,9 +608,9 @@ class grammarParser(Parser):
 
     @graken()
     def _STRING_(self):
-        self._token("'")
-        self._pattern(r"[^']*(\\')?[^']*")
-        self._token("'")
+        self._token('"')
+        self._pattern(r'[^"]*(\\")?[^"]*')
+        self._token('"')
 
     @graken()
     def _spaces_(self):
@@ -637,6 +648,12 @@ class grammarSemantics(object):
     def typed_args(self, ast):
         return ast
 
+    def typed_args_no_name(self, ast):
+        return ast
+
+    def type_format(self, ast):
+        return ast
+
     def func_stmt(self, ast):
         return ast
 
@@ -661,22 +678,10 @@ class grammarSemantics(object):
     def expr_stmt(self, ast):
         return ast
 
-    def xor_expr(self, ast):
-        return ast
-
-    def and_expr(self, ast):
-        return ast
-
-    def shift_expr(self, ast):
-        return ast
-
-    def addition_expr(self, ast):
-        return ast
-
-    def mult_expr(self, ast):
-        return ast
-
     def atom_expr(self, ast):
+        return ast
+
+    def bin_op(self, ast):
         return ast
 
     def comp_op(self, ast):

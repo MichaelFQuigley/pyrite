@@ -94,10 +94,19 @@ class MyNodeWalker(NodeWalker):
             opIndex += 1
         return result
 
+    def resolveTypeFromTypeFormat(self, type_format_node):
+        if type_format_node.simple_arg:
+            return stdLibModule.getType(type_format_node.simple_arg)
+        elif type_format_node.func_arg:
+            ret_type = self.resolveTypeFromTypeFormat(type_format_node.ret_type)
+            args_list = self.walkTypedArgs(type_format_node.arguments, use_name=False)
+            return ir.PointerType(ir.FunctionType(ret_type, args_list))
+        else:
+            assert False, 'type ' + str(type_format_node) + ' not implemented'
+
     def walk_Start(self, node):
         debug_print('in start')
         for el in node.stmts:
-            print el
             self.walk(el)
 
     def walk_TopLvl(self, node):
@@ -197,20 +206,29 @@ class MyNodeWalker(NodeWalker):
                     self.walk(node.iif_stmt)
         scopeHelper.popScope()
 
-    def walkTypedArgs(self, typed_args):
+    def walkTypedArgs(self, typed_args, use_name=True):
         #returns list of tuples for typed args
         #[(name, type), ...]
         args_list = []
         if typed_args is None:
             return args_list
-        args_list.append((str(typed_args[0]), 
-                            stdLibModule.getType(typed_args[2])))
-        if len(typed_args) == 3:
-            return args_list
-        args_rest = typed_args[3]
-        for arg in args_rest:
-            args_list.append((str(arg[1]),
-                                stdLibModule.getType(arg[3])))
+        if use_name:
+            args_list.append((str(typed_args[0]), 
+                                self.resolveTypeFromTypeFormat(typed_args[2])))
+            if len(typed_args) == 3:
+                return args_list
+            args_rest = typed_args[3]
+            for arg in args_rest:
+                args_list.append((str(arg[1]),
+                                self.resolveTypeFromTypeFormat(arg[3])))
+        #typed_args_no_name case
+        else:
+            args_list.append(self.resolveTypeFromTypeFormat(typed_args[0]))
+            if len(typed_args) == 1:
+                return args_list
+            args_rest = typed_args[1]
+            for arg in args_rest:
+                args_list.append(self.resolveTypeFromTypeFormat(arg[1]))
         return args_list
 
     def walk_FuncStmt(self, node):
@@ -220,7 +238,8 @@ class MyNodeWalker(NodeWalker):
         fn_name  = str(node.name)
         fn_args  = self.walkTypedArgs(node.arguments)
         #return type
-        ret_type = stdLibModule.getType(node.ret_type)
+        ret_type = self.resolveTypeFromTypeFormat(node.ret_type)
+
         func = ir.Function(module, 
                             ir.FunctionType(ret_type,
                             [arg[1] for arg in fn_args]), 
@@ -241,11 +260,12 @@ class MyNodeWalker(NodeWalker):
         if len(currLambdas) == 0:
             return
         global builder
-        for lamKey in currLambdas.keys():
+        while len(currLambdas.keys()) > 0:
+            lamKey = currLambdas.keys()[0]
             lamAttrs = currLambdas[lamKey]
             del currLambdas[lamKey]
             lamNode = lamAttrs[1]
-            ret_type = stdLibModule.getType(lamNode.ret_type)
+            ret_type = self.resolveTypeFromTypeFormat(lamNode.ret_type) 
             func     = lamAttrs[0]
             fn_args  = lamAttrs[2]
             scopeHelper.pushScope(isFunctionScope=True)
@@ -272,7 +292,7 @@ class MyNodeWalker(NodeWalker):
     def walk_LambdaStmt(self, node):
         global functionsDict
         debug_print('in LambdaStmt')
-        ret_type = stdLibModule.getType(node.ret_type)
+        ret_type = self.resolveTypeFromTypeFormat(node.ret_type) 
         fn_name  = module.get_unique_name('')
         #first arg for lambda is nest parameter
         fn_args  = [(module.get_unique_name(''), ir.PointerType(IntType(8)))] + self.walkTypedArgs(node.arguments)
@@ -317,7 +337,11 @@ class MyNodeWalker(NodeWalker):
     def walk_RetStmt(self,node):
         debug_print('in RetStmt')
         ret_val = self.walk(node.ret_val)
-        return builder.ret(ret_val)
+        print ret_val == None
+        if ret_val is not None:
+            return builder.ret(ret_val)
+        else:
+            return builder.ret_void()
 
     def walk_ScopeBlock(self, node):
         debug_print('in ScopeBlock')
@@ -341,7 +365,7 @@ class MyNodeWalker(NodeWalker):
             var_name = str(node.lhs[1])
             if len(node.lhs) == 4:
                 assert scopeHelper.getNamedVal(var_name,walkScopes=False) is None, "Variable " + var_name + " already declared"
-                var_type  = stdLibModule.getType(node.lhs[3])
+                var_type  = self.resolveTypeFromTypeFormat(node.lhs[3])
             scopeHelper.setNamedVal(var_name,
                                     builder.alloca(var_type, name=module.get_unique_name(var_name)))
         else:
@@ -351,8 +375,33 @@ class MyNodeWalker(NodeWalker):
 
     def walk_ExprStmt(self,node):
         debug_print('in ExprStmt')
-        lhs = self.walk(node.lhs)
-        return self.handle_rhs_ops(lhs, node.rhs, {'|':builder.or_})
+        #print node
+        print 'BLHS: ' + str(node.lhs)
+        result = self.walk(node.lhs if node.lhs is not None else node.at)
+        if node.op is not None:
+            opfn = self.walk(node.op)
+            result = opfn(result, self.walk(node.rhs))
+        return result
+        print 'LHS: ' + str(lhs)
+        #return self.handle_rhs_ops(lhs, node.rhs, {'|':builder.or_})
+
+    def walk_BinOp(self, node):
+        binOpDict = {
+                'f+':builder.fadd,
+                '+':builder.add,
+                'f-':builder.fsub,
+                '-':builder.sub,
+                'f*':builder.fmul,
+                '*':builder.mul,
+                'f/':builder.fdiv,
+                '/':builder.sdiv,
+                '>>':builder.lshr,
+                '<<':builder.shl,
+                '^':builder.xor,
+                '&':builder.and_,
+                '|':builder.or_,
+                }
+        return binOpDict[node.op]
 
     def walk_XorStmt(self,node):
         debug_print('in XorStmt')
@@ -395,6 +444,7 @@ class MyNodeWalker(NodeWalker):
             if node.at.name:
                 #is it a function argument?
                 atom_var = scopeHelper.getNamedVal(str(node.at.name), walkScopes=True)
+                print atom_var
                 if type(atom_var) == ir.Argument:
                     return atom_var
                 else:
@@ -406,7 +456,11 @@ class MyNodeWalker(NodeWalker):
             if fname in functionsDict:
                 func = functionsDict[fname]
             elif scopeHelper.getNamedVal(fname, walkScopes=True) is not None:
-                func = builder.load(scopeHelper.getNamedVal(fname, walkScopes=True), fname)
+                named_func = scopeHelper.getNamedVal(fname, walkScopes=True)
+                if type(named_func) == ir.Argument:
+                    func = named_func
+                else:
+                    func = builder.load(scopeHelper.getNamedVal(fname, walkScopes=True), fname)
             else:
                 assert False, "Undeclared function: " + str(fname)
             return builder.call(func, 
