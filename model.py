@@ -337,7 +337,6 @@ class MyNodeWalker(NodeWalker):
     def walk_RetStmt(self,node):
         debug_print('in RetStmt')
         ret_val = self.walk(node.ret_val)
-        print ret_val == None
         if ret_val is not None:
             return builder.ret(ret_val)
         else:
@@ -419,7 +418,6 @@ class MyNodeWalker(NodeWalker):
             if node.at.name:
                 #is it a function argument?
                 atom_var = scopeHelper.getNamedVal(str(node.at.name), walkScopes=True)
-                print atom_var
                 if type(atom_var) == ir.Argument:
                     return atom_var
                 else:
@@ -494,7 +492,6 @@ ast = parser.parse(
     semantics=ModelBuilderSemantics(),
     parseInfo=True)
 walker = MyNodeWalker()
-print ast
 walker.walk(ast)
 
 with open(output_filename,'w') as f:
