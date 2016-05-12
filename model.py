@@ -375,33 +375,8 @@ class MyNodeWalker(NodeWalker):
 
     def walk_ExprStmt(self,node):
         debug_print('in ExprStmt')
-        #print node
-        print 'BLHS: ' + str(node.lhs)
-        result = self.walk(node.lhs if node.lhs is not None else node.at)
-        if node.op is not None:
-            opfn = self.walk(node.op)
-            result = opfn(result, self.walk(node.rhs))
-        return result
-        print 'LHS: ' + str(lhs)
-        #return self.handle_rhs_ops(lhs, node.rhs, {'|':builder.or_})
-
-    def walk_BinOp(self, node):
-        binOpDict = {
-                'f+':builder.fadd,
-                '+':builder.add,
-                'f-':builder.fsub,
-                '-':builder.sub,
-                'f*':builder.fmul,
-                '*':builder.mul,
-                'f/':builder.fdiv,
-                '/':builder.sdiv,
-                '>>':builder.lshr,
-                '<<':builder.shl,
-                '^':builder.xor,
-                '&':builder.and_,
-                '|':builder.or_,
-                }
-        return binOpDict[node.op]
+        lhs = self.walk(node.lhs)
+        return self.handle_rhs_ops(lhs, node.rhs, {'|':builder.or_})
 
     def walk_XorStmt(self,node):
         debug_print('in XorStmt')
@@ -516,6 +491,7 @@ ast = parser.parse(
     semantics=ModelBuilderSemantics(),
     parseInfo=True)
 walker = MyNodeWalker()
+print ast
 walker.walk(ast)
 
 with open(output_filename,'w') as f:

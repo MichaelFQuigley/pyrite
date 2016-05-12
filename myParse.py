@@ -17,7 +17,7 @@ from grako.parsing import graken, Parser
 from grako.util import re, RE_FLAGS, generic_main  # noqa
 
 
-__version__ = (2016, 5, 11, 21, 47, 1, 2)
+__version__ = (2016, 5, 12, 0, 29, 20, 3)
 
 __all__ = [
     'grammarParser',
@@ -432,23 +432,115 @@ class grammarParser(Parser):
 
     @graken('ExprStmt')
     def _expr_stmt_(self):
-        with self._choice():
-            with self._option():
-                with self._group():
-                    self._expr_stmt_()
-                    self.name_last_node('lhs')
-                    self._bin_op_()
-                    self.name_last_node('op')
-                    self._expr_stmt_()
-                    self.name_last_node('rhs')
-            with self._option():
-                with self._group():
-                    self._atom_expr_()
-                    self.name_last_node('at')
-            self._error('no available options')
+        self._xor_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            self._token('|')
+            self._xor_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
 
         self.ast._define(
-            ['lhs', 'op', 'rhs', 'at'],
+            ['lhs', 'rhs'],
+            []
+        )
+
+    @graken('XorStmt')
+    def _xor_expr_(self):
+        self._and_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            self._token('^')
+            self._and_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
+
+        self.ast._define(
+            ['lhs', 'rhs'],
+            []
+        )
+
+    @graken('AndExpr')
+    def _and_expr_(self):
+        self._shift_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            self._token('&')
+            self._shift_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
+
+        self.ast._define(
+            ['lhs', 'rhs'],
+            []
+        )
+
+    @graken('ShiftExpr')
+    def _shift_expr_(self):
+        self._addition_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            with self._group():
+                with self._choice():
+                    with self._option():
+                        self._token('<<')
+                    with self._option():
+                        self._token('>>')
+                    self._error('expecting one of: << >>')
+            self._addition_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
+
+        self.ast._define(
+            ['lhs', 'rhs'],
+            []
+        )
+
+    @graken('AdditionExpr')
+    def _addition_expr_(self):
+        self._mult_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            with self._group():
+                with self._choice():
+                    with self._option():
+                        self._token('+')
+                    with self._option():
+                        self._token('-')
+                    self._error('expecting one of: + -')
+            self._mult_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
+
+        self.ast._define(
+            ['lhs', 'rhs'],
+            []
+        )
+
+    @graken('MultExpr')
+    def _mult_expr_(self):
+        self._atom_expr_()
+        self.name_last_node('lhs')
+
+        def block2():
+            with self._group():
+                with self._choice():
+                    with self._option():
+                        self._token('*')
+                    with self._option():
+                        self._token('/')
+                    self._error('expecting one of: * /')
+            self._atom_expr_()
+        self._closure(block2)
+        self.name_last_node('rhs')
+
+        self.ast._define(
+            ['lhs', 'rhs'],
             []
         )
 
@@ -470,48 +562,6 @@ class grammarParser(Parser):
 
         self.ast._define(
             ['fcall', 'at'],
-            []
-        )
-
-    @graken('BinOp')
-    def _bin_op_(self):
-        with self._group():
-            with self._choice():
-                with self._option():
-                    with self._group():
-                        with self._choice():
-                            with self._option():
-                                self._token('*')
-                            with self._option():
-                                self._token('/')
-                            self._error('expecting one of: * /')
-                with self._option():
-                    with self._group():
-                        with self._choice():
-                            with self._option():
-                                self._token('+')
-                            with self._option():
-                                self._token('-')
-                            self._error('expecting one of: + -')
-                with self._option():
-                    with self._group():
-                        with self._choice():
-                            with self._option():
-                                self._token('<<')
-                            with self._option():
-                                self._token('>>')
-                            self._error('expecting one of: << >>')
-                with self._option():
-                    self._token('&')
-                with self._option():
-                    self._token('^')
-                with self._option():
-                    self._token('|')
-                self._error('expecting one of: & * + - / << >> ^ |')
-        self.name_last_node('op')
-
-        self.ast._define(
-            ['op'],
             []
         )
 
@@ -678,10 +728,22 @@ class grammarSemantics(object):
     def expr_stmt(self, ast):
         return ast
 
-    def atom_expr(self, ast):
+    def xor_expr(self, ast):
         return ast
 
-    def bin_op(self, ast):
+    def and_expr(self, ast):
+        return ast
+
+    def shift_expr(self, ast):
+        return ast
+
+    def addition_expr(self, ast):
+        return ast
+
+    def mult_expr(self, ast):
+        return ast
+
+    def atom_expr(self, ast):
         return ast
 
     def comp_op(self, ast):
