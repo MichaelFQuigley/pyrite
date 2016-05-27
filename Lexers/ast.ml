@@ -5,6 +5,8 @@ type atom =
     | PAREN_EXPR of expr_stmt
 and expr_stmt = 
     | BINOP of string * expr_stmt * expr_stmt
-    | ATOMOP of atom
-and stmt = 
-    | EXPROP of expr_stmt
+    | ATOMOP of atom;;
+
+type stmt = 
+    | EXPROP of expr_stmt;;
+

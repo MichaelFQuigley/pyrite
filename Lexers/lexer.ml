@@ -31,7 +31,8 @@ let rec lex = parser
             |'|'|'&'|'^'|'~'
             |'>'|'<' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
-    | [<>] -> [< 'Token.EOF >]
+    (*| [<>] -> [< 'Token.EOF >]*)
+    | [<>] -> [< >]
 
 and lex_comments = parser
     | [<' ('\n'); stream >] -> lex stream
@@ -49,19 +50,17 @@ and lex_number buffer = parser
                                          lex_number buffer stream
     | [<' ('.' as c); stream>] -> Buffer.add_char buffer c;
                                     lex_float buffer stream
-    | [< ' (' '| '\n' | '\r' | '\t'); stream >] -> 
-        [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Lexer error")
-    | [<stream>] -> lex stream 
+    | [<stream>] ->
+        [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<>] -> [<'Token.LIT (Buffer.contents buffer)>]
 
 and lex_float buffer = parser
     | [<' ('0' .. '9' as c); stream>] -> Buffer.add_char buffer c;
                                          lex_float buffer stream
-    | [< ' (' '| '\n' | '\r' | '\t'); stream >] -> 
-        [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Lexer error")
-    | [<stream>] -> lex stream 
+    | [<stream>] ->
+        [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<>] -> [<'Token.LIT (Buffer.contents buffer)>]
 and lex_ident buffer = parser
     | [< ' ('A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' as c); stream >] ->

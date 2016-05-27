@@ -1,29 +1,48 @@
+
 let op_precedence:(string, int) Hashtbl.t = Hashtbl.create 5
 let precedence op = try Hashtbl.find op_precedence op with Not_found -> -1
 
 let rec parse_top = parser
-    | [< e >] -> Ast.EXPROP (parse_expr e)
-and parse_atom = parser
+    | [< e=parse_expr >] -> Ast.EXPROP e
+and parse_atom = 
+    begin 
+    Util.debug_print "in parse_atom";
+    parser
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
-    | [< 'Token.LPAREN; e ; 'Token.RPAREN ?? "expected ')'">] -> parse_expr e
+    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "expected ')'">] -> e
     | [< 'Token.EOF >] -> raise (Stream.Error "EOF")
-    | [< >] -> raise (Stream.Error "Invalid token.")
-and parse_expr = parser
-    | [< lhs; stream >] -> (parse_bin_rhs 0 (parse_atom lhs) stream)
+    | [< >] -> Ast.ATOMOP (Ast.LIT "TEST") (*raise (Stream.Error "Invalid token in parse_atom.")*)
+    end
+and parse_expr = 
+    begin
+    Util.debug_print "in parse_expr";
+    parser
+    | [< lhs=parse_atom; stream >] -> (parse_bin_rhs 0 lhs stream)
     | [< >] -> raise (Stream.Error "Invalid")
-and parse_args curr_args = parser
+    end
+and parse_args curr_args = 
+    begin
+    Util.debug_print "in parse_args";
+    parser
     | [< a=parse_expr; stream >] -> 
             begin parser
-                | [< 'Token.PUNCT ","; args_rest >] -> parse_args (a::curr_args) args_rest
+                | [< 'Token.PUNCT ","; a=parse_args (a::curr_args) >] -> a
                 | [< >] -> a :: curr_args
             end stream
     | [< >] -> curr_args
-and parse_ident id = parser
-    | [< 'Token.LPAREN ; args; 'Token.RPAREN ?? "expected ')'" >] 
-        -> Ast.FCALL (id, Array.of_list (List.rev (parse_args [] args))) 
+    end
+and parse_ident id = 
+    begin
+    Util.debug_print "in parse_ident";
+    parser
+    | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "expected ')' for fcall" >] 
+        -> Ast.FCALL (id, Array.of_list (List.rev args)) 
     | [< >] -> Ast.VARIABLE id
+    end
 and parse_bin_rhs prec lhs stream =
+    begin
+    Util.debug_print "in parse_bin_rhs";
     match Stream.peek stream with
     | Some (Token.PUNCT p) when Hashtbl.mem op_precedence p ->
         let curr_precedence = precedence p in
@@ -41,6 +60,5 @@ and parse_bin_rhs prec lhs stream =
             let lhs = Ast.BINOP (p, lhs, rhs) in parse_bin_rhs prec lhs stream
         end
     | _ -> lhs
+    end
 
-
-    (*| [< 'Token.LPAREN; e ; 'Token.RPAREN >] -> Ast.ATOM (parse_expr e)*)
