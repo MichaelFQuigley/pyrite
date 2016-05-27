@@ -3,32 +3,50 @@ let op_precedence:(string, int) Hashtbl.t = Hashtbl.create 5
 let precedence op = try Hashtbl.find op_precedence op with Not_found -> -1
 
 let rec parse_top = parser
-    | [< e=parse_stmts >] -> Ast.STMTS (Array.of_list e)
+    | [< e=parse_stmts >] -> e
     | [< >] -> raise (Stream.Error "Parse error at top level")
-and parse_atom = 
+and parse_initial = 
     begin 
-    Util.debug_print "in parse_atom";
+    Util.debug_print "in parse_initial";
     parser
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "expected ')'">] -> e
+    (*if stmt*)
     | [< 'Token.KWD "if"; 
       'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "expected ')' in if stmt";
+      'Token.LBRAC;
       t=parse_expr;
-      'Token.KWD "else"; 
-      e=parse_expr >] 
-        -> Ast.IF (test, t, e)
-    (*| [< >] -> Ast.ATOMOP (Ast.LIT "TEST") raise (Stream.Error "Invalid token in parse_atom.")*)
+      'Token.RBRAC ?? "expected '}' in if stmt"; stream >]
+    (*else clause of if stmt*)
+        ->  begin match Stream.peek stream with
+            | Some (Token.KWD "else") -> begin
+                Stream.junk stream; 
+                begin parser
+                    [< 'Token.LBRAC; e=parse_expr; 'Token.RBRAC ?? "expected '}' in else">] 
+                      -> Ast.IF (Array.of_list [test; t; e])
+                end stream
+                end
+            | _ -> Ast.IF (Array.of_list [test; t]) end
+    | [< 'Token.KWD "loop";
+      'Token.LPAREN; 
+      a=parse_expr; 'Token.PUNCT ";";
+      b=parse_expr; 'Token.PUNCT ";";
+      c=parse_expr;
+      'Token.RPAREN ?? "expected ')' in loop stmt";
+      stmts=parse_expr>] 
+        -> Ast.LOOP (a,b,c, stmts)
     end
 and parse_stmts = parser
-    | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmts stmts)
+    [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
+and parse_stmt = parser
+    | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmt stmts)
     | [< >] -> []
 and parse_expr = 
     begin
     Util.debug_print "in parse_expr";
     parser
-    | [< lhs=parse_atom; stream >] -> (parse_bin_rhs 0 lhs stream)
-    (*| [< >] -> raise (Stream.Error "Invalid")*)
+    | [< lhs=parse_initial; stream >] -> (parse_bin_rhs 0 lhs stream)
     end
 and parse_args curr_args = 
     begin
@@ -57,7 +75,7 @@ and parse_bin_rhs prec lhs stream =
         let curr_precedence = precedence p in
         if curr_precedence < prec then lhs else begin
             Stream.junk stream;
-            let rhs = parse_atom stream in
+            let rhs = parse_initial stream in
             let rhs = 
                 match Stream.peek stream with
                 | Some (Token.PUNCT pp) ->
