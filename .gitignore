@@ -1,0 +1,13 @@
+*.cmi
+*.cmo
+llvm
+*.pyc
+*.bak
+*.o
+*.out
+*.bc
+*.ll
+*.s
+*.S
+*.i
+*.json
