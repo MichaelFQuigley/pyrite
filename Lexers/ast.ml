@@ -19,11 +19,11 @@ let rec string_of_stmts ast =
     let rec handle_arr args = 
         (make_json_kv "StmtOp" (string_of_simple_stmt (Array.get args 0)))
         ^(if ((Array.length args) > 1) then 
-            handle_arr (Array.sub args 1 ((Array.length args) - 1))
+            (", "^handle_arr (Array.sub args 1 ((Array.length args) - 1)))
             else "")
     in
     match ast with
-    |  STMTS args -> handle_arr args
+    |  STMTS args -> make_json_kv "StmtsOp" ("["^(handle_arr args)^"]")
 and string_of_simple_stmt ast = 
     match ast with
     | EXPROP op -> 
