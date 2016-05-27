@@ -20,5 +20,5 @@ let rec string_of_tok_stream str =
     | [<'IDENT arg ; stream>] -> "(IDENT "^arg^")\n"^(string_of_tok_stream str)
     | [<'KWD arg ; stream>] -> "(KWD "^arg^")\n"^(string_of_tok_stream str)
     | [<'EOF; stream>] -> ("(EOF)\n")^(string_of_tok_stream str)
-    | [< >] -> "";;
+    | [< >] -> "etet\n";;
   

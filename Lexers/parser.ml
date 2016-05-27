@@ -3,7 +3,8 @@ let op_precedence:(string, int) Hashtbl.t = Hashtbl.create 5
 let precedence op = try Hashtbl.find op_precedence op with Not_found -> -1
 
 let rec parse_top = parser
-    | [< e=parse_expr >] -> Ast.EXPROP e
+    | [< e=parse_stmts >] -> Ast.STMTS (Array.of_list e)
+    | [< >] -> raise (Stream.Error "Parse error at top level")
 and parse_atom = 
     begin 
     Util.debug_print "in parse_atom";
@@ -11,15 +12,23 @@ and parse_atom =
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "expected ')'">] -> e
-    | [< 'Token.EOF >] -> raise (Stream.Error "EOF")
-    | [< >] -> Ast.ATOMOP (Ast.LIT "TEST") (*raise (Stream.Error "Invalid token in parse_atom.")*)
+    | [< 'Token.KWD "if"; 
+      'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "expected ')' in if stmt";
+      t=parse_expr;
+      'Token.KWD "else"; 
+      e=parse_expr >] 
+        -> Ast.IF (test, t, e)
+    (*| [< >] -> Ast.ATOMOP (Ast.LIT "TEST") raise (Stream.Error "Invalid token in parse_atom.")*)
     end
+and parse_stmts = parser
+    | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmts stmts)
+    | [< >] -> []
 and parse_expr = 
     begin
     Util.debug_print "in parse_expr";
     parser
     | [< lhs=parse_atom; stream >] -> (parse_bin_rhs 0 lhs stream)
-    | [< >] -> raise (Stream.Error "Invalid")
+    (*| [< >] -> raise (Stream.Error "Invalid")*)
     end
 and parse_args curr_args = 
     begin

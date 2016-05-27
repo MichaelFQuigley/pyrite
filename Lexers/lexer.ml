@@ -24,7 +24,7 @@ let rec lex = parser
                             | _ -> [<'Token.PUNCT "="; lex stream>]);
     | [<' ('-'); stream>] ->
                             (match (Stream.peek stream) with
-                            |  Some '>' ->  Stream.next stream; [<'Token.PUNCT "->"; lex stream>]
+                            |  Some '>' ->  begin Stream.next stream; [<'Token.PUNCT "->"; lex stream>] end
                             | _ -> [<'Token.PUNCT "-"; lex stream>]);
     | [<' ('+'|'\\'|'*'|'%'
             |','|':'|'.'|';'
@@ -32,7 +32,7 @@ let rec lex = parser
             |'>'|'<' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     (*| [<>] -> [< 'Token.EOF >]*)
-    | [<>] -> [< >]
+    | [<>] -> [<>]
 
 and lex_comments = parser
     | [<' ('\n'); stream >] -> lex stream
@@ -67,6 +67,7 @@ and lex_ident buffer = parser
         Buffer.add_char buffer c;
         lex_ident buffer stream
     | [<stream=lex>] ->
+          begin 
           match Buffer.contents buffer with
           | (
             "and"
@@ -84,6 +85,8 @@ and lex_ident buffer = parser
             |"xor"
             ) -> [<'Token.KWD (Buffer.contents buffer); stream>]
           | ident -> [<'Token.IDENT (Buffer.contents buffer); stream>];
+          end
+   | [< >] -> [< >]
 ;;
 
 
