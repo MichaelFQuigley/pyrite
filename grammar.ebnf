@@ -56,7 +56,6 @@ loop_stmt::LoopStmt
     'loop' '(' first_stmt:[simple_stmt] ';' second_stmt:[comparison] ';' third_stmt:[simple_stmt] ')' 
     loop_block:scope_block
     ;
-    
 
 if_stmt::IfStmt
     =

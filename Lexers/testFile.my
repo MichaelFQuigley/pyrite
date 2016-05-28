@@ -1,14 +1,9 @@
-if(a) {
-    a
-    b
-    c
-} else { 
-    b + 1 + a(1,2,3)
-        c
-        d
-}
-
-loop()
+let a:b = if (1)
 {
     a
 }
+else
+{
+    b
+}
+

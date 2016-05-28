@@ -1,7 +1,7 @@
-
 let op_precedence:(string, int) Hashtbl.t = Hashtbl.create 5
 let precedence op = try Hashtbl.find op_precedence op with Not_found -> -1
 
+(*parse_top is starting point*)
 let rec parse_top = parser
     | [< e=parse_stmts >] -> e
     | [< >] -> raise (Stream.Error "Parse error at top level")
@@ -57,9 +57,17 @@ and parse_initial =
                         raise (Stream.Error "Loop must have zero, one, or three arguments"))
             end stream
     end
+and parse_var_def = parser
+    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
+and parse_typed_arg = parser
+    | [< v=parse_initial; 'Token.PUNCT ":"; t=parse_type_annotation>] -> Ast.TYPEDARG (v, t)
+and parse_type_annotation = parser
+    | [< stream=parse_initial >] -> stream
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
-and parse_stmt = parser
+and parse_stmt = 
+    parser
+    | [< 'Token.KWD "let"; e=parse_var_def; stmts>] -> e::(parse_stmt stmts)
     | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmt stmts)
     | [< >] -> []
 and parse_expr = 
@@ -68,6 +76,7 @@ and parse_expr =
     parser
     | [< lhs=parse_initial; stream >] -> (parse_bin_rhs 0 lhs stream)
     end
+(*parse_args is used to parse args for a function call*)
 and parse_args curr_args = 
     begin
     Util.debug_print "in parse_args";
@@ -87,6 +96,7 @@ and parse_ident id =
             -> Ast.FCALL (id, Array.of_list (List.rev args)) 
         | [< >] -> Ast.VARIABLE id
     end
+(*parse_bin_rhs parses binary operations*)
 and parse_bin_rhs prec lhs stream =
     begin
     Util.debug_print "in parse_bin_rhs";
@@ -108,4 +118,3 @@ and parse_bin_rhs prec lhs stream =
         end
     | _ -> lhs
     end
-
