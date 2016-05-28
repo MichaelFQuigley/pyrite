@@ -16,26 +16,46 @@ and parse_initial =
     | [< 'Token.KWD "if"; 
       'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "expected ')' in if stmt";
       'Token.LBRAC;
-      t=parse_expr;
+      t=parse_stmts;
       'Token.RBRAC ?? "expected '}' in if stmt"; stream >]
     (*else clause of if stmt*)
         ->  begin match Stream.peek stream with
-            | Some (Token.KWD "else") -> begin
-                Stream.junk stream; 
-                begin parser
-                    [< 'Token.LBRAC; e=parse_expr; 'Token.RBRAC ?? "expected '}' in else">] 
-                      -> Ast.IF (Array.of_list [test; t; e])
-                end stream
+                | Some (Token.KWD "else") -> 
+                    begin
+                        Stream.junk stream; 
+                        begin parser
+                            [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "expected '}' in else">] 
+                              -> Ast.IF (test, (Array.of_list [t; e]))
+                        end stream
+                    end
+                | _ -> Ast.IF (test, Array.of_list [t]) 
+            end
+    (*loop statement*)
+    | [< 'Token.KWD "loop"; stream>] -> 
+            let rec loop_arg_helper end_token stream = 
+                begin match Stream.peek stream with
+                    | Some tok when tok = end_token -> 
+                            begin 
+                                Stream.junk stream;
+                                loop_arg_helper end_token stream
+                            end
+                    | _ ->
+                            begin parser
+                                | [< e=parse_expr; stream >] -> 
+                                        e::(loop_arg_helper end_token stream)
+                                | [<>] -> []
+                            end stream
                 end
-            | _ -> Ast.IF (Array.of_list [test; t]) end
-    | [< 'Token.KWD "loop";
-      'Token.LPAREN; 
-      a=parse_expr; 'Token.PUNCT ";";
-      b=parse_expr; 'Token.PUNCT ";";
-      c=parse_expr;
-      'Token.RPAREN ?? "expected ')' in loop stmt";
-      stmts=parse_expr>] 
-        -> Ast.LOOP (a,b,c, stmts)
+            in begin parser
+                [< 'Token.LPAREN; loop_args=loop_arg_helper (Token.PUNCT ";") ; 'Token.RPAREN;
+                   'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC>] ->
+                    (if    (((List.length loop_args) == 0) 
+                        || ((List.length loop_args) == 1)
+                        || ((List.length loop_args) == 3)) then
+                        Ast.LOOP ((Array.of_list loop_args), stmts)
+                    else 
+                        raise (Stream.Error "Loop must have zero, one, or three arguments"))
+            end stream
     end
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
@@ -61,11 +81,11 @@ and parse_args curr_args =
     end
 and parse_ident id = 
     begin
-    Util.debug_print "in parse_ident";
-    parser
-    | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "expected ')' for fcall" >] 
-        -> Ast.FCALL (id, Array.of_list (List.rev args)) 
-    | [< >] -> Ast.VARIABLE id
+        Util.debug_print "in parse_ident";
+        parser
+        | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "expected ')' for fcall" >] 
+            -> Ast.FCALL (id, Array.of_list (List.rev args)) 
+        | [< >] -> Ast.VARIABLE id
     end
 and parse_bin_rhs prec lhs stream =
     begin
