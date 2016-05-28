@@ -11,10 +11,10 @@ and parse_initial =
     parser
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
-    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "expected ')'">] -> e
+    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'.">] -> e
     (*if stmt*)
     | [< 'Token.KWD "if"; 
-      'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "expected ')' in if stmt";
+      'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
       'Token.LBRAC;
       t=parse_stmts;
       'Token.RBRAC ?? "expected '}' in if stmt"; stream >]
@@ -24,7 +24,7 @@ and parse_initial =
                     begin
                         Stream.junk stream; 
                         begin parser
-                            [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "expected '}' in else">] 
+                            [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
                               -> Ast.IF (test, (Array.of_list [t; e]))
                         end stream
                     end
@@ -54,15 +54,39 @@ and parse_initial =
                         || ((List.length loop_args) == 3)) then
                         Ast.LOOP ((Array.of_list loop_args), stmts)
                     else 
-                        raise (Stream.Error "Loop must have zero, one, or three arguments"))
+                        raise (Stream.Error "Loop must have zero, one, or three arguments."))
             end stream
     end
 and parse_var_def = parser
     | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
 and parse_typed_arg = parser
-    | [< v=parse_initial; 'Token.PUNCT ":"; t=parse_type_annotation>] -> Ast.TYPEDARG (v, t)
-and parse_type_annotation = parser
-    | [< stream=parse_initial >] -> stream
+    | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition>] -> Ast.TYPEDARG (id, t) 
+and parse_type_definition = parser
+    | [< stream >] -> begin 
+                          match Stream.peek stream with
+                          | Some (Token.IDENT typ) -> 
+                                  begin
+                                      Stream.junk stream;
+                                      Ast.SIMPLE_TYPE typ
+                                  end
+                          | Some (Token.LPAREN) ->
+                                 let rec typed_arg_helper curr_args stream = 
+                                     begin 
+                                         parser 
+                                         | [< arg=parse_typed_arg; stream >] ->
+                                                 begin parser
+                                                     | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
+                                                     | [< >] -> arg::curr_args
+                                                 end stream
+                                         | [< >] -> curr_args
+                                     end stream in
+                                     begin parser 
+                                         [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
+                                            'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
+                                                Ast.FUNC_TYPE (Array.of_list (List.rev args), ret_type)
+                                     end stream
+                          | _ -> raise (Failure "Arg type did not parse.")
+                      end
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
 and parse_stmt = 
@@ -92,7 +116,7 @@ and parse_ident id =
     begin
         Util.debug_print "in parse_ident";
         parser
-        | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "expected ')' for fcall" >] 
+        | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "Expected ')' for fcall." >] 
             -> Ast.FCALL (id, Array.of_list (List.rev args)) 
         | [< >] -> Ast.VARIABLE id
     end

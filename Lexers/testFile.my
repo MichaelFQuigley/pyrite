@@ -1,4 +1,6 @@
-let a:b = if (1)
+let a:(a:int) -> int = 1
+
+if (1)
 {
     a
 }
