@@ -5,52 +5,62 @@ let rec lex = parser
     | [<' (')'); stream>] -> [<'Token.RPAREN; lex stream>]
     | [<' ('{'); stream>] -> [<'Token.LBRAC; lex stream>]
     | [<' ('}'); stream>] -> [<'Token.RBRAC; lex stream>]
-    | [<' ('"'); stream>] -> let buffer = Buffer.create 1 in
-                                    lex_string buffer stream;
+    | [<' ('"'); stream>] -> let buffer = Buffer.create 1 in lex_string buffer stream;
     | [<' ('0' .. '9' as c); stream>] ->  
-                                let buffer = Buffer.create 1 in
-                                          Buffer.add_char buffer c;
-                                          lex_number buffer stream
+        let buffer = Buffer.create 1 in
+              Buffer.add_char buffer c;
+              (match c with
+               | '0' -> (match Stream.peek stream with
+                            | Some 'X' | Some 'x' -> Stream.junk stream; lex_hex buffer stream
+                            | Some 'B' | Some 'b' -> Stream.junk stream; lex_bin buffer stream
+                            | _ -> lex_number buffer stream)
+               | _ -> lex_number buffer stream)
     | [<' ('A' .. 'Z' | 'a' .. 'z' | '_' as c); stream>] -> 
-                                let buffer = Buffer.create 1 in 
-                                        Buffer.add_char buffer c;
-                                        lex_ident buffer stream
-
+        let buffer = Buffer.create 1 in 
+                Buffer.add_char buffer c;
+                lex_ident buffer stream
     | [<' ('='); stream>] ->
-                           (match (Stream.peek stream) with
-                            | (Some '>') ->  Stream.next stream; [<'Token.PUNCT "=>"; lex stream>]
-                            | (Some '<') ->  Stream.next stream; [<'Token.PUNCT "=<"; lex stream>]
-                            | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "=="; lex stream>]
-                            | _ -> [<'Token.PUNCT "="; lex stream>]);
+       (match (Stream.peek stream) with
+        | (Some '>') ->  Stream.next stream; [<'Token.PUNCT "=>"; lex stream>]
+        | (Some '<') ->  Stream.next stream; [<'Token.PUNCT "=<"; lex stream>]
+        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "=="; lex stream>]
+        | _ -> [<'Token.PUNCT "="; lex stream>]);
     | [<' ('-'); stream>] ->
-                            (match (Stream.peek stream) with
-                            |  Some '>' ->  begin Stream.next stream; [<'Token.PUNCT "->"; lex stream>] end
-                            | _ -> [<'Token.PUNCT "-"; lex stream>]);
+        (match (Stream.peek stream) with
+        |  Some '>' ->  Stream.next stream; [<'Token.PUNCT "->"; lex stream>]
+        | _ -> [<'Token.PUNCT "-"; lex stream>]);
     | [<' ('+'|'\\'|'*'|'%'
             |','|':'|'.'|';'
             |'|'|'&'|'^'|'~'
             |'>'|'<' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
-    (*| [<>] -> [< 'Token.EOF >]*)
     | [<>] -> [<>]
-
 and lex_comments = parser
     | [<' ('\n'); stream >] -> lex stream
     | [<'c; stream >] -> lex_comments stream
     | [<>] -> [<>] 
-
 and lex_string buffer = parser
     | [<' ('"'); stream>] -> [<'Token.LIT ("\""^(Buffer.contents buffer)^"\""); lex stream>]
     | [<'c; stream>] -> Buffer.add_char buffer c;
                         lex_string buffer stream
     | [<>] -> raise (Failure "Unterminated string.")
-
+and lex_bin buffer = parser
+    | [<' ('0' | '1' as c); stream>] -> Buffer.add_char buffer c; lex_bin buffer stream
+    | [<' ('_'); stream>] -> lex_bin buffer stream
+    | [<' ('a' .. 'z' | 'A' .. 'Z' | '2' .. '9') ; _>] -> raise (Failure "Could not parse bin value.")
+    | [<stream>] -> [< 'Token.LIT (Int64.to_string (Int64.of_string ("0b"^(Buffer.contents buffer)))); lex stream>]
+    | [<>] -> [< 'Token.LIT (int_of_string ("0b"^(Buffer.contents buffer)))>]
+and lex_hex buffer = parser
+    | [<' (('0' .. '9') | ('A' .. 'F') as c); stream>] -> Buffer.add_char buffer c; lex_hex buffer stream
+    | [<' ('_'); stream>] -> lex_hex buffer stream
+    | [<' ('g' .. 'z' | 'G' .. 'Z') ; _>] -> raise (Failure "Could not parse hex value.")
+    | [<stream>] -> [< 'Token.LIT (Int64.to_string (Int64.of_string ("0x"^(Buffer.contents buffer)))); lex stream>]
+    | [<>] -> [< 'Token.LIT (int_of_string ("0X"^(Buffer.contents buffer)))>]
 and lex_number buffer = parser
-    | [<' ('0' .. '9' as c); stream>] -> Buffer.add_char buffer c;
-                                         lex_number buffer stream
-    | [<' ('.' as c); stream>] -> Buffer.add_char buffer c;
-                                    lex_float buffer stream
-    | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Lexer error")
+    | [<' ('0' .. '9' as c); stream>] -> Buffer.add_char buffer c; lex_number buffer stream
+    | [<' ('_'); stream>] -> lex_number buffer stream
+    | [<' ('.' as c); stream>] -> Buffer.add_char buffer c; lex_float buffer stream
+    | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Could not parse decimal value.")
     | [<stream>] ->
         [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<>] -> [<'Token.LIT (Buffer.contents buffer)>]
@@ -58,7 +68,8 @@ and lex_number buffer = parser
 and lex_float buffer = parser
     | [<' ('0' .. '9' as c); stream>] -> Buffer.add_char buffer c;
                                          lex_float buffer stream
-    | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Lexer error")
+    | [<' ('_'); stream>] -> lex_float buffer stream
+    | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Could not parse float value.")
     | [<stream>] ->
         [<'Token.LIT (Buffer.contents buffer); lex stream>]
     | [<>] -> [<'Token.LIT (Buffer.contents buffer)>]
@@ -72,7 +83,6 @@ and lex_ident buffer = parser
           | (
             "and"
             |"else"
-            |"false"
             |"func"
             |"if"
             |"in"
@@ -81,9 +91,9 @@ and lex_ident buffer = parser
             |"not"
             |"or"
             |"return"
-            |"true"
             |"xor"
             ) -> [<'Token.KWD (Buffer.contents buffer); stream>]
+          | ("true" | "false") -> [<'Token.LIT (Buffer.contents buffer); stream>]
           | ident -> [<'Token.IDENT (Buffer.contents buffer); stream>];
           end
    | [< >] -> [< >]

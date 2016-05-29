@@ -55,9 +55,12 @@ let rec string_of_stmts ast =
 and string_of_type_definition ast =
     match ast with
     | SIMPLE_TYPE typ -> make_json_kv "simple" ("\""^typ^"\"")
-    | FUNC_TYPE (FUNC_PROTO (args_arr, ret_type)) -> make_json_kv "func_type" (make_json_kvs ["args"; "ret_type"] 
-                                                                                [(make_json_arr args_arr string_of_typed_arg); string_of_type_definition ret_type])
-    | _ -> raise (Failure "Unimplemented type")
+    | FUNC_TYPE func_proto -> make_json_kv "func_type" (string_of_prototype func_proto)
+and string_of_prototype ast = 
+    match ast with
+    | FUNC_PROTO (args_arr, ret_type) -> make_json_kv "FuncProto" (make_json_kvs ["args"; "ret_type"] 
+                                                                                 [(make_json_arr args_arr string_of_typed_arg); string_of_type_definition ret_type])
+
 and string_of_simple_stmt ast = 
     match ast with
     | EXPROP op -> 
@@ -79,8 +82,8 @@ and string_of_expr_stmt ast =
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
     | FUNCDEF (proto, stmts) ->
-            make_json_kv "FuncDef" (make_json_kvs ["prototype"; "stmts"]
-                                                  [string_of_typed_arg proto; string_of_stmts stmts])
+            make_json_kv "FuncDef" (make_json_kvs ["header"; "stmts"]
+                                                  [string_of_prototype proto; string_of_stmts stmts])
 and string_of_typed_arg ast = 
     match ast with 
     | TYPEDARG (name, t) -> 

@@ -17,23 +17,22 @@ and parse_initial =
       'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
       'Token.LBRAC;
       t=parse_stmts;
-      'Token.RBRAC ?? "expected '}' in if stmt"; stream >]
+      'Token.RBRAC ?? "expected '}' in if stmt"; stream >] ->
     (*else clause of if stmt*)
-        ->  begin match Stream.peek stream with
-                | Some (Token.KWD "else") -> 
-                    begin
-                        Stream.junk stream; 
-                        begin parser
-                            [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
-                              -> Ast.IF (test, (Array.of_list [t; e]))
-                        end stream
-                    end
-                | _ -> Ast.IF (test, Array.of_list [t]) 
-            end
+        (match Stream.peek stream with
+            | Some (Token.KWD "else") -> 
+                begin
+                    Stream.junk stream; 
+                    begin parser
+                        [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
+                          -> Ast.IF (test, (Array.of_list [t; e]))
+                    end stream
+                end
+            | _ -> Ast.IF (test, Array.of_list [t]))
     (*loop statement*)
     | [< 'Token.KWD "loop"; stream>] -> 
             let rec loop_arg_helper end_token stream = 
-                begin match Stream.peek stream with
+                (match Stream.peek stream with
                     | Some tok when tok = end_token -> 
                             begin 
                                 Stream.junk stream;
@@ -44,8 +43,7 @@ and parse_initial =
                                 | [< e=parse_expr; stream >] -> 
                                         e::(loop_arg_helper end_token stream)
                                 | [<>] -> []
-                            end stream
-                end
+                            end stream)
             in begin parser
                 [< 'Token.LPAREN; loop_args=loop_arg_helper (Token.PUNCT ";") ; 'Token.RPAREN;
                    'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC>] ->
@@ -69,33 +67,29 @@ and parse_func_proto =
              begin 
                  parser 
                  | [< arg=parse_typed_arg; stream >] ->
-                         begin parser
-                             | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
-                             | [< >] -> arg::curr_args
-                         end stream
+                         (parser
+                         | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
+                         | [< >] -> arg::curr_args) stream
                  | [< >] -> curr_args
              end stream in
-             begin parser 
-                 [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
-                    'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
-                        Ast.FUNC_PROTO (Array.of_list (List.rev args), ret_type)
-             end
+             (parser 
+             [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
+                'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
+                    Ast.FUNC_PROTO (Array.of_list (List.rev args), ret_type))
 and parse_type_definition = parser
-    | [< stream >] -> begin 
-                          match Stream.peek stream with
-                          | Some (Token.IDENT typ) -> 
-                                  begin
-                                      Stream.junk stream;
-                                      Ast.SIMPLE_TYPE typ
-                                  end
-                          | Some (Token.LPAREN) ->
-                                  Ast.FUNC_TYPE (parse_func_proto stream)
-                          | _ -> raise (Failure "Arg type did not parse.")
-                      end
+    | [< stream >] -> 
+          (match Stream.peek stream with
+          | Some (Token.IDENT typ) -> 
+                  begin
+                      Stream.junk stream;
+                      Ast.SIMPLE_TYPE typ
+                  end
+          | Some (Token.LPAREN) ->
+                  Ast.FUNC_TYPE (parse_func_proto stream)
+          | _ -> raise (Failure "Arg type did not parse."))
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
-and parse_stmt = 
-    parser
+and parse_stmt = parser
     | [< 'Token.KWD "let"; e=parse_var_def; stmts>] -> e::(parse_stmt stmts)
     | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmt stmts)
     | [< >] -> []
@@ -111,10 +105,9 @@ and parse_args curr_args =
     Util.debug_print "in parse_args";
     parser
     | [< a=parse_expr; stream >] -> 
-            begin parser
-                | [< 'Token.PUNCT ","; a=parse_args (a::curr_args) >] -> a
-                | [< >] -> a :: curr_args
-            end stream
+            (parser
+            | [< 'Token.PUNCT ","; a=parse_args (a::curr_args) >] -> a
+            | [< >] -> a :: curr_args) stream
     | [< >] -> curr_args
     end
 and parse_ident id = 
