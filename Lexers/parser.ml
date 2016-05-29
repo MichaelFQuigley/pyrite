@@ -56,11 +56,30 @@ and parse_initial =
                     else 
                         raise (Stream.Error "Loop must have zero, one, or three arguments."))
             end stream
+    | [< 'Token.KWD "func"; proto=parse_func_proto; 
+         'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC ?? "Expected '}' in function definition">] 
+        -> Ast.FUNCDEF (proto,  stmts)
     end
 and parse_var_def = parser
     | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
 and parse_typed_arg = parser
     | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition>] -> Ast.TYPEDARG (id, t) 
+and parse_func_proto = 
+       let rec typed_arg_helper curr_args stream = 
+             begin 
+                 parser 
+                 | [< arg=parse_typed_arg; stream >] ->
+                         begin parser
+                             | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
+                             | [< >] -> arg::curr_args
+                         end stream
+                 | [< >] -> curr_args
+             end stream in
+             begin parser 
+                 [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
+                    'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
+                        Ast.FUNC_PROTO (Array.of_list (List.rev args), ret_type)
+             end
 and parse_type_definition = parser
     | [< stream >] -> begin 
                           match Stream.peek stream with
@@ -70,21 +89,7 @@ and parse_type_definition = parser
                                       Ast.SIMPLE_TYPE typ
                                   end
                           | Some (Token.LPAREN) ->
-                                 let rec typed_arg_helper curr_args stream = 
-                                     begin 
-                                         parser 
-                                         | [< arg=parse_typed_arg; stream >] ->
-                                                 begin parser
-                                                     | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
-                                                     | [< >] -> arg::curr_args
-                                                 end stream
-                                         | [< >] -> curr_args
-                                     end stream in
-                                     begin parser 
-                                         [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
-                                            'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
-                                                Ast.FUNC_TYPE (Array.of_list (List.rev args), ret_type)
-                                     end stream
+                                  Ast.FUNC_TYPE (parse_func_proto stream)
                           | _ -> raise (Failure "Arg type did not parse.")
                       end
 and parse_stmts = parser
