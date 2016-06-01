@@ -3,8 +3,9 @@
 
 using namespace std;
 
-void AstWalker::codeGen_stmts(Json::Value json_node)
+llvm::Value* AstWalker::codeGen_StmtsOp(Json::Value json_node)
 {
+
 }
 
 
@@ -14,7 +15,7 @@ void AstWalker::codeGen_initial(Json::Value json_node)
 {
     if( json_node["StmtsOp"] != Json::nullValue ) 
     {
-        codeGen_stmts(json_node["StmtsOp"]);
+        codeGen_StmtsOp(json_node["StmtsOp"]);
     }
     else 
     {
