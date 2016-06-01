@@ -2,37 +2,89 @@
 #include <iterator>
 
 class AstNode {
-    private:
-        AstNode** children;
-        int children_length;
-
     public:
-        AstNode(AstNode** children, int children_length)
-        {
-            this->children        = children;
-            this->children_length = children_length;
-        }
+        AstNode(){}
 
         virtual void codeGen() = 0;
-
-        int getNumChildren() { return children_length; }
-
-        AstNode* getChild(int index) { 
-            if(index < children_length) { 
-                return children[index];
-            } 
-            return NULL; 
-        }
-
-        void setChildren(AstNode** children) { this->children = children; }
 };
 
 class StmtsNode : public AstNode {
     private:
         AstNode* stmts;
     public:
-        StmtsNode(AstNode** children, int children_length) 
-            : AstNode(children, children_length){ }
+        StmtsNode() 
+            : AstNode(){ }
 
         void codeGen() override;
 };
+
+class VarDefNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        VarDefNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class ExprOpNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        ExprOpNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class FuncDefNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        FuncDefNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class AtomOpNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        AtomOpNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class LoopNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        LoopNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class IfNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        IfNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
+class BinOpNode: public AstNode {
+    private:
+        AstNode* stmts;
+    public:
+        BinOpNode() 
+            : AstNode(){ }
+
+        void codeGen() override;
+};
+
