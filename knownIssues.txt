@@ -1,3 +1,0 @@
-declarations of variables that already exist in outer scope for lambdas
-parenthesis
-whitespace after func brackets

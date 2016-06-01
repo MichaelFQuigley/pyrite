@@ -11,3 +11,4 @@ llvm
 *.S
 *.i
 *.json
+*.swp
