@@ -4,3 +4,6 @@
 [submodule "CodeGen/jsoncpp"]
 	path = CodeGen/jsoncpp
 	url = https://github.com/open-source-parsers/jsoncpp.git
+[submodule "CodeGen/llvm"]
+	path = CodeGen/llvm
+	url = https://github.com/llvm-mirror/llvm.git
