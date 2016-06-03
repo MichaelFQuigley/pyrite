@@ -16,7 +16,6 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "ast_node.h"
 
 #define TRY_NODE(JSON_NODE, NODE_NAME)                                \
     do {                                                              \
@@ -37,6 +36,13 @@ class AstWalker
         llvm::Value* createValueObject(std::string type_name, llvm::Value* value);
         bool load_stdlib(std::string stdlib_filename);
         llvm::Value* generateString(llvm::Module* module, std::string str);
+        llvm::BasicBlock* makeBasicBlock(std::string name = "");
+        llvm::Value* createCall(std::string func_name, 
+                                std::vector<llvm::Value*> argsV, 
+                                bool raise_fail_exception = true,
+                                std::string error_msg = "Undefined function ");
+
+
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
@@ -58,5 +64,5 @@ class AstWalker
         llvm::Value* codeGen_TypedArg(Json::Value json_node);
 
         Json::Value generateFromJson(std::string json_string);
-        std::string dumpIR();
+        void dumpIR();
 };

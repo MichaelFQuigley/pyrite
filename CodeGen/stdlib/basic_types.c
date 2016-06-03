@@ -2,6 +2,7 @@
 #include <string.h>
 #include "basic_types.h"
 
+//Int
 Int* init_Int(int64_t raw_value)
 {
     struct Int* new_Int = (struct Int*) malloc(sizeof(Int));
@@ -23,7 +24,7 @@ Int* add_Int(Int* lhs, Int* rhs)
     return init_Int(lhs_raw + rhs_raw);
 }
 
-
+//Float
 struct Float* init_Float(double raw_value)
 {
     struct Float* new_Float = (struct Float*) malloc(sizeof(Float));
@@ -45,7 +46,7 @@ struct Float* add_Float(struct Float* lhs, struct Float* rhs)
     return init_Float(lhs_raw + rhs_raw);
 }
 
-
+//String
 struct String* init_String(char* raw_value)
 {
     struct String* new_String = (struct String*) malloc(sizeof(String));
@@ -70,7 +71,24 @@ struct String* add_String(struct String* lhs, struct String* rhs)
     return init_String(result);
 }
 
+//Bool
+struct Bool* init_Bool(bool raw_value)
+{
+    struct Bool* new_Bool = (struct Bool*) malloc(sizeof(Bool));
+    new_Bool->raw_value = raw_value;
 
+    return new_Bool;
+}
+
+bool rawVal_Bool(struct Bool* this)
+{
+    return this->raw_value;
+}
+
+void uninit_Bool(struct Bool* bool_val)
+{
+    free(bool_val);
+}
 
 
 /*

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 //Int
@@ -33,6 +34,21 @@ struct String* init_String(char* raw_value);
 void uninit_String(struct String* int_val);
 
 struct String* add_String(struct String* lhs, struct String* rhs);
+
+
+//Bool
+typedef struct Bool {
+    bool raw_value;
+} Bool;
+
+struct Bool* init_Bool(bool raw_value);
+
+void uninit_Bool(struct Bool* int_val);
+
+struct Bool* add_Bool(struct Bool* lhs, struct Bool* rhs);
+
+bool rawVal_Bool(struct Bool* this);
+
 
 
 

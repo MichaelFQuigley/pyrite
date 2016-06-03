@@ -1,1 +1,3 @@
-println("test" + "str");
+let this_is_a_var:Int = "this is a test"
+this_is_a_var = this_is_a_var + " and another."
+println(this_is_a_var)

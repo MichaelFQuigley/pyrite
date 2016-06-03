@@ -24,8 +24,9 @@ and parse_initial =
                 begin
                     Stream.junk stream; 
                     begin parser
-                        [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
+                        | [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
                           -> Ast.IF (test, (Array.of_list [t; e]))
+                        | [< _ >] -> raise (Stream.Error "Else stmt requires '{}'.")
                     end stream
                 end
             | _ -> Ast.IF (test, Array.of_list [t]))
