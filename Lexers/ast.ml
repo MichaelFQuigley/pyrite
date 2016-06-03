@@ -96,7 +96,7 @@ and string_of_atom ast =
     | VARIABLE a -> 
             make_json_kv "Variable" ("\""^a^"\"")
     | FCALL (name,exprs_arr) -> 
-            make_json_kv "Fcall" (make_json_kvs ["name"; "args"]
+            make_json_kv "FCall" (make_json_kvs ["name"; "args"]
                                                 ["\""^name^"\""; make_json_arr exprs_arr string_of_expr_stmt])
     | _ -> raise (Failure "Invalid ast.");;
 

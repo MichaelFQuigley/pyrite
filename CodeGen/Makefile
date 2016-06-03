@@ -3,16 +3,15 @@ INCLUDEJSON=jsoncpp/include
 LIBJSON=jsoncpp/src/build/debug/lib_json/libjsoncpp.a
 INCLUDELLVM=llvm/include
 INCLUDELLVM2=llvm/build/include
-
-
-LIBLLVMDIR=llvm/build/lib/
-LIBLLVM=$(LIBLLVMDIR)/libLLVMCore.a
 CPP_FLAGS=-D__STDC_CONSTANT_MACROS 
 CPP_FLAGS+=-D__STDC_LIMIT_MACROS
 CPP_FLAGS+=-Wall
+LD_FLAGS= -lpthread -lm -ltinfo -ldl
+LLVM_FLAGS=`llvm-config-3.6 --cppflags --libs all`
+LLVM_FLAGS+=`llvm-config-3.6 --ldflags`
 
 all:
-	g++-4.8 -std=c++11 $(LIBLLVM) $(CPP_FILES) $(LIBJSON) -I$(INCLUDEJSON) -I$(INCLUDELLVM) -I$(INCLUDELLVM2) $(CPP_FLAGS) -o codeGen.o
+	clang++ -std=gnu++11 $(CPP_FILES) $(LIBJSON) -I$(INCLUDEJSON) -I$(INCLUDELLVM) -I$(INCLUDELLVM2) $(CPP_FLAGS) -o codeGen.o $(LD_FLAGS) $(LLVM_FLAGS) 
 
 clean:
 	rm *.o *.out

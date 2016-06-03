@@ -11,7 +11,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
-
+#include "llvm/AsmParser/Parser.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
 #include "ast_node.h"
 
 #define TRY_NODE(JSON_NODE, NODE_NAME)                                \
@@ -26,7 +30,17 @@ class AstWalker
 {
     private:
         bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
+        llvm::LLVMContext currContext;
+        llvm::IRBuilder<> Builder;
+        std::unique_ptr<llvm::Module> currModule;
+        //helper functions for primitive class instantiation
+        llvm::Value* createValueObject(std::string type_name, llvm::Value* value);
+        bool load_stdlib(std::string stdlib_filename);
+        llvm::Value* generateString(llvm::Module* module, std::string str);
     public:
+        void writeToFile(std::string filename);
+        AstWalker(std::string filename, std::string stdlib_filename);
+        void codeGen_top(Json::Value json_node);
         llvm::Value* codeGen_initial(Json::Value json_node);
         /*
          * codeGen_StmtsOp:
@@ -44,4 +58,5 @@ class AstWalker
         llvm::Value* codeGen_TypedArg(Json::Value json_node);
 
         Json::Value generateFromJson(std::string json_string);
+        std::string dumpIR();
 };
