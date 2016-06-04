@@ -1,13 +1,18 @@
 let i:Int = 0
 
-loop(i + 1; true; i = i + 1)
+loop(i <= 1000;)
 {
+    let jjj:Int = 0
+        jjj = 1
     println("test")
+    i = i + 1
 }
 
 
 let iii:String = "teeeeest " + if(false)
 {
+    let fff:i = 1
+        fff + 1
     "if"
 }
 else
@@ -15,7 +20,6 @@ else
     1 / 2
     "else " + if(false){ "nestedIf" } else{ "nestedElse" }
 }
-
 
 let this_is_a_var:String = "this is a test"
 this_is_a_var = this_is_a_var + " and another." + iii

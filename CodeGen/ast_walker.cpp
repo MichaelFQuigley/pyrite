@@ -1,26 +1,15 @@
 #include <iostream>
 #include <cstdlib>
 #include "ast_walker.h"
+#include "codegen_util.h"
 
 using namespace std;
-
-
-#define GEN_ASSERT(__cond, __msg)   \
-    if(!(__cond))                   \
-    {                               \
-        cout << (__msg) << endl;    \
-        throw;                      \
-    }
-
-#define _GEN_ASSERT(__cond) \
-    GEN_ASSERT(__cond, "")
-
-static std::map<std::string, llvm::Value *> NamedValues;
 
 AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builder(currContext)
 {
 
-    currModule = llvm::make_unique<llvm::Module>(filename, currContext);
+    currModule  = llvm::make_unique<llvm::Module>(filename, currContext);
+    scopeHelper = new ScopeHelper();
 
     if( !load_stdlib(stdlib_filename) )
     {
@@ -68,7 +57,7 @@ llvm::Value* AstWalker::codeGen_VarDef(Json::Value json_node){
     llvm::Value* rhs_expr = codeGen_initial(json_node["expr"]); 
     auto allocaRes = Builder.CreateAlloca(rhs_expr->getType());
     Builder.CreateStore(rhs_expr, allocaRes);
-    NamedValues[var_name] = allocaRes;
+    scopeHelper->setNamedVal(var_name, allocaRes, true);
     return nullptr; 
 }
 
@@ -77,14 +66,14 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
     std::string op_func_prefix = "";
     
 
-    if(op == "=") {
+    if( op == "=" ) {
         Json::Value lhs_val;
         //lhs must be variable for now
         if(json_node_has(json_node["lhs"], "AtomOp", &lhs_val)
             && json_node_has(lhs_val, "Variable", &lhs_val))
         {
             std::string var_name = lhs_val.asString();
-            llvm::Value* var_val = NamedValues[var_name];
+            llvm::Value* var_val = scopeHelper->getNamedVal(var_name, true);
             GEN_ASSERT(var_val != nullptr, "No variable avaiable");
             return Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
         }
@@ -94,11 +83,17 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
             return nullptr;
         }
     }
-    else if(op == "+")      { op_func_prefix = "add_";}
-    else if(op == "-") { op_func_prefix = "sub_";}
-    else if(op == "*") { op_func_prefix = "mul_";}
-    else if(op == "/") { op_func_prefix = "div_";}
-    else if(op == "%") { op_func_prefix = "mod_";}
+    else if( op == "+" )  { op_func_prefix = "add_";}
+    else if( op == "-" )  { op_func_prefix = "sub_";}
+    else if( op == "*" )  { op_func_prefix = "mul_";}
+    else if( op == "/" )  { op_func_prefix = "div_";}
+    else if( op == "%" )  { op_func_prefix = "mod_";}
+    else if( op == "<" )  { op_func_prefix = "cmplt_";}
+    else if( op == "<=" ) { op_func_prefix = "cmple_";}
+    else if( op == "==" ) { op_func_prefix = "cmpeq_";}
+    else if( op == ">" )  { op_func_prefix = "cmpgt_";}
+    else if( op == ">=" ) { op_func_prefix = "cmpge_";}
+    else if( op == "!=" ) { op_func_prefix = "cmpne_";}
     else { 
         cout << "Unimplemented operator type" << endl;
         return nullptr;
@@ -186,7 +181,7 @@ llvm::Value* AstWalker::codeGen_AtomOp(Json::Value json_node) {
     else if( json_node_has(json_node, "Variable", &val_node) ) 
     {
         std::string var_name = val_node.asString();
-        llvm::Value* var_val = NamedValues[var_name];
+        llvm::Value* var_val = scopeHelper->getNamedVal(var_name, true);
 
         if( var_val == nullptr )
         {
@@ -238,6 +233,9 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){
     llvm::BasicBlock* loopBottom = llvm::BasicBlock::Create(currContext, "loopBottom");
 
     int args_length = json_node["args"].size();
+
+    scopeHelper->pushScope();
+
     //codegen initial statement
     if( args_length == 3 )
         codeGen_initial(json_node["args"][0]); 
@@ -274,6 +272,8 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){
     currFunction->getBasicBlockList().push_back(loopBottom);
     Builder.SetInsertPoint(loopBottom);
 
+    scopeHelper->popScope();
+
     return nullptr;
 }
 
@@ -294,6 +294,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     //check to see if there is an else block
     if( json_node["bodies"].size() == 1 )
     {
+        scopeHelper->pushScope();
         endIf = llvm::BasicBlock::Create(currContext, "endif");
         Builder.CreateCondBr(testResult, ifTrue, endIf);
         Builder.SetInsertPoint(ifTrue);
@@ -301,6 +302,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         //currFunction->getBasicBlockList().push_back(endIf);
         Builder.CreateBr(endIf);
         Builder.SetInsertPoint(endIf); 
+        scopeHelper->popScope();
     }
     //else block (size == 2)
     else
@@ -309,9 +311,12 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         endIf = llvm::BasicBlock::Create(currContext, "endif");
         Builder.CreateCondBr(testResult, ifTrue, ifFalse);
         //if true codegen
+        scopeHelper->pushScope();
         Builder.SetInsertPoint(ifTrue);
         llvm::Value* ifTrueLastStmt = codeGen_initial(json_node["bodies"][0]);
+        scopeHelper->popScope();
         //if false codegen
+        scopeHelper->pushScope();
         Builder.CreateBr(endIf);
         ifTrue = Builder.GetInsertBlock();
         currFunction->getBasicBlockList().push_back(ifFalse);
@@ -321,6 +326,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         ifFalse = Builder.GetInsertBlock();
         currFunction->getBasicBlockList().push_back(endIf);
         Builder.SetInsertPoint(endIf); 
+        scopeHelper->popScope();
         //phi node
         GEN_ASSERT(getTypeStr(ifTrueLastStmt) == getTypeStr(ifFalseLastStmt), 
                 "Types at end of if-else must match.");
@@ -458,7 +464,7 @@ int main()
     {
         getline(std::cin, json_string);
         ast->codeGen_top(ast->generateFromJson(json_string));
-//        ast->dumpIR();
+        ast->dumpIR();
         ast->writeToFile("../Lexers/test.bc");
     }
 }

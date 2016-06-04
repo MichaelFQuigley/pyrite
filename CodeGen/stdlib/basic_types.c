@@ -4,7 +4,7 @@
 //Int
 Int* init_Int(int64_t raw_value)
 {
-    struct Int* new_Int = (struct Int*) malloc(sizeof(Int));
+     Int* new_Int = ( Int*) malloc(sizeof(Int));
     new_Int->raw_value = raw_value;
 
     return new_Int;
@@ -21,16 +21,25 @@ CREATE_NUM_ARITH_FN(Int, int64_t, mul, *)
 CREATE_NUM_ARITH_FN(Int, int64_t, div, /)
 CREATE_NUM_ARITH_FN(Int, int64_t, mod, %)
 
+CREATE_NUM_CMP_FN(Int, int64_t, cmplt, <)
+CREATE_NUM_CMP_FN(Int, int64_t, cmple, <=)
+CREATE_NUM_CMP_FN(Int, int64_t, cmpne, !=)
+CREATE_NUM_CMP_FN(Int, int64_t, cmpgt, >)
+CREATE_NUM_CMP_FN(Int, int64_t, cmpge, >=)
+CREATE_NUM_CMP_FN(Int, int64_t, cmpeq, ==)
+
+
+
 //Float
-struct Float* init_Float(double raw_value)
+ Float* init_Float(double raw_value)
 {
-    struct Float* new_Float = (struct Float*) malloc(sizeof(Float));
+     Float* new_Float = ( Float*) malloc(sizeof(Float));
     new_Float->raw_value = raw_value;
 
     return new_Float;
 }
 
-void uninit_Float(struct Float* float_val)
+void uninit_Float( Float* float_val)
 {
     free(float_val);
 }
@@ -40,22 +49,29 @@ CREATE_NUM_ARITH_FN(Float, double, sub, -)
 CREATE_NUM_ARITH_FN(Float, double, mul, *)
 CREATE_NUM_ARITH_FN(Float, double, div, /)
 
+CREATE_NUM_CMP_FN(Float, double, cmplt, <)
+CREATE_NUM_CMP_FN(Float, double, cmple, <=)
+CREATE_NUM_CMP_FN(Float, double, cmpne, !=)
+CREATE_NUM_CMP_FN(Float, double, cmpgt, >)
+CREATE_NUM_CMP_FN(Float, double, cmpge, >=)
+CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
+
 
 //String
-struct String* init_String(char* raw_value)
+ String* init_String(char* raw_value)
 {
-    struct String* new_String = (struct String*) malloc(sizeof(String));
+     String* new_String = ( String*) malloc(sizeof(String));
     new_String->raw_value = raw_value;
 
     return new_String;
 }
 
-void uninit_String(struct String* str_val)
+void uninit_String( String* str_val)
 {
     free(str_val);
 }
 
-struct String* add_String(struct String* lhs, struct String* rhs)
+ String* add_String( String* lhs,  String* rhs)
 {
     char* lhs_raw = lhs->raw_value;
     char* rhs_raw = rhs->raw_value;
@@ -66,31 +82,23 @@ struct String* add_String(struct String* lhs, struct String* rhs)
     return init_String(result);
 }
 
+
 //Bool
-struct Bool* init_Bool(bool raw_value)
+Bool* init_Bool(bool raw_value)
 {
-    struct Bool* new_Bool = (struct Bool*) malloc(sizeof(Bool));
+     Bool* new_Bool = ( Bool*) malloc(sizeof(Bool));
     new_Bool->raw_value = raw_value;
 
     return new_Bool;
 }
 
-bool rawVal_Bool(struct Bool* this)
+bool rawVal_Bool( Bool* this)
 {
     return this->raw_value;
 }
 
-void uninit_Bool(struct Bool* bool_val)
+void uninit_Bool( Bool* bool_val)
 {
     free(bool_val);
 }
 
-
-/*
-int main()
-{
-    Int* i = init_Int(4);
-    Int* j = init_Int(5);
-    Int* result = add_Int(i, j);
-    printf("%d\n", result->raw_value);
-}*/

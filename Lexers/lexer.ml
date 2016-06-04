@@ -21,18 +21,27 @@ let rec lex = parser
                 lex_ident buffer stream
     | [<' ('='); stream>] ->
        (match (Stream.peek stream) with
-        | (Some '>') ->  Stream.next stream; [<'Token.PUNCT "=>"; lex stream>]
-        | (Some '<') ->  Stream.next stream; [<'Token.PUNCT "=<"; lex stream>]
         | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "=="; lex stream>]
-        | _ -> [<'Token.PUNCT "="; lex stream>]);
+        | _ -> [<'Token.PUNCT "="; lex stream>])
     | [<' ('-'); stream>] ->
         (match (Stream.peek stream) with
         |  Some '>' ->  Stream.next stream; [<'Token.PUNCT "->"; lex stream>]
-        | _ -> [<'Token.PUNCT "-"; lex stream>]);
+        | _ -> [<'Token.PUNCT "-"; lex stream>])
+    | [<' ('!'); stream >] -> 
+       (match (Stream.peek stream) with
+        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "!="; lex stream>]
+        | _ -> [<'Token.PUNCT "!"; lex stream>])
+    | [<' ('<'); stream >] -> 
+       (match (Stream.peek stream) with
+        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "<="; lex stream>]
+        | _ -> [<'Token.PUNCT "<"; lex stream>])
+    | [<' ('>'); stream >] -> 
+       (match (Stream.peek stream) with
+        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT ">="; lex stream>]
+        | _ -> [<'Token.PUNCT ">"; lex stream>])
     | [<' ('+'|'/'|'*'|'%'
             |','|':'|'.'|';'
-            |'|'|'&'|'^'|'~'
-            |'>'|'<' as c); stream>] 
+            |'|'|'&'|'^'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     | [<>] -> [<>]
 and lex_comments = parser

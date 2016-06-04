@@ -1,3 +1,6 @@
+#ifndef AST_WALKER_H
+#define AST_WALKER_H
+
 #include <json/json.h>
 
 #include "llvm/ADT/APFloat.h"
@@ -17,6 +20,8 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "scope_helper.h"
+
 #define TRY_NODE(JSON_NODE, NODE_NAME)                                \
     do {                                                              \
         if( JSON_NODE [ #NODE_NAME ] != Json::nullValue )             \
@@ -28,12 +33,12 @@
 class AstWalker
 {
     private:
-        bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
+        ScopeHelper* scopeHelper;
         llvm::LLVMContext currContext;
         llvm::IRBuilder<> Builder;
         std::unique_ptr<llvm::Module> currModule;
-        //helper functions for primitive class instantiation
         llvm::Value* createValueObject(std::string type_name, llvm::Value* value);
+        bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
         bool load_stdlib(std::string stdlib_filename);
         llvm::Value* generateString(llvm::Module* module, std::string str);
         llvm::BasicBlock* makeBasicBlock(std::string name = "");
@@ -67,3 +72,5 @@ class AstWalker
         Json::Value generateFromJson(std::string json_string);
         void dumpIR();
 };
+
+#endif
