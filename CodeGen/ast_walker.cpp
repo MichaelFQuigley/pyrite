@@ -145,7 +145,7 @@ llvm::Value* AstWalker::codeGen_AtomOp(Json::Value json_node) {
 
         double double_val;
         long int_val;
-        switch(lit_type)
+        switch( lit_type )
         {
             case 'f':
                 double_val = stod(lit_val);
@@ -230,7 +230,52 @@ llvm::Value* AstWalker::createCall(std::string func_name,
     return Builder.CreateCall(func, argsV);
 }
 
-llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){ return nullptr; }
+llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){ 
+    std::vector<llvm::Value*> argsV;
+    llvm::Function *currFunction = Builder.GetInsertBlock()->getParent();
+    llvm::BasicBlock* loopTop    = makeBasicBlock("loopTop");
+    llvm::BasicBlock* loopBody   = llvm::BasicBlock::Create(currContext, "loopBody");
+    llvm::BasicBlock* loopBottom = llvm::BasicBlock::Create(currContext, "loopBottom");
+
+    int args_length = json_node["args"].size();
+    //codegen initial statement
+    if( args_length == 3 )
+        codeGen_initial(json_node["args"][0]); 
+
+    Builder.CreateBr(loopTop);
+    Builder.SetInsertPoint(loopTop);
+
+    if( args_length == 0 )
+    {
+        codeGen_initial(json_node["body"]);
+    }
+
+    if( args_length > 0 )
+    {   
+        int args_index        = (args_length == 1) ? 0 : 1;
+        llvm::Value* test_val = codeGen_initial(json_node["args"][args_index]); 
+
+        assertType("Bool", test_val, "Single arg in loop should be type Bool.");
+
+        argsV.push_back(test_val);
+        llvm::Value* raw_bool = createCall("rawVal_Bool", argsV);
+        Builder.CreateCondBr(raw_bool, loopBody, loopBottom);
+        currFunction->getBasicBlockList().push_back(loopBody);
+        Builder.SetInsertPoint(loopBody);
+        codeGen_initial(json_node["body"]);
+
+        if( args_length == 3 )
+        {
+            codeGen_initial(json_node["args"][2]);
+        }
+    }
+
+    Builder.CreateBr(loopTop);
+    currFunction->getBasicBlockList().push_back(loopBottom);
+    Builder.SetInsertPoint(loopBottom);
+
+    return nullptr;
+}
 
 llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
 {
@@ -247,7 +292,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
 
     llvm::Value* result = nullptr;
     //check to see if there is an else block
-    if(json_node["bodies"].size() == 1)
+    if( json_node["bodies"].size() == 1 )
     {
         endIf = llvm::BasicBlock::Create(currContext, "endif");
         Builder.CreateCondBr(testResult, ifTrue, endIf);
@@ -286,6 +331,11 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     }
 
     return result;
+}
+
+void AstWalker::assertType(std::string type_name, llvm::Value* val, std::string error_msg)
+{
+    GEN_ASSERT(typeStrFromStr(type_name) == getTypeStr(val), error_msg);
 }
 
 llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node){ return nullptr; }
@@ -371,7 +421,7 @@ bool AstWalker::load_stdlib(std::string stdlib_filename)
     }
     //Pull in functions
     llvm::Module::FunctionListType &stdlib_functions = stdlib_mod->getFunctionList();
-    for(auto i = stdlib_functions.begin(); i != stdlib_functions.end(); i++)
+    for( auto i = stdlib_functions.begin(); i != stdlib_functions.end(); i++ )
     {
         llvm::Function &func  = *i;
         std::string func_name = func.getName();
@@ -404,11 +454,11 @@ int main()
     AstWalker* ast = new AstWalker("teeeest", "../CodeGen/stdlib/stdlib.ll");
     std::string json_string;
 
-    if(std::cin) 
+    if( std::cin ) 
     {
         getline(std::cin, json_string);
         ast->codeGen_top(ast->generateFromJson(json_string));
-        ast->dumpIR();
+//        ast->dumpIR();
         ast->writeToFile("../Lexers/test.bc");
     }
 }

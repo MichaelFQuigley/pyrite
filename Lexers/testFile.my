@@ -1,3 +1,11 @@
+let i:Int = 0
+
+loop(i + 1; true; i = i + 1)
+{
+    println("test")
+}
+
+
 let iii:String = "teeeeest " + if(false)
 {
     "if"

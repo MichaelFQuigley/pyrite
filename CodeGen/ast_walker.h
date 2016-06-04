@@ -43,6 +43,7 @@ class AstWalker
                                 std::string error_msg = "Undefined function ");
         std::string getTypeStr(llvm::Value* val);
         std::string typeStrFromStr(std::string type_name);
+        void assertType(std::string type_name, llvm::Value* val, std::string error_msg);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
