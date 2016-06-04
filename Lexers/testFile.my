@@ -1,3 +1,14 @@
-let this_is_a_var:Int = "this is a test"
-this_is_a_var = this_is_a_var + " and another."
+let iii:String = "teeeeest " + if(false)
+{
+    "if"
+}
+else
+{
+    1 / 2
+    "else " + if(false){ "nestedIf" } else{ "nestedElse" }
+}
+
+
+let this_is_a_var:String = "this is a test"
+this_is_a_var = this_is_a_var + " and another." + iii
 println(this_is_a_var)

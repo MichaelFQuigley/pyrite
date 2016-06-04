@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "basic_types.h"
-
 //Int
 Int* init_Int(int64_t raw_value)
 {
@@ -16,13 +15,11 @@ void uninit_Int(Int* int_val)
     free(int_val);
 }
 
-Int* add_Int(Int* lhs, Int* rhs)
-{
-    int64_t lhs_raw = lhs->raw_value;
-    int64_t rhs_raw = rhs->raw_value;
-    
-    return init_Int(lhs_raw + rhs_raw);
-}
+CREATE_NUM_ARITH_FN(Int, int64_t, add, +)
+CREATE_NUM_ARITH_FN(Int, int64_t, sub, -)
+CREATE_NUM_ARITH_FN(Int, int64_t, mul, *)
+CREATE_NUM_ARITH_FN(Int, int64_t, div, /)
+CREATE_NUM_ARITH_FN(Int, int64_t, mod, %)
 
 //Float
 struct Float* init_Float(double raw_value)
@@ -38,13 +35,11 @@ void uninit_Float(struct Float* float_val)
     free(float_val);
 }
 
-struct Float* add_Float(struct Float* lhs, struct Float* rhs)
-{
-    double lhs_raw = lhs->raw_value;
-    double rhs_raw = rhs->raw_value;
-    
-    return init_Float(lhs_raw + rhs_raw);
-}
+CREATE_NUM_ARITH_FN(Float, double, add, +)
+CREATE_NUM_ARITH_FN(Float, double, sub, -)
+CREATE_NUM_ARITH_FN(Float, double, mul, *)
+CREATE_NUM_ARITH_FN(Float, double, div, /)
+
 
 //String
 struct String* init_String(char* raw_value)

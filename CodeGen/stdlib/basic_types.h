@@ -2,6 +2,17 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define CREATE_NUM_ARITH_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
+    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs );
+
+#define CREATE_NUM_ARITH_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)     \
+    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs ) { \
+        RAW_TYPE lhs_raw = lhs->raw_value;                          \
+        RAW_TYPE rhs_raw = rhs->raw_value;                          \
+        return init_ ## STRUCT_TYPE (lhs_raw OP rhs_raw);           \
+    }
+
+
 //Int
 typedef struct Int {
     int64_t raw_value;
@@ -11,7 +22,12 @@ struct Int* init_Int(int64_t raw_value);
 
 void uninit_Int(struct Int* int_val);
 
-struct Int* add_Int(struct Int* lhs, struct Int* rhs);
+CREATE_NUM_ARITH_FN_DECL(Int, int64_t, add, +)
+CREATE_NUM_ARITH_FN_DECL(Int, int64_t, sub, -)
+CREATE_NUM_ARITH_FN_DECL(Int, int64_t, mul, *)
+CREATE_NUM_ARITH_FN_DECL(Int, int64_t, div, /)
+CREATE_NUM_ARITH_FN_DECL(Int, int64_t, mod, %)
+
 
 //Double
 typedef struct Float {
@@ -22,7 +38,11 @@ struct Float* init_Float(double raw_value);
 
 void uninit_Float(struct Float* int_val);
 
-struct Float* add_Float(struct Float* lhs, struct Float* rhs);
+CREATE_NUM_ARITH_FN_DECL(Float, double, add, +)
+CREATE_NUM_ARITH_FN_DECL(Float, double, sub, -)
+CREATE_NUM_ARITH_FN_DECL(Float, double, mul, *)
+CREATE_NUM_ARITH_FN_DECL(Float, double, div, /)
+
 
 //String
 typedef struct String {

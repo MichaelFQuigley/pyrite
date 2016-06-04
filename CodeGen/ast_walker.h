@@ -41,8 +41,8 @@ class AstWalker
                                 std::vector<llvm::Value*> argsV, 
                                 bool raise_fail_exception = true,
                                 std::string error_msg = "Undefined function ");
-
-
+        std::string getTypeStr(llvm::Value* val);
+        std::string typeStrFromStr(std::string type_name);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);

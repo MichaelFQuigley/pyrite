@@ -29,7 +29,7 @@ let rec lex = parser
         (match (Stream.peek stream) with
         |  Some '>' ->  Stream.next stream; [<'Token.PUNCT "->"; lex stream>]
         | _ -> [<'Token.PUNCT "-"; lex stream>]);
-    | [<' ('+'|'\\'|'*'|'%'
+    | [<' ('+'|'/'|'*'|'%'
             |','|':'|'.'|';'
             |'|'|'&'|'^'|'~'
             |'>'|'<' as c); stream>] 

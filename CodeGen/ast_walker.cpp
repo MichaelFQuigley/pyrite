@@ -4,6 +4,17 @@
 
 using namespace std;
 
+
+#define GEN_ASSERT(__cond, __msg)   \
+    if(!(__cond))                   \
+    {                               \
+        cout << (__msg) << endl;    \
+        throw;                      \
+    }
+
+#define _GEN_ASSERT(__cond) \
+    GEN_ASSERT(__cond, "")
+
 static std::map<std::string, llvm::Value *> NamedValues;
 
 AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builder(currContext)
@@ -74,15 +85,8 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
         {
             std::string var_name = lhs_val.asString();
             llvm::Value* var_val = NamedValues[var_name];
-
-            if( var_val != nullptr )
-            {
-                return Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
-            }
-            else
-            {
-                throw;
-            }
+            GEN_ASSERT(var_val != nullptr, "No variable avaiable");
+            return Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
         }
         else
         {
@@ -92,6 +96,9 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
     }
     else if(op == "+")      { op_func_prefix = "add_";}
     else if(op == "-") { op_func_prefix = "sub_";}
+    else if(op == "*") { op_func_prefix = "mul_";}
+    else if(op == "/") { op_func_prefix = "div_";}
+    else if(op == "%") { op_func_prefix = "mod_";}
     else { 
         cout << "Unimplemented operator type" << endl;
         return nullptr;
@@ -104,15 +111,27 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
     argsV.push_back(lhs);
     argsV.push_back(rhs);
     //turn struct type into string...
-    std::string type_str = "";
-    llvm::raw_string_ostream rso(type_str);
-    auto lhs_type = lhs->getType();
-    lhs_type->print(rso);
-    std::string lhs_type_str = rso.str().substr(8, rso.str().length() - 9);
+    std::string type_str = getTypeStr(lhs);
+    std::string lhs_type_str = type_str.substr(8, type_str.length() - 9);
     std::string op_funcname = op_func_prefix + lhs_type_str; 
 
     auto op_func = currModule->getFunction(op_funcname);
     return Builder.CreateCall(op_func, argsV, op_funcname);
+}
+
+std::string AstWalker::getTypeStr(llvm::Value* val)
+{
+    std::string type_str = "";
+    llvm::raw_string_ostream rso(type_str);
+    auto val_type = val->getType();
+    val_type->print(rso);
+
+    return rso.str();
+}
+
+std::string AstWalker::typeStrFromStr(std::string type_name)
+{
+    return "\%struct." + type_name + "*";
 }
 
 llvm::Value* AstWalker::codeGen_AtomOp(Json::Value json_node) { 
@@ -216,6 +235,7 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){ return nullptr; }
 llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
 {
     llvm::Value* test = codeGen_initial(json_node["test"]);
+    llvm::Function *currFunction = Builder.GetInsertBlock()->getParent();
     std::vector<llvm::Value*> argsV;
     argsV.push_back(test);
     llvm::Constant* one     = llvm::ConstantInt::get(currContext, llvm::APInt(1, 1, false));
@@ -226,35 +246,39 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     llvm::BasicBlock* endIf;
 
     llvm::Value* result = nullptr;
-
     //check to see if there is an else block
     if(json_node["bodies"].size() == 1)
     {
-        endIf = makeBasicBlock("endif");
+        endIf = llvm::BasicBlock::Create(currContext, "endif");
         Builder.CreateCondBr(testResult, ifTrue, endIf);
         Builder.SetInsertPoint(ifTrue);
         codeGen_initial(json_node["bodies"][0]);
+        //currFunction->getBasicBlockList().push_back(endIf);
         Builder.CreateBr(endIf);
         Builder.SetInsertPoint(endIf); 
     }
     //else block (size == 2)
     else
     {
-        llvm::BasicBlock* ifFalse = makeBasicBlock("ifFalse");
-        endIf = makeBasicBlock("endif");
+        llvm::BasicBlock* ifFalse = llvm::BasicBlock::Create(currContext, "ifFalse");
+        endIf = llvm::BasicBlock::Create(currContext, "endif");
         Builder.CreateCondBr(testResult, ifTrue, ifFalse);
         //if true codegen
         Builder.SetInsertPoint(ifTrue);
         llvm::Value* ifTrueLastStmt = codeGen_initial(json_node["bodies"][0]);
         //if false codegen
         Builder.CreateBr(endIf);
+        ifTrue = Builder.GetInsertBlock();
+        currFunction->getBasicBlockList().push_back(ifFalse);
         Builder.SetInsertPoint(ifFalse);
         llvm::Value* ifFalseLastStmt = codeGen_initial(json_node["bodies"][1]);
-
         Builder.CreateBr(endIf);
+        ifFalse = Builder.GetInsertBlock();
+        currFunction->getBasicBlockList().push_back(endIf);
         Builder.SetInsertPoint(endIf); 
         //phi node
-        assert(ifTrueLastStmt->getType() == ifFalseLastStmt->getType());
+        GEN_ASSERT(getTypeStr(ifTrueLastStmt) == getTypeStr(ifFalseLastStmt), 
+                "Types at end of if-else must match.");
         llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getType(), 2, "ifPhi");
         phi->addIncoming(ifTrueLastStmt, ifTrue);
         phi->addIncoming(ifFalseLastStmt, ifFalse);
@@ -371,6 +395,7 @@ void AstWalker::writeToFile(std::string filename)
     std::error_code errs;
     //TODO: make raw_fd_ostream decl more portable
     llvm::raw_fd_ostream file(llvm::StringRef(filename), errs, (llvm::sys::fs::OpenFlags)8);
+    GEN_ASSERT(errs.value() == 0, "Error writing file.");
     llvm::WriteBitcodeToFile(currModule.get(), file);
 }
 
