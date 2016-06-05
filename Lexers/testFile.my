@@ -1,26 +1,24 @@
-let i:Int = 0
-
-loop(i <= 1000;)
+func testF(a:Int) -> Void
 {
-    let jjj:Int = 0
-        jjj = 1
-    println("test")
-    i = i + 1
+    let i:Int = a
+    let j:Int = 0
+    println("here " + String(j))
+    return {}
 }
 
 
-let iii:String = "teeeeest " + if(false)
+func main() -> Void
 {
-    let fff:i = 1
-        fff + 1
-    "if"
-}
-else
-{
-    1 / 2
-    "else " + if(false){ "nestedIf" } else{ "nestedElse" }
-}
+    if(false)
+    {
+        0
+    }
+    else
+    {
+        println(String(0) + String(1))
+        0
+    }
 
-let this_is_a_var:String = "this is a test"
-this_is_a_var = this_is_a_var + " and another." + iii
-println(this_is_a_var)
+    testF(3)
+    return {}
+}

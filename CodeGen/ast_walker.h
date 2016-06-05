@@ -46,9 +46,11 @@ class AstWalker
                                 std::vector<llvm::Value*> argsV, 
                                 bool raise_fail_exception = true,
                                 std::string error_msg = "Undefined function ");
-        std::string getTypeStr(llvm::Value* val);
+        std::string getTypeStr(llvm::Value* val, bool with_struct_prefix=true);
         std::string typeStrFromStr(std::string type_name);
         void assertType(std::string type_name, llvm::Value* val, std::string error_msg);
+        llvm::Type* getTypeFromStr(std::string typeName);
+        llvm::Function* makeFuncProto(Json::Value json_node);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
@@ -59,7 +61,6 @@ class AstWalker
          * returns last llvm::Value from the array of simple statements.
          */
         llvm::Value* codeGen_StmtsOp(Json::Value json_node);
-        llvm::Value* codeGen_FuncProto(Json::Value json_node);
         llvm::Value* codeGen_ExprOp(Json::Value json_node);
         llvm::Value* codeGen_VarDef(Json::Value json_node);
         llvm::Value* codeGen_BinOp(Json::Value json_node);
@@ -68,6 +69,7 @@ class AstWalker
         llvm::Value* codeGen_IfOp(Json::Value json_node);
         llvm::Value* codeGen_FuncDef(Json::Value json_node);
         llvm::Value* codeGen_TypedArg(Json::Value json_node);
+        llvm::Value* codeGen_ReturnOp(Json::Value json_node);
 
         Json::Value generateFromJson(std::string json_string);
         void dumpIR();

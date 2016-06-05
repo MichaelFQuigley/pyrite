@@ -15,15 +15,6 @@ AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builde
     {
         return;
     }
-
-    llvm::FunctionType *main_functype = llvm::FunctionType::get(llvm::Type::getVoidTy(currContext), 
-                                                        false);
-    llvm::Function* main_func = llvm::Function::Create(main_functype, 
-                                                        llvm::Function::ExternalLinkage,
-                                                        "main", 
-                                                        currModule.get());
-    llvm::BasicBlock *BB = llvm::BasicBlock::Create(currContext, "mainBlock", main_func);
-    Builder.SetInsertPoint(BB);
 }
 
 bool AstWalker::json_node_has(Json::Value json_node, std::string name, Json::Value* out_node)
@@ -48,7 +39,56 @@ llvm::Value* AstWalker::codeGen_StmtsOp(Json::Value json_node)
     return result;
 }
 
-llvm::Value* AstWalker::codeGen_FuncProto(Json::Value json_node){ return nullptr; }
+llvm::Type* AstWalker::getTypeFromStr(std::string typeName)
+{
+    if( typeName == "Void" )
+    {
+        return llvm::Type::getVoidTy(currContext);
+    }
+
+    llvm::StructType* type = currModule->getTypeByName("struct." + typeName);
+    GEN_ASSERT(type != nullptr, "Unknown type.");
+    return llvm::PointerType::getUnqual(type);
+}
+
+llvm::Function* AstWalker::makeFuncProto(Json::Value json_node)
+{
+    std::vector<llvm::Type*> argsV;
+    Json::Value header_node = json_node["header"]["FuncProto"];
+    Json::Value retTypeNode = header_node["ret_type"];
+     GEN_ASSERT(retTypeNode["simple"], 
+             "Simples are the only types supported at the moment");
+    std::string retTypeName = retTypeNode["simple"].asString();
+    llvm::Type* retType     = getTypeFromStr(retTypeName);
+    for( const Json::Value& val : header_node["args"] )
+    {
+        Json::Value typedArg = val["TypedArg"];
+        Json::Value argType  = typedArg["type"];
+
+        GEN_ASSERT(argType["simple"], 
+                "Simples are the only types supported at the moment");
+
+        std::string argTypeName = argType["simple"].asString();
+        
+        argsV.push_back(getTypeFromStr(argTypeName));
+    }
+
+    std::string funcName          = json_node["name"].asString();
+    llvm::FunctionType* funcProto = llvm::FunctionType::get(retType, argsV, false);    
+    llvm::Function* func          = llvm::Function::Create(funcProto, 
+                                        llvm::Function::ExternalLinkage, 
+                                        funcName,
+                                        currModule.get());
+
+
+    unsigned arg_index = 0;
+    for( auto &argI : func->args() )
+    {
+        argI.setName(header_node["args"][arg_index++]["TypedArg"]["name"].asString());
+    }
+
+    return func; 
+}
 
 llvm::Value* AstWalker::codeGen_ExprOp(Json::Value json_node){ return codeGen_initial(json_node); }
 
@@ -114,14 +154,23 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
     return Builder.CreateCall(op_func, argsV, op_funcname);
 }
 
-std::string AstWalker::getTypeStr(llvm::Value* val)
+std::string AstWalker::getTypeStr(llvm::Value* val, bool with_struct_prefix)
 {
+
     std::string type_str = "";
     llvm::raw_string_ostream rso(type_str);
     auto val_type = val->getType();
     val_type->print(rso);
+    std::string result = rso.str();
 
-    return rso.str();
+    if( with_struct_prefix )
+    {
+        return result;
+    }
+    else
+    {
+        return result.substr(8, result.length() - 9);
+    }
 }
 
 std::string AstWalker::typeStrFromStr(std::string type_name)
@@ -210,13 +259,22 @@ llvm::Value* AstWalker::createCall(std::string func_name,
         bool raise_fail_exception, 
         std::string error_msg)
 {
-    auto func = currModule->getFunction(func_name);
+    std::string full_func_name = func_name;
+    //Upper case function call is by convention a constructor call
+    if( isupper(func_name[0]) )
+    {
+        for(auto &argI : argsV)
+        {
+            full_func_name += "_" + getTypeStr(argI, false);
+        }
+    }
+    auto func = currModule->getFunction(full_func_name);
 
     if( func == nullptr )
     {
         if( raise_fail_exception ) 
         {  
-            cout << error_msg << func_name << endl;
+            cout << error_msg << full_func_name << endl;
             throw;
         }
         return nullptr;
@@ -344,14 +402,45 @@ void AstWalker::assertType(std::string type_name, llvm::Value* val, std::string 
     GEN_ASSERT(typeStrFromStr(type_name) == getTypeStr(val), error_msg);
 }
 
-llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node){ return nullptr; }
+llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
+{ 
+    scopeHelper->pushScope();
+
+    llvm::Function* func = makeFuncProto(json_node);
+    
+    for( auto &argI : func->args() )
+    {
+        scopeHelper->setNamedVal(argI.getName(), &argI, true);
+    }
+
+
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(currContext, "entry", func);
+    Builder.SetInsertPoint(entry);
+    codeGen_initial(json_node["stmts"]);
+
+    scopeHelper->popScope();
+
+    return func; 
+}
 
 llvm::Value* AstWalker::codeGen_TypedArg(Json::Value json_node){ return nullptr; }
+
+llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node){ 
+    llvm::Value* ret_val = codeGen_initial(json_node);
+
+    if( ret_val == nullptr )
+    {
+        return Builder.CreateRetVoid();
+    }
+    else
+    {
+        return Builder.CreateRet(ret_val);
+    }
+}
 
 llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
 {
     TRY_NODE(json_node, StmtsOp);
-    TRY_NODE(json_node, FuncProto);
     TRY_NODE(json_node, ExprOp);
     TRY_NODE(json_node, VarDef);
     TRY_NODE(json_node, BinOp);
@@ -360,9 +449,10 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, IfOp);
     TRY_NODE(json_node, FuncDef);
     TRY_NODE(json_node, TypedArg);
+    TRY_NODE(json_node, ReturnOp);
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
-    std::cout << "Unimplemented node type in code generator" << std::endl;
+    GEN_ASSERT(false, "Unimplemented node type in code generator");
 
     return nullptr;
 }
@@ -370,7 +460,6 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
 void AstWalker::codeGen_top(Json::Value json_node)
 {
     codeGen_initial(json_node);
-    Builder.CreateRetVoid();
 }
 
 Json::Value AstWalker::generateFromJson(std::string json_string)

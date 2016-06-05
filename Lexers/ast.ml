@@ -9,11 +9,12 @@ and expr_stmt =
     | IF of expr_stmt * stmts array
     | LOOP of expr_stmt array * stmts
     | ATOMOP of atom
-    | FUNCDEF of func_proto * stmts
+    | FUNCDEF of string * func_proto * stmts
 and simple_stmt = 
     | EXPROP of expr_stmt
     (*format of VARDEF is variable * expression assigned to variable*)
     | VARDEF of typed_arg * expr_stmt
+    | RETURN of stmts
 and typed_arg = 
     (*format of typedarg is name * type*)
     | TYPEDARG of string * type_definition
@@ -68,6 +69,8 @@ and string_of_simple_stmt ast =
     | VARDEF (t, expr) ->
             make_json_kv "VarDef" (make_json_kvs ["var"; "expr"]
                                                  [string_of_typed_arg t; string_of_expr_stmt expr])
+    | RETURN s -> 
+            make_json_kv "ReturnOp" (string_of_stmts s)
 and string_of_expr_stmt ast = 
     match ast with
     | BINOP (op, expa, expb) -> 
@@ -81,9 +84,9 @@ and string_of_expr_stmt ast =
     | IF (test_expr, stmts_arr) -> 
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
-    | FUNCDEF (proto, stmts) ->
-            make_json_kv "FuncDef" (make_json_kvs ["header"; "stmts"]
-                                                  [string_of_prototype proto; string_of_stmts stmts])
+    | FUNCDEF (name, proto, stmts) ->
+            make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "stmts"]
+                                ["\""^name^"\""; string_of_prototype proto; string_of_stmts stmts])
 and string_of_typed_arg ast = 
     match ast with 
     | TYPEDARG (name, t) -> 

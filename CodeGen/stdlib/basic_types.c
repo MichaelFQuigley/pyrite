@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "basic_types.h"
 //Int
@@ -13,6 +14,16 @@ Int* init_Int(int64_t raw_value)
 void uninit_Int(Int* int_val)
 {
     free(int_val);
+}
+
+String* String_Int(Int* int_val)
+{
+    size_t buffer_size = 32;
+    char* buffer       = (char*) malloc(buffer_size);
+    //TODO error checking for sprintf, maybe
+    snprintf(buffer, buffer_size, "%ld", int_val->raw_value);
+
+    return init_String(buffer);
 }
 
 CREATE_NUM_ARITH_FN(Int, int64_t, add, +)
@@ -58,9 +69,9 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 
 
 //String
- String* init_String(char* raw_value)
+String* init_String(char* raw_value)
 {
-     String* new_String = ( String*) malloc(sizeof(String));
+     String* new_String = ( String*) calloc(1, sizeof(String));
     new_String->raw_value = raw_value;
 
     return new_String;
@@ -68,6 +79,10 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 
 void uninit_String( String* str_val)
 {
+    if( str_val->raw_is_on_heap )
+    {
+        free(str_val->raw_value);
+    }
     free(str_val);
 }
 

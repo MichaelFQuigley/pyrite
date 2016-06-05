@@ -42,10 +42,13 @@ typedef struct Bool {
 
 //String
 typedef struct String {
+    bool raw_is_on_heap;
     char* raw_value;
 } String;
 
 Int* init_Int(int64_t raw_value);
+
+String* String_Int(Int* int_val);
 
 void uninit_Int(Int* int_val);
 

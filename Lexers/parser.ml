@@ -55,9 +55,22 @@ and parse_initial =
                     else 
                         raise (Stream.Error "Loop must have zero, one, or three arguments."))
             end stream
-    | [< 'Token.KWD "func"; proto=parse_func_proto; 
-         'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC ?? "Expected '}' in function definition">] 
-        -> Ast.FUNCDEF (proto,  stmts)
+    | [< 'Token.KWD "func"; stream >] -> 
+            let parse_func_proto_and_body name stream =
+                 (parser
+                            | [<proto=parse_func_proto; 
+                                'Token.LBRAC; 
+                                stmts=parse_stmts; 
+                                'Token.RBRAC ?? "Expected '}' in function definition">] ->
+                                    Ast.FUNCDEF (name, proto,  stmts)) stream
+                in
+            (match Stream.peek stream with
+                | Some (Token.LPAREN) ->
+                        parse_func_proto_and_body "" stream
+                | Some (Token.IDENT name) ->
+                        (Stream.junk stream;
+                        parse_func_proto_and_body name stream)
+                | _ -> raise (Failure "INvalid function definition."))
     end
 and parse_var_def = parser
     | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
@@ -75,7 +88,7 @@ and parse_func_proto =
              end stream in
              (parser 
              [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
-                'Token.PUNCT "->"; ret_type=parse_type_definition>] -> 
+                'Token.PUNCT "->" ?? "Expected return type in function."; ret_type=parse_type_definition>] -> 
                     Ast.FUNC_PROTO (Array.of_list (List.rev args), ret_type))
 and parse_type_definition = parser
     | [< stream >] -> 
@@ -93,6 +106,12 @@ and parse_stmts = parser
 and parse_stmt = parser
     | [< 'Token.KWD "let"; e=parse_var_def; stmts>] -> e::(parse_stmt stmts)
     | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmt stmts)
+    | [< 'Token.KWD "return"; 
+            'Token.LBRAC; 
+            s=parse_stmts; 
+            'Token.RBRAC ?? "Expected '}' for return stmt";
+            stmts>] -> 
+                (Ast.RETURN s)::(parse_stmt stmts)
     | [< >] -> []
 and parse_expr = 
     begin
