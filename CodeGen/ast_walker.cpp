@@ -169,6 +169,8 @@ std::string AstWalker::getTypeStr(llvm::Value* val, bool with_struct_prefix)
     }
     else
     {
+        //TODO Perhaps find a better way to do this besides substr...
+        //This should work assuming all types are pointers to structs
         return result.substr(8, result.length() - 9);
     }
 }
@@ -407,15 +409,17 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
     scopeHelper->pushScope();
 
     llvm::Function* func = makeFuncProto(json_node);
+   
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(currContext, "entry", func);
+    Builder.SetInsertPoint(entry);
     
     for( auto &argI : func->args() )
     {
-        scopeHelper->setNamedVal(argI.getName(), &argI, true);
+        llvm::Value *allc  = Builder.CreateAlloca(argI.getType());
+        Builder.CreateStore(&argI, allc);
+        scopeHelper->setNamedVal(argI.getName(), allc, true);
     }
 
-
-    llvm::BasicBlock* entry = llvm::BasicBlock::Create(currContext, "entry", func);
-    Builder.SetInsertPoint(entry);
     codeGen_initial(json_node["stmts"]);
 
     scopeHelper->popScope();
@@ -525,7 +529,7 @@ bool AstWalker::load_stdlib(std::string stdlib_filename)
                 func_name, 
                 currModule.get());
     }
-    /*Note: struct types are already begin pulled in automoatically when function are since 
+    /*NOTE: struct types are already begin pulled in automatically when function are since 
      * the functions use the structs. They will have to be pulled in if this is ever not the case.*/
     return true;
 }
@@ -538,7 +542,7 @@ void AstWalker::dumpIR()
 void AstWalker::writeToFile(std::string filename)
 {
     std::error_code errs;
-    //TODO: make raw_fd_ostream decl more portable
+    //TODO make raw_fd_ostream decl more portable
     llvm::raw_fd_ostream file(llvm::StringRef(filename), errs, (llvm::sys::fs::OpenFlags)8);
     GEN_ASSERT(errs.value() == 0, "Error writing file.");
     llvm::WriteBitcodeToFile(currModule.get(), file);

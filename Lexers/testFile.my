@@ -1,8 +1,8 @@
 func testF(a:Int) -> Void
 {
-    let i:Int = a
-    let j:Int = 0
-    println("here " + String(j))
+    let j:Int = 0 #a
+    let eee:Int = a
+    println("here " + String(eee))
     return {}
 }
 
