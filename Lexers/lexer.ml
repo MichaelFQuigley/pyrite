@@ -19,35 +19,35 @@ let rec lex = parser
         let buffer = Buffer.create 1 in 
                 Buffer.add_char buffer c;
                 lex_ident buffer stream
-    | [<' ('='); stream>] ->
-       (match (Stream.peek stream) with
-        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "=="; lex stream>]
-        | _ -> [<'Token.PUNCT "="; lex stream>])
+    | [<' ('='); stream>] -> lex_eq_sign '=' stream
     | [<' ('-'); stream>] ->
         (match (Stream.peek stream) with
         |  Some '>' ->  Stream.next stream; [<'Token.PUNCT "->"; lex stream>]
+        |  Some '=' ->  Stream.next stream; [<'Token.PUNCT "-="; lex stream>]
         | _ -> [<'Token.PUNCT "-"; lex stream>])
-    | [<' ('!'); stream >] -> 
-       (match (Stream.peek stream) with
-        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "!="; lex stream>]
-        | _ -> [<'Token.PUNCT "!"; lex stream>])
-    | [<' ('<'); stream >] -> 
-       (match (Stream.peek stream) with
-        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "<="; lex stream>]
-        | _ -> [<'Token.PUNCT "<"; lex stream>])
-    | [<' ('>'); stream >] -> 
-       (match (Stream.peek stream) with
-        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT ">="; lex stream>]
-        | _ -> [<'Token.PUNCT ">"; lex stream>])
-    | [<' ('+'); stream >] -> 
-       (match (Stream.peek stream) with
-        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "+="; lex stream>]
-        | _ -> [<'Token.PUNCT "+"; lex stream>])
-    | [<' ('/'|'*'|'%'
-            |','|':'|'.'|';'
-            |'|'|'&'|'^'|'~' as c); stream>] 
+    | [<' ('!'); stream >] -> lex_eq_sign '!' stream
+    | [<' ('<'); stream >] -> lex_eq_sign '<' stream
+    | [<' ('>'); stream >] -> lex_eq_sign '>' stream
+    | [<' ('+'); stream >] -> lex_eq_sign '+' stream
+    | [<' ('/'); stream >] -> lex_eq_sign '/' stream
+    | [<' ('*'); stream >] -> lex_eq_sign '*' stream
+    | [<' ('%'); stream >] -> lex_eq_sign '%' stream
+    | [<' ('|'); stream >] -> lex_eq_sign '|' stream
+    | [<' ('&'); stream >] -> lex_eq_sign '&' stream
+    | [<' ('^'); stream >] -> lex_eq_sign '^' stream
+    | [<' (','|':'|'.'|';'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     | [<>] -> [<>]
+(*lex_eq_sign checks to see if the first character in the stream is first_punct
+ * and the second is an equal sign. It creates the appropriate PUNCT token
+ * then continues lexing.*)
+and lex_eq_sign first_punct = parser
+    | [< stream >] ->
+        (match (Stream.peek stream) with
+            | (Some '=') -> 
+                    Stream.next stream; 
+                    [<'Token.PUNCT ((Char.escaped first_punct)^(Char.escaped '=')); lex stream>]
+            | _ -> [<'Token.PUNCT (Char.escaped first_punct); lex stream>])
 and lex_comments = parser
     | [<' ('\n'); stream >] -> lex stream
     | [<'c; stream >] -> lex_comments stream

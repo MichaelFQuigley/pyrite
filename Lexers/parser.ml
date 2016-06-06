@@ -140,13 +140,14 @@ and parse_ident id =
     end
 (*parse_bin_rhs parses binary operations*)
 and parse_bin_rhs prec lhs stream =
+    let make_augassign op lhs stream =
+        (Stream.junk stream; Ast.BINOP ("=", lhs, Ast.BINOP (op, lhs, parse_initial stream))) 
+    in
     begin
     Util.debug_print "in parse_bin_rhs";
     match Stream.peek stream with
     (*AugAssign ops bind really loosely, so no precedence is needed to be checked*)
-    | Some (Token.PUNCT "+=") ->
-            (Stream.junk stream;
-            Ast.BINOP ("=", lhs, Ast.BINOP ("+", lhs, parse_initial stream)))
+    | Some (Token.PUNCT "+=") -> make_augassign "+" lhs stream
     | Some (Token.PUNCT p) when Hashtbl.mem op_precedence p ->
         let curr_precedence = precedence p in
         if curr_precedence < prec then lhs else begin
