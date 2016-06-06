@@ -23,7 +23,10 @@ String* String_Int(Int* int_val)
     //TODO error checking for sprintf, maybe
     snprintf(buffer, buffer_size, "%ld", int_val->raw_value);
 
-    return init_String(buffer);
+    String* result         = init_String(buffer);
+    result->raw_is_on_heap = true;
+
+    return result;
 }
 
 CREATE_NUM_ARITH_FN(Int, int64_t, add, +)
@@ -53,6 +56,18 @@ CREATE_NUM_CMP_FN(Int, int64_t, cmpeq, ==)
 void uninit_Float( Float* float_val)
 {
     free(float_val);
+}
+
+String* String_Float(Float* float_val)
+{
+    size_t buffer_size = 32;
+    char* buffer       = (char*) malloc(buffer_size);
+    //TODO error checking for sprintf, maybe
+    snprintf(buffer, buffer_size, "%f", float_val->raw_value);
+    String* result         = init_String(buffer);
+    result->raw_is_on_heap = true;
+
+    return result;
 }
 
 CREATE_NUM_ARITH_FN(Float, double, add, +)
@@ -107,7 +122,19 @@ Bool* init_Bool(bool raw_value)
     return new_Bool;
 }
 
-bool rawVal_Bool( Bool* this)
+String* String_Bool(Bool* bool_val)
+{
+    size_t buffer_size = 5;
+    char* buffer       = (char*) calloc(1, buffer_size);
+    //TODO error checking for sprintf, maybe
+    strcpy(buffer, (bool_val->raw_value) ? "true" : "false");
+    String* result         = init_String(buffer);
+    result->raw_is_on_heap = true;
+
+    return result;
+}
+
+bool rawVal_Bool(Bool* this)
 {
     return this->raw_value;
 }

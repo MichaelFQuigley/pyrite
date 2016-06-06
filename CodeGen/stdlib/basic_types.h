@@ -70,6 +70,8 @@ Float* init_Float(double raw_value);
 
 void uninit_Float(Float* int_val);
 
+String* String_Float(Float* float_val);
+
 CREATE_NUM_ARITH_FN_DECL(Float, double, add, +)
 CREATE_NUM_ARITH_FN_DECL(Float, double, sub, -)
 CREATE_NUM_ARITH_FN_DECL(Float, double, mul, *)
@@ -89,11 +91,11 @@ void uninit_String(String* int_val);
 
 struct String* add_String(String* lhs, struct String* rhs);
 
-struct Bool* init_Bool(bool raw_value);
+Bool* init_Bool(bool raw_value);
 
-void uninit_Bool(struct Bool* int_val);
+void uninit_Bool(Bool* int_val);
 
-struct Bool* add_Bool(Bool* lhs, Bool* rhs);
+String* String_Bool(Bool* bool_val);
 
 bool rawVal_Bool(Bool* this);
 

@@ -47,6 +47,7 @@ class AstWalker
                                 std::string error_msg = "Undefined function ");
         llvm::Type* getTypeFromStr(std::string typeName);
         llvm::Function* makeFuncProto(Json::Value json_node);
+        void startBlock(llvm::BasicBlock* block);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);

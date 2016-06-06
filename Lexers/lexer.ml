@@ -39,7 +39,11 @@ let rec lex = parser
        (match (Stream.peek stream) with
         | (Some '=') ->  Stream.next stream; [<'Token.PUNCT ">="; lex stream>]
         | _ -> [<'Token.PUNCT ">"; lex stream>])
-    | [<' ('+'|'/'|'*'|'%'
+    | [<' ('+'); stream >] -> 
+       (match (Stream.peek stream) with
+        | (Some '=') ->  Stream.next stream; [<'Token.PUNCT "+="; lex stream>]
+        | _ -> [<'Token.PUNCT "+"; lex stream>])
+    | [<' ('/'|'*'|'%'
             |','|':'|'.'|';'
             |'|'|'&'|'^'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
