@@ -1,24 +1,28 @@
-func testF(a:Int) -> Void
+func testF(a:Int) -> Int
 {
     let j:Int = 0 #a
     let eee:Int = a
     println("here " + String(eee))
-    return {}
+    return { if(true) {20000000000000} else {4}}
 }
 
 
 func main() -> Void
 {
-    if(false)
+    let i:Int = 0
+    loop(i; i<10; i = i + 1)
     {
-        0
+        if(i == 5)
+        {
+            println("i = " + String(i))
+        }
     }
-    else
+
+    if(1 < 0)
     {
-        println(String(0) + String(1))
         0
     }
 
-    testF(3)
+    println(String(testF(3)))
     return {}
 }

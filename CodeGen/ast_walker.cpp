@@ -11,7 +11,7 @@ AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builde
     currModule  = llvm::make_unique<llvm::Module>(filename, currContext);
     scopeHelper = new ScopeHelper();
 
-    if( !load_stdlib(stdlib_filename) )
+    if( !CodeGenUtil::load_stdlib(stdlib_filename, currModule.get(), &currContext) )
     {
         return;
     }
@@ -146,38 +146,12 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
     argsV.push_back(lhs);
     argsV.push_back(rhs);
     //turn struct type into string...
-    std::string type_str = getTypeStr(lhs);
+    std::string type_str = CodeGenUtil::getTypeStr(lhs);
     std::string lhs_type_str = type_str.substr(8, type_str.length() - 9);
     std::string op_funcname = op_func_prefix + lhs_type_str; 
 
     auto op_func = currModule->getFunction(op_funcname);
     return Builder.CreateCall(op_func, argsV, op_funcname);
-}
-
-std::string AstWalker::getTypeStr(llvm::Value* val, bool with_struct_prefix)
-{
-
-    std::string type_str = "";
-    llvm::raw_string_ostream rso(type_str);
-    auto val_type = val->getType();
-    val_type->print(rso);
-    std::string result = rso.str();
-
-    if( with_struct_prefix )
-    {
-        return result;
-    }
-    else
-    {
-        //TODO Perhaps find a better way to do this besides substr...
-        //This should work assuming all types are pointers to structs
-        return result.substr(8, result.length() - 9);
-    }
-}
-
-std::string AstWalker::typeStrFromStr(std::string type_name)
-{
-    return "\%struct." + type_name + "*";
 }
 
 llvm::Value* AstWalker::codeGen_AtomOp(Json::Value json_node) { 
@@ -207,7 +181,7 @@ llvm::Value* AstWalker::codeGen_AtomOp(Json::Value json_node) {
                 break;
             case 's':
                  return createValueObject("String", 
-                                    generateString(currModule.get(), lit_val));
+                                    CodeGenUtil::generateString(currModule.get(), lit_val));
             case 'b':
                 int_val = (lit_val == "true") ? 1 : 0;
                 return createValueObject("Bool", 
@@ -267,7 +241,7 @@ llvm::Value* AstWalker::createCall(std::string func_name,
     {
         for(auto &argI : argsV)
         {
-            full_func_name += "_" + getTypeStr(argI, false);
+            full_func_name += "_" + CodeGenUtil::getTypeStr(argI, false);
         }
     }
     auto func = currModule->getFunction(full_func_name);
@@ -313,7 +287,7 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){
         int args_index        = (args_length == 1) ? 0 : 1;
         llvm::Value* test_val = codeGen_initial(json_node["args"][args_index]); 
 
-        assertType("Bool", test_val, "Single arg in loop should be type Bool.");
+        CodeGenUtil::assertType("Bool", test_val, "Single arg in loop should be type Bool.");
 
         argsV.push_back(test_val);
         llvm::Value* raw_bool = createCall("rawVal_Bool", argsV);
@@ -361,6 +335,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         codeGen_initial(json_node["bodies"][0]);
         //currFunction->getBasicBlockList().push_back(endIf);
         Builder.CreateBr(endIf);
+        currFunction->getBasicBlockList().push_back(endIf);
         Builder.SetInsertPoint(endIf); 
         scopeHelper->popScope();
     }
@@ -388,8 +363,9 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         Builder.SetInsertPoint(endIf); 
         scopeHelper->popScope();
         //phi node
-        GEN_ASSERT(getTypeStr(ifTrueLastStmt) == getTypeStr(ifFalseLastStmt), 
-                "Types at end of if-else must match.");
+        CodeGenUtil::assertType(ifTrueLastStmt, 
+                ifFalseLastStmt, 
+                "Types at end of if-else must match");
         llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getType(), 2, "ifPhi");
         phi->addIncoming(ifTrueLastStmt, ifTrue);
         phi->addIncoming(ifFalseLastStmt, ifFalse);
@@ -397,11 +373,6 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     }
 
     return result;
-}
-
-void AstWalker::assertType(std::string type_name, llvm::Value* val, std::string error_msg)
-{
-    GEN_ASSERT(typeStrFromStr(type_name) == getTypeStr(val), error_msg);
 }
 
 llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
@@ -461,8 +432,9 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     return nullptr;
 }
 
-void AstWalker::codeGen_top(Json::Value json_node)
+void AstWalker::codeGen_top(std::string json_string)
 {
+    Json::Value json_node = generateFromJson(json_string);
     codeGen_initial(json_node);
 }
 
@@ -483,69 +455,14 @@ llvm::Value* AstWalker::createValueObject(std::string type_name, llvm::Value* va
     return createCall(init_func_name, argsV);
 }
 
-llvm::Value* AstWalker::generateString(llvm::Module* module, std::string str)
+llvm::Module* AstWalker::getModule()
 {
-    llvm::ArrayType* ArrayTy = llvm::ArrayType::get(llvm::IntegerType::get(module->getContext(), 8), 
-                                                     str.length() + 1);
-    llvm::GlobalVariable* str_gvar = new llvm::GlobalVariable(
-            *module,
-            ArrayTy,
-            true,
-            llvm::GlobalValue::PrivateLinkage,
-            nullptr,
-            ".str");
-
-    llvm::Constant* str_arr  = llvm::ConstantDataArray::getString(module->getContext(), str);
-    llvm::ConstantInt* const_int64 = llvm::ConstantInt::get(module->getContext(), 
-                                                      llvm::APInt(64, 0, true));
-    std::vector<llvm::Constant*> indices;
-    indices.push_back(const_int64);
-    indices.push_back(const_int64);
-    llvm::Constant* result = llvm::ConstantExpr::getGetElementPtr(str_gvar, indices);
-    str_gvar->setInitializer(str_arr);
-    return result;
+    return currModule.get();
 }
 
-bool AstWalker::load_stdlib(std::string stdlib_filename)
+llvm::LLVMContext* AstWalker::getContext()
 {
-    llvm::LLVMContext &stdlib_context = currContext;
-    llvm::SMDiagnostic Err;
-    std::unique_ptr<llvm::Module> stdlib_mod = llvm::parseIRFile(stdlib_filename, 
-                                                                    Err, 
-                                                                    stdlib_context);
-    if( stdlib_mod == nullptr )
-    {
-        cout << "Error loading stdlib" << endl;
-        return false;
-    }
-    //Pull in functions
-    llvm::Module::FunctionListType &stdlib_functions = stdlib_mod->getFunctionList();
-    for( auto i = stdlib_functions.begin(); i != stdlib_functions.end(); i++ )
-    {
-        llvm::Function &func  = *i;
-        std::string func_name = func.getName();
-        llvm::Function::Create(func.getFunctionType(), 
-                llvm::Function::ExternalLinkage, 
-                func_name, 
-                currModule.get());
-    }
-    /*NOTE: struct types are already begin pulled in automatically when function are since 
-     * the functions use the structs. They will have to be pulled in if this is ever not the case.*/
-    return true;
-}
-
-void AstWalker::dumpIR()
-{
-    currModule->dump();
-}
-
-void AstWalker::writeToFile(std::string filename)
-{
-    std::error_code errs;
-    //TODO make raw_fd_ostream decl more portable
-    llvm::raw_fd_ostream file(llvm::StringRef(filename), errs, (llvm::sys::fs::OpenFlags)8);
-    GEN_ASSERT(errs.value() == 0, "Error writing file.");
-    llvm::WriteBitcodeToFile(currModule.get(), file);
+    return &currContext;
 }
 
 int main()
@@ -556,8 +473,8 @@ int main()
     if( std::cin ) 
     {
         getline(std::cin, json_string);
-        ast->codeGen_top(ast->generateFromJson(json_string));
-        ast->dumpIR();
-        ast->writeToFile("../Lexers/test.bc");
+        ast->codeGen_top(json_string);
+        //CodeGenUtil::dumpIR(ast->getModule());
+        CodeGenUtil::writeToFile("../Lexers/test.bc", ast->getModule());
     }
 }
