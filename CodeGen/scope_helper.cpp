@@ -2,7 +2,7 @@
 #include "codegen_util.h"
 
 //ScopeNode
-ScopeNode::ScopeNode(bool isFunctionScope,
+ScopeNode::ScopeNode(ScopeNode::ScopeType scopeType,
         ScopeNode* parent, 
         std::map<std::string, llvm::Value *>* namedVals)
 {
@@ -17,7 +17,7 @@ ScopeNode::ScopeNode(bool isFunctionScope,
         this->namedVals = namedVals;
     }
 
-    this->isFunctionScope = isFunctionScope;
+    this->scopeType = scopeType;
 }
 
 ScopeNode::~ScopeNode()
@@ -34,11 +34,14 @@ void ScopeNode::setNamedVal(std::string name, llvm::Value* value) { (*namedVals)
 
 llvm::Value* ScopeNode::getNamedVal(std::string name) { return (*namedVals)[name]; }
 
+void ScopeNode::setBlock(llvm::BasicBlock* block) { this->block = block; }
+
+ScopeNode::ScopeType ScopeNode::getScopeType() { return scopeType; }
 
 //ScopeHelper
 ScopeHelper::ScopeHelper()
 {
-    parentScope = new ScopeNode();
+    parentScope = new ScopeNode(ScopeNode::ScopeType::TOP_SCOPE);
     currScope   = parentScope;
 }
 
@@ -47,9 +50,9 @@ ScopeHelper::~ScopeHelper()
 
 }
 
-void ScopeHelper::pushScope(bool isFunctionScope)
+void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType)
 {
-    ScopeNode* scopeNode = new ScopeNode(isFunctionScope);
+    ScopeNode* scopeNode = new ScopeNode(scopeType);
     scopeNode->setParent(currScope);
     currScope            = scopeNode;
 }
@@ -112,3 +115,21 @@ llvm::Value* ScopeHelper::getNamedVal(std::string name, bool walkScopes)
         return currScope->getNamedVal(name);
     }
 }
+
+void ScopeHelper::setBlockOnCurrScope(llvm::BasicBlock* block)
+{
+    currScope->setBlock(block);
+}
+
+ScopeNode* ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType)
+{
+    ScopeNode* tempScope = currScope;
+
+    while( tempScope != nullptr && tempScope->getScopeType() != scopeType )
+    {
+        continue;
+    }
+
+    return nullptr;
+}
+

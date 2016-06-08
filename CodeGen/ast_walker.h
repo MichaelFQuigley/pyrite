@@ -37,17 +37,31 @@ class AstWalker
         llvm::LLVMContext currContext;
         llvm::IRBuilder<> Builder;
         std::unique_ptr<llvm::Module> currModule;
-        llvm::Value* createValueObject(std::string type_name, llvm::Value* value);
+        llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
+        llvm::Value* createConstObject(std::string type_name, llvm::Value* value);
         bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
         bool load_stdlib(std::string stdlib_filename);
         llvm::BasicBlock* makeBasicBlock(std::string name = "");
+        //createCall will create a function call with the convention that
+        //the function returns void, and the last parameter is the out parameter
+        //where a return value would be stored. This function will allocate space
+        //for the out parameter and return a pointer to this space. Note that the 
+        //argsV parameter should only include the input params to the function
+        //being called. If no return value is needed, then this function returns nullptr.
         llvm::Value* createCall(std::string func_name, 
                                 std::vector<llvm::Value*> argsV, 
-                                bool raise_fail_exception = true,
-                                std::string error_msg = "Undefined function ");
-        llvm::Type* getTypeFromStr(std::string typeName);
+                                bool allocate_return_space,
+                                bool restore_insert_point=true);
+        llvm::StructType* getTypeFromStr(std::string typeName);
+        llvm::Type* getPtrTypeFromStr(std::string typeName);
         llvm::Function* makeFuncProto(Json::Value json_node);
         void startBlock(llvm::BasicBlock* block);
+        //tryGetFunction tries to get the function based on func_name from the current module
+        llvm::Function* tryGetFunction(std::string func_name,
+            bool raise_fail_exception = true, 
+            std::string error_msg="Undefined function");
+        std::string createConstructorName(std::string func_name, std::vector<llvm::Value*> argsV);
+
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);

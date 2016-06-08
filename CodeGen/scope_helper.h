@@ -7,7 +7,13 @@
 class ScopeNode
 {
     public:
-        ScopeNode(bool isFunctionScope=false,
+        enum class ScopeType
+        {
+            TOP_SCOPE,
+            FUNC_SCOPE,
+            SIMPLE_SCOPE,
+        };
+        ScopeNode(ScopeType scopeType,
                 ScopeNode* parent = nullptr, 
                 std::map<std::string, llvm::Value *>* namedVals = nullptr);
         ~ScopeNode();
@@ -15,10 +21,13 @@ class ScopeNode
         void setParent(ScopeNode* parent);
         void setNamedVal(std::string name, llvm::Value* value);
         llvm::Value* getNamedVal(std::string name);
+        void setBlock(llvm::BasicBlock* block);
+        ScopeType getScopeType();
     private:
         std::map<std::string, llvm::Value *>* namedVals;
         ScopeNode* parent;
-        bool isFunctionScope;
+        llvm::BasicBlock* block;
+        ScopeType scopeType;
 };
 
 class ScopeHelper
@@ -26,10 +35,13 @@ class ScopeHelper
     public:
        ScopeHelper(); 
        ~ScopeHelper(); 
-       void pushScope(bool isFunctionScope = false);
+       void pushScope(ScopeNode::ScopeType scopeType);
        void popScope();
        void setNamedVal(std::string name, llvm::Value* value, bool isDecl);
        llvm::Value* getNamedVal(std::string name, bool walkScopes);
+       void setBlockOnCurrScope(llvm::BasicBlock* block);
+       //getNearestScopeOfType returns nullptr if no scope of appropriate type is found
+       ScopeNode* getNearestScopeOfType(ScopeNode::ScopeType scopeType);
     private:
         ScopeNode* parentScope;
         ScopeNode* currScope;

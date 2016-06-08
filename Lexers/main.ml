@@ -4,6 +4,9 @@ let main =
     Hashtbl.add Parser.op_precedence "*" 30;
     Hashtbl.add Parser.op_precedence "/" 30;
     Hashtbl.add Parser.op_precedence "%" 30;
+    Hashtbl.add Parser.op_precedence "|" 7;
+    Hashtbl.add Parser.op_precedence "&" 8;
+    Hashtbl.add Parser.op_precedence "^" 9;
     Hashtbl.add Parser.op_precedence ">" 10;
     Hashtbl.add Parser.op_precedence "<" 10;
     Hashtbl.add Parser.op_precedence "<=" 10;

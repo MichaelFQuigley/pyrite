@@ -1,17 +1,29 @@
-func testF(a:Int) -> Int
-{
-    let jjj:Int = 0 
-    loop(jjj; jjj < 10; jjj += 1)
-    {
-        println(String(jjj))
-    }
-    return {jjj}
-}
-
-
 func main() -> Void
 {
+    if(1 < 2)
+    {
+        3
+    }
+    "te"
+    1
+    2
+    3
+    4
+    if(1 < 2)
+    {
+        println("Here")
+    }
     let i:Int = 0
-        testF(0)
+    let j:Int = i | 9
+    loop(i;i < 10_000_000_000; i += 1)
+    {
+        j ^= 0
+        let j:Int = 0xFFF ^ i
+        if(i % 2000_000 == 0)
+        {
+            println(String(i))
+        }
+    }
+
     return {}
 }
