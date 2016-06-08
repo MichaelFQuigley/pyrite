@@ -435,15 +435,13 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
 { 
     scopeHelper->pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
 
-    llvm::Function* func = makeFuncProto(json_node);
-   
+    llvm::Function* func       = makeFuncProto(json_node);
     llvm::BasicBlock* entry    = llvm::BasicBlock::Create(currContext, "varDecls", func);
     llvm::BasicBlock* funcBody = llvm::BasicBlock::Create(currContext, "funcBody");
 
     scopeHelper->setBlockOnCurrScope(entry);
     Builder.SetInsertPoint(entry);
-    startBlock(funcBody);
-    
+
     for( auto &argI : func->args() )
     {
         llvm::Value *allc  = Builder.CreateAlloca(argI.getType());
@@ -451,6 +449,8 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
         scopeHelper->setNamedVal(argI.getName(), allc, true);
     }
 
+    startBlock(funcBody);
+    
     codeGen_initial(json_node["stmts"]);
 
     Builder.SetInsertPoint(entry);

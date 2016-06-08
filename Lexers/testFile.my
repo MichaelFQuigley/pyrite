@@ -1,5 +1,6 @@
-func main() -> Void
+func testfn(a:Int) -> Void
 {
+    let uuu:Int = a
     if(1 < 2)
     {
         3
@@ -21,9 +22,18 @@ func main() -> Void
         let j:Int = 0xFFF ^ i
         if(i % 2000_000 == 0)
         {
-            println(String(i))
+            println(String(i + a))
         }
     }
 
+   
+
+    return {}
+}
+
+
+func main() -> Void
+{
+    testfn(5)
     return {}
 }
