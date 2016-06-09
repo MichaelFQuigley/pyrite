@@ -41,7 +41,7 @@ class CodeGenUtil
         static void assertType(llvm::Value* valA, 
                 llvm::Value* valB, 
                 std::string error_msg="Types are not matching.");
-
+        static uint64_t getPointedToStructSize(llvm::Module * module, llvm::Value* val);
 };
 
 #endif

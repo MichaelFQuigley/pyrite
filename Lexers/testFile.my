@@ -1,39 +1,17 @@
-func testfn(a:Int) -> Void
+func testfn(a:Int, b:Int) -> Int
 {
-    let uuu:Int = a
-    if(1 < 2)
-    {
-        3
-    }
-    "te"
-    1
-    2
-    3
-    4
-    if(1 < 2)
-    {
-        println("Here")
-    }
-    let i:Int = 0
-    let j:Int = i | 9
-    loop(i;i < 10_000_000_000; i += 1)
-    {
-        j ^= 0
-        let j:Int = 0xFFF ^ i
-        if(i % 2000_000 == 0)
-        {
-            println(String(i + a))
-        }
-    }
+   println(String(a)) 
 
-   
-
-    return {}
+    if(true)
+    {
+        println("here")
+    }
+    return {1}
 }
 
 
 func main() -> Void
 {
-    testfn(5)
+   println(String(testfn(5, 4)))
     return {}
 }

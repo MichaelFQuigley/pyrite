@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "scope_helper.h"
 #include "codegen_util.h"
 
@@ -38,6 +40,18 @@ void ScopeNode::setBlock(llvm::BasicBlock* block) { this->block = block; }
 
 ScopeNode::ScopeType ScopeNode::getScopeType() { return scopeType; }
 
+bool ScopeNode::isVoidReturn() { 
+    assert(this->scopeType == ScopeNode::ScopeType::FUNC_SCOPE);
+
+    return funcScopeRetVoid; 
+}
+
+void ScopeNode::setFuncScopeRetVoid(bool isVoid) {
+    assert(this->scopeType == ScopeNode::ScopeType::FUNC_SCOPE);
+
+    funcScopeRetVoid = isVoid; 
+}
+
 //ScopeHelper
 ScopeHelper::ScopeHelper()
 {
@@ -50,10 +64,11 @@ ScopeHelper::~ScopeHelper()
 
 }
 
-void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType)
+void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid)
 {
     ScopeNode* scopeNode = new ScopeNode(scopeType);
     scopeNode->setParent(currScope);
+    scopeNode->setFuncScopeRetVoid(funcScopeRetVoid);
     currScope            = scopeNode;
 }
 
@@ -127,9 +142,21 @@ ScopeNode* ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType)
 
     while( tempScope != nullptr && tempScope->getScopeType() != scopeType )
     {
-        continue;
+        tempScope = tempScope->getParent();
     }
 
-    return nullptr;
+    return tempScope;
 }
 
+bool ScopeHelper::parentFuncReturnsVoid()
+{
+    ScopeNode* scopeNode = getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
+    return scopeNode->isVoidReturn();
+}
+
+void ScopeHelper::setParentFuncReturnsVoid(bool isVoid)
+{
+    ScopeNode* scopeNode = getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
+    std::cout << scopeNode << std::endl;
+    scopeNode->setFuncScopeRetVoid(isVoid);
+}

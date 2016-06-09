@@ -59,15 +59,21 @@ llvm::Type* AstWalker::getPtrTypeFromStr(std::string typeName)
     return llvm::PointerType::getUnqual(type);
 }
 
-llvm::Function* AstWalker::makeFuncProto(Json::Value json_node)
+llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string result_param_name)
 {
     std::vector<llvm::Type*> argsV;
     Json::Value header_node = json_node["header"]["FuncProto"];
     Json::Value retTypeNode = header_node["ret_type"];
+
      GEN_ASSERT(retTypeNode["simple"], 
              "Simples are the only types supported at the moment");
+
     std::string retTypeName = retTypeNode["simple"].asString();
     llvm::Type* retType     = getPtrTypeFromStr(retTypeName);
+
+    scopeHelper->setParentFuncReturnsVoid(retType->isVoidTy());
+        cout << "here" << endl;
+
     for( const Json::Value& val : header_node["args"] )
     {
         Json::Value typedArg = val["TypedArg"];
@@ -80,19 +86,43 @@ llvm::Function* AstWalker::makeFuncProto(Json::Value json_node)
         
         argsV.push_back(getPtrTypeFromStr(argTypeName));
     }
+   
+    if( !(retType->isVoidTy()) )
+    {
+        argsV.push_back(retType);
+    }
 
     std::string funcName          = json_node["name"].asString();
-    llvm::FunctionType* funcProto = llvm::FunctionType::get(retType, argsV, false);    
+    llvm::FunctionType* funcProto = llvm::FunctionType::get(llvm::Type::getVoidTy(currContext), 
+                                                                argsV, 
+                                                                false);    
     llvm::Function* func          = llvm::Function::Create(funcProto, 
-                                        llvm::Function::ExternalLinkage, 
-                                        funcName,
-                                        currModule.get());
-
-
-    unsigned arg_index = 0;
-    for( auto &argI : func->args() )
+                                                            llvm::Function::ExternalLinkage, 
+                                                            funcName,
+                                                            currModule.get());
     {
-        argI.setName(header_node["args"][arg_index++]["TypedArg"]["name"].asString());
+        int arg_index = 0;
+        //orig_arg_length is the length of the arguments excluding a return param
+        int orig_arg_length =   retType->isVoidTy()
+                                    ? ((int) func->arg_size())
+                                    : ((int) func->arg_size()) - 1;
+                                
+        //iterate to the n-1 th argument to set the appropriate names since the last argument
+        //is a pointer to the return value.
+        for(auto argI = func->arg_begin(); 
+                arg_index < ((int)func->arg_size()); 
+                argI++, arg_index++)
+        {
+            if( arg_index < orig_arg_length )
+            {
+                argI->setName(header_node["args"][arg_index]["TypedArg"]["name"].asString());
+            }
+            //last arg is return value
+            else
+            {
+                argI->setName(result_param_name);
+            }
+        }
     }
 
     return func; 
@@ -376,7 +406,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     llvm::Value* test = codeGen_initial(json_node["test"]);
     std::vector<llvm::Value*> argsV;
     argsV.push_back(test);
-    llvm::Constant* one     = llvm::ConstantInt::get(currContext, llvm::APInt(1, 1, false));
+    llvm::Constant* one     = Builder.getInt1(true);
     llvm::Value* raw_bool   = createCall("rawVal_Bool", argsV, false);
     llvm::Value* testResult = Builder.CreateICmpEQ(raw_bool, one);
     
@@ -435,20 +465,28 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
 { 
     scopeHelper->pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
 
-    llvm::Function* func       = makeFuncProto(json_node);
-    llvm::BasicBlock* entry    = llvm::BasicBlock::Create(currContext, "varDecls", func);
-    llvm::BasicBlock* funcBody = llvm::BasicBlock::Create(currContext, "funcBody");
+    std::string result_param_name = "result";
+    llvm::Function* func          = makeFuncProto(json_node, result_param_name);
+    llvm::BasicBlock* entry       = llvm::BasicBlock::Create(currContext, "varDecls", func);
+    llvm::BasicBlock* funcBody    = llvm::BasicBlock::Create(currContext, "funcBody");
 
     scopeHelper->setBlockOnCurrScope(entry);
     Builder.SetInsertPoint(entry);
 
-    for( auto &argI : func->args() )
+    //iterate to the n-1 th argument to get the appropriate names since the last argument
+    //is a pointer to the return value.
     {
-        llvm::Value *allc  = Builder.CreateAlloca(argI.getType());
-        Builder.CreateStore(&argI, allc);
-        scopeHelper->setNamedVal(argI.getName(), allc, true);
-    }
+        int arg_index = 0;
+        for(auto argI = func->arg_begin(); arg_index < ((int)func->arg_size()); argI++, arg_index++)
+        {
+            llvm::Value *allc  = Builder.CreateAlloca(argI->getType());
+            Builder.CreateStore(argI, allc);
+            std::string temp = argI->getName();
+            cout << temp << endl;
+            scopeHelper->setNamedVal(argI->getName(), allc, true);
+        }
 
+    }
     startBlock(funcBody);
     
     codeGen_initial(json_node["stmts"]);
@@ -464,21 +502,39 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
 llvm::Value* AstWalker::codeGen_TypedArg(Json::Value json_node){ return nullptr; }
 
 llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node){ 
-    llvm::Value* ret_val;
 
     scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
-    ret_val = codeGen_initial(json_node);
 
-    if( ret_val == nullptr )
+    llvm::Value* ret_val = codeGen_initial(json_node);
+    llvm::Value* ret_arg = nullptr;
+    llvm::Function* func = Builder.GetInsertBlock()->getParent();
+    //check for return param
+        cout << "here" << endl;
+    if( !scopeHelper->parentFuncReturnsVoid() )
     {
-        return Builder.CreateRetVoid();
-    }
-    else
-    {
-        return Builder.CreateRet(ret_val);
+        cout << "here" << endl;
+        for( auto &argI : func->args() )
+        {
+            ret_arg = &argI;
+        }
+        std::string ret_param_name = ret_arg->getName();
+        cout << ret_param_name << endl;
+        llvm::Value* dest_mem      = Builder.CreateLoad(scopeHelper
+                                                        ->getNamedVal(ret_param_name, 
+                                                                      true));
+        llvm::Value* src_mem       = ret_val;
+        uint64_t mem_size          = CodeGenUtil::getPointedToStructSize(currModule.get(), 
+                                                                         dest_mem);
+        CodeGenUtil::assertType(src_mem, 
+                               dest_mem, 
+                             "Invalid return type for function.");
+        llvm::ArrayRef<llvm::Value*> gep_args(Builder.getInt64(1));
+        Builder.CreateMemCpy(dest_mem, src_mem, mem_size, 0);
     }
 
     scopeHelper->popScope();
+
+    return Builder.CreateRetVoid();
 }
 
 llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
@@ -547,15 +603,9 @@ llvm::Value* AstWalker::createConstObject(std::string type_name, llvm::Value* ra
     return result;
 }
 
-llvm::Module* AstWalker::getModule()
-{
-    return currModule.get();
-}
+llvm::Module* AstWalker::getModule() { return currModule.get(); }
 
-llvm::LLVMContext* AstWalker::getContext()
-{
-    return &currContext;
-}
+llvm::LLVMContext* AstWalker::getContext() { return &currContext; }
 
 int main()
 {

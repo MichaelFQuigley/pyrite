@@ -101,5 +101,13 @@ void CodeGenUtil::assertType(std::string type_name, llvm::Value* val, std::strin
 
 void CodeGenUtil::assertType(llvm::Value* valA, llvm::Value* valB, std::string error_msg)
 {
-    GEN_ASSERT(CodeGenUtil::getTypeStr(valA) == CodeGenUtil::getTypeStr(valB), error_msg);
+    GEN_ASSERT(CodeGenUtil::getTypeStr(valA, true) == CodeGenUtil::getTypeStr(valB, true), error_msg);
+}
+
+uint64_t CodeGenUtil::getPointedToStructSize(llvm::Module * module, llvm::Value* val)
+{
+        llvm::DataLayout* dl       = new llvm::DataLayout(module);
+        llvm::PointerType* ptrType = static_cast<llvm::PointerType*>(val->getType());
+
+        return dl->getTypeAllocSize(ptrType->getElementType());
 }

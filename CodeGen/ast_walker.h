@@ -54,7 +54,7 @@ class AstWalker
                                 bool restore_insert_point=true);
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);
-        llvm::Function* makeFuncProto(Json::Value json_node);
+        llvm::Function* makeFuncProto(Json::Value json_node, std::string result_param_name);
         void startBlock(llvm::BasicBlock* block);
         //tryGetFunction tries to get the function based on func_name from the current module
         llvm::Function* tryGetFunction(std::string func_name,
