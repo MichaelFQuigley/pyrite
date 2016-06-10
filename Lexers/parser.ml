@@ -11,7 +11,7 @@ and parse_initial =
     parser
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
-    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'.">] -> e
+    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')' to end parenthesized expression.">] -> e
     (*if stmt*)
     | [< 'Token.KWD "if"; 
       'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
@@ -30,12 +30,6 @@ and parse_initial =
                     end stream
                 end
             | _ -> Ast.IF (test, Array.of_list [t]))
-    (*loop statement*)
-    | [< 'Token.KWD "loop"; stream>] -> 
-        (parser
-         | [< 'Token.LPAREN; loop_var=parse_atom; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
-              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC>] ->
-                   Ast.LOOP (loop_var, itt, stmts)) stream
     | [< 'Token.KWD "func"; stream >] -> 
             let parse_func_proto_and_body name stream =
                  (parser
@@ -59,7 +53,7 @@ and parse_atom =
             | Some (Token.PUNCT "..") -> (Stream.junk stream; Ast.RANGE (lhs, parse_atom stream))
             | _ -> lhs) in 
     parser
-        | [< 'Token.LIT n; stream >] -> (check_for_dots (Ast.LIT n) stream)
+    | [< 'Token.LIT n; stream >] -> (check_for_dots (Ast.LIT n) stream)
     | [< 'Token.IDENT id; stream>] -> (check_for_dots (parse_ident id stream) stream)
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream>] -> 
             (check_for_dots (Ast.PAREN_EXPR e) stream)
@@ -103,6 +97,17 @@ and parse_stmt = parser
             'Token.RBRAC ?? "Expected '}' for return stmt";
             stmts>] -> 
                 (Ast.RETURN s)::(parse_stmt stmts)
+    (*for loop*)
+    | [< 'Token.KWD "for"; stream>] -> 
+        (parser
+         | [< 'Token.LPAREN; loop_var=parse_atom; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
+              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC; stream>] ->
+                   (Ast.FOR (loop_var, itt, stmts))::(parse_stmt stream)) stream
+    | [< 'Token.KWD "while"; stream >] ->
+        (parser
+         | [< 'Token.LPAREN; header=parse_expr;  'Token.RPAREN;
+              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC; stream>] ->
+                   (Ast.WHILE (header, stmts))::(parse_stmt stream)) stream
     | [< >] -> []
 and parse_expr = 
     begin

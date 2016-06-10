@@ -8,8 +8,7 @@ and expr_stmt =
     | BINOP of string * expr_stmt * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
     | IF of expr_stmt * stmts array
-    (*format of loop, index_var * iterator * stmts*)
-    | LOOP of atom * atom * stmts
+    (*format of for loop, index_var * iterator * stmts*)
     | ATOMOP of atom
     | FUNCDEF of string * func_proto * stmts
 and simple_stmt = 
@@ -17,6 +16,8 @@ and simple_stmt =
     (*format of VARDEF is variable * expression assigned to variable*)
     | VARDEF of typed_arg * expr_stmt
     | RETURN of stmts
+    | FOR of atom * atom * stmts
+    | WHILE of expr_stmt * stmts
 and typed_arg = 
     (*format of typedarg is name * type*)
     | TYPEDARG of string * type_definition
@@ -73,6 +74,12 @@ and string_of_simple_stmt ast =
                                                  [string_of_typed_arg t; string_of_expr_stmt expr])
     | RETURN s -> 
             make_json_kv "ReturnOp" (string_of_stmts s)
+    | FOR (loop_var, itt, stmts) -> 
+            make_json_kv "ForOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
+            [(string_of_atom loop_var); (string_of_atom itt); (string_of_stmts stmts)])
+    | WHILE (header, stmts) ->
+            make_json_kv "WhileOp" (make_json_kvs ["header"; "body"]
+            [string_of_expr_stmt header; string_of_stmts stmts])
 and string_of_expr_stmt ast = 
     match ast with
     | BINOP (op, expa, expb) -> 
@@ -80,9 +87,6 @@ and string_of_expr_stmt ast =
                                                 ["\""^op^"\""; (string_of_expr_stmt expa); (string_of_expr_stmt expb)])
     | ATOMOP at -> 
             make_json_kv "AtomOp" (string_of_atom at)
-    | LOOP (loop_var, itt, stmts) -> 
-            make_json_kv "LoopOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
-            [(string_of_atom loop_var); (string_of_atom itt); (string_of_stmts stmts)])
     | IF (test_expr, stmts_arr) -> 
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
@@ -107,6 +111,5 @@ and string_of_atom ast =
             make_json_kv "ParenExpr" (string_of_expr_stmt e)
     | RANGE (a, b) ->
             make_json_kv "RangeOp" (make_json_kvs ["start";"end"]
-                                                  [string_of_atom a; string_of_atom b])
-    | _ -> raise (Failure "Invalid ast.");;
+                                                  [string_of_atom a; string_of_atom b]);;
 

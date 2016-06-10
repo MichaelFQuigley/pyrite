@@ -55,6 +55,7 @@ class AstWalker
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);
         llvm::Function* makeFuncProto(Json::Value json_node, std::string result_param_name);
+        //startBlock adds block to back of function and starts insert point there.
         void startBlock(llvm::BasicBlock* block);
         //tryGetFunction tries to get the function based on func_name from the current module
         llvm::Function* tryGetFunction(std::string func_name,
@@ -62,7 +63,11 @@ class AstWalker
             std::string error_msg="Undefined function");
         std::string createConstructorName(std::string func_name, std::vector<llvm::Value*> argsV);
         llvm::Value* newVarInScope(std::string varName, llvm::Value* value);
-
+        //createBoolCondBr takes a value of type struct.Bool (the struct type in the stdlib),
+        //extracts the raw boolean value, and creates a conditional branch based on that.
+        void createBoolCondBr(llvm::Value* Bool, 
+                llvm::BasicBlock* trueBlock,
+                llvm::BasicBlock* falseBlock);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
@@ -77,7 +82,8 @@ class AstWalker
         llvm::Value* codeGen_VarDef(Json::Value json_node);
         llvm::Value* codeGen_BinOp(Json::Value json_node);
         llvm::Value* codeGen_AtomOp(Json::Value json_node);
-        llvm::Value* codeGen_LoopOp(Json::Value json_node);
+        llvm::Value* codeGen_ForOp(Json::Value json_node);
+        llvm::Value* codeGen_WhileOp(Json::Value json_node);
         llvm::Value* codeGen_IfOp(Json::Value json_node);
         llvm::Value* codeGen_FuncDef(Json::Value json_node);
         llvm::Value* codeGen_TypedArg(Json::Value json_node);

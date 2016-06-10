@@ -368,7 +368,19 @@ llvm::Value* AstWalker::createCall(std::string func_name,
     return ret_val;
 }
 
-llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){ 
+void AstWalker::createBoolCondBr(llvm::Value* Bool, 
+        llvm::BasicBlock* trueBlock,
+        llvm::BasicBlock* falseBlock)
+{
+    std::vector<llvm::Value*> argsV;
+    argsV.push_back(Bool);
+    llvm::Value* raw_bool = createCall("rawVal_Bool", argsV, false);
+    argsV.clear();
+
+    Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
+}
+
+llvm::Value* AstWalker::codeGen_ForOp(Json::Value json_node){ 
     std::vector<llvm::Value*> argsV;
     llvm::BasicBlock* loopTop    = makeBasicBlock("loopTop");
     llvm::BasicBlock* loopBody   = llvm::BasicBlock::Create(currContext, "loopBody");
@@ -396,11 +408,7 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){
     llvm::Value* hasNext          = createCall(itt_hasNextFuncName, argsV, true);
     argsV.clear();
 
-    argsV.push_back(hasNext);
-    llvm::Value* hasNext_raw_bool = createCall("rawVal_Bool", argsV, false);
-    argsV.clear();
-
-    Builder.CreateCondBr(hasNext_raw_bool, loopBody, loopBottom);
+    createBoolCondBr(hasNext, loopBody, loopBottom);
 
     startBlock(loopBody);
     codeGen_initial(json_node["body"]);
@@ -409,6 +417,31 @@ llvm::Value* AstWalker::codeGen_LoopOp(Json::Value json_node){
     argsV.push_back(loop_var);
     createCall(itt_nextFuncName, argsV, false);
     argsV.clear();
+
+    Builder.CreateBr(loopTop);
+    startBlock(loopBottom);
+
+    scopeHelper->popScope();
+
+    return nullptr;
+}
+
+llvm::Value* AstWalker::codeGen_WhileOp(Json::Value json_node)
+{ 
+    llvm::BasicBlock* loopTop    = llvm::BasicBlock::Create(currContext, "whileTop");
+    llvm::BasicBlock* loopBody   = llvm::BasicBlock::Create(currContext, "whileBody");
+    llvm::BasicBlock* loopBottom = llvm::BasicBlock::Create(currContext, "whileBottom");
+
+    scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+    
+    Builder.CreateBr(loopTop);
+    startBlock(loopTop);
+
+    llvm::Value* header = codeGen_initial(json_node["header"]);
+    createBoolCondBr(header, loopBody, loopBottom);
+
+    startBlock(loopBody);
+    codeGen_initial(json_node["body"]);
 
     Builder.CreateBr(loopTop);
     startBlock(loopBottom);
@@ -430,9 +463,6 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     llvm::Value* test = codeGen_initial(json_node["test"]);
     std::vector<llvm::Value*> argsV;
     argsV.push_back(test);
-    llvm::Constant* one     = Builder.getInt1(true);
-    llvm::Value* raw_bool   = createCall("rawVal_Bool", argsV, false);
-    llvm::Value* testResult = Builder.CreateICmpEQ(raw_bool, one);
     
     llvm::BasicBlock* ifTrue = makeBasicBlock("ifTrue");
     llvm::BasicBlock* endIf;
@@ -443,10 +473,9 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     {
         scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
         endIf = llvm::BasicBlock::Create(currContext, "endif");
-        Builder.CreateCondBr(testResult, ifTrue, endIf);
+        createBoolCondBr(test, ifTrue, endIf);
         Builder.SetInsertPoint(ifTrue);
         codeGen_initial(json_node["bodies"][0]);
-        //currFunction->getBasicBlockList().push_back(endIf);
         Builder.CreateBr(endIf);
         startBlock(endIf);
         scopeHelper->popScope();
@@ -456,7 +485,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     {
         llvm::BasicBlock* ifFalse = llvm::BasicBlock::Create(currContext, "ifFalse");
         endIf = llvm::BasicBlock::Create(currContext, "endif");
-        Builder.CreateCondBr(testResult, ifTrue, ifFalse);
+        createBoolCondBr(test, ifTrue, ifFalse);
         //if true codegen
         scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
         Builder.SetInsertPoint(ifTrue);
@@ -524,8 +553,8 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
 
 llvm::Value* AstWalker::codeGen_TypedArg(Json::Value json_node){ return nullptr; }
 
-llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node){ 
-
+llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node)
+{ 
     scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
     llvm::Value* ret_val = codeGen_initial(json_node);
@@ -564,7 +593,8 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, VarDef);
     TRY_NODE(json_node, BinOp);
     TRY_NODE(json_node, AtomOp);
-    TRY_NODE(json_node, LoopOp);
+    TRY_NODE(json_node, ForOp);
+    TRY_NODE(json_node, WhileOp);
     TRY_NODE(json_node, IfOp);
     TRY_NODE(json_node, FuncDef);
     TRY_NODE(json_node, TypedArg);
