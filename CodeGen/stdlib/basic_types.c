@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include "basic_types.h"
 
 //TODO change how the String_* methods allocate memory
@@ -121,3 +122,40 @@ void uninit_Bool( Bool* bool_val)
     free(bool_val);
 }
 
+
+//IntRange
+void init_IntRange(Int* start, Int* step, Int* end, IntRange* result)
+{
+    result->curr_val = start;
+    result->start    = start;
+    result->step     = step;
+    result->end      = end;
+
+    assert( (((start->raw_value < end->raw_value) && (step->raw_value > 0)) 
+          || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
+          || (start->raw_value == end->raw_value)) 
+        && "Cannot get to end of iterator from start with current step value.");
+}
+
+void hasNext_IntRange(IntRange* range, Bool* hasNext)
+{
+    if(range->step->raw_value > 0)
+    {
+        hasNext->raw_value = range->curr_val->raw_value < range->end->raw_value;
+    }
+    else
+    {
+        hasNext->raw_value = range->curr_val->raw_value > range->end->raw_value;
+    }
+}
+
+void next_IntRange(IntRange* range, Int* next)
+{
+    range->curr_val->raw_value += range->step->raw_value;
+    next->raw_value = range->curr_val->raw_value;
+}
+
+void begin_IntRange(IntRange* range, Int* start)
+{
+    start->raw_value = range->start->raw_value;
+}

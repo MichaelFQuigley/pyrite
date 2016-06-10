@@ -14,6 +14,7 @@ let main =
     Hashtbl.add Parser.op_precedence "==" 10;
     Hashtbl.add Parser.op_precedence "!=" 10;
     Hashtbl.add Parser.op_precedence "=" 5;
+    Hashtbl.add Parser.op_precedence "in" 3;
     let in_file = open_in "testFile.my" in
     let token_stream = Lexer.lex (Stream.of_channel in_file) in
     (*print_string (Token.string_of_tok_stream token_stream)*)

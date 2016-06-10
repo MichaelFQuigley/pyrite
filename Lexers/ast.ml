@@ -1,5 +1,6 @@
 type atom = 
     | LIT of string
+    | RANGE of atom * atom
     | FCALL of string * expr_stmt array
     | PAREN_EXPR of expr_stmt
     | VARIABLE of string
@@ -7,7 +8,8 @@ and expr_stmt =
     | BINOP of string * expr_stmt * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
     | IF of expr_stmt * stmts array
-    | LOOP of expr_stmt array * stmts
+    (*format of loop, index_var * iterator * stmts*)
+    | LOOP of atom * atom * stmts
     | ATOMOP of atom
     | FUNCDEF of string * func_proto * stmts
 and simple_stmt = 
@@ -78,9 +80,9 @@ and string_of_expr_stmt ast =
                                                 ["\""^op^"\""; (string_of_expr_stmt expa); (string_of_expr_stmt expb)])
     | ATOMOP at -> 
             make_json_kv "AtomOp" (string_of_atom at)
-    | LOOP (exprs_arr, stmts) -> 
-            make_json_kv "LoopOp" (make_json_kvs ["args"; "body"] 
-                                                 [make_json_arr exprs_arr string_of_expr_stmt; (string_of_stmts stmts)])
+    | LOOP (loop_var, itt, stmts) -> 
+            make_json_kv "LoopOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
+            [(string_of_atom loop_var); (string_of_atom itt); (string_of_stmts stmts)])
     | IF (test_expr, stmts_arr) -> 
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
@@ -101,5 +103,10 @@ and string_of_atom ast =
     | FCALL (name,exprs_arr) -> 
             make_json_kv "FCall" (make_json_kvs ["name"; "args"]
                                                 ["\""^name^"\""; make_json_arr exprs_arr string_of_expr_stmt])
+    | PAREN_EXPR e ->
+            make_json_kv "ParenExpr" (string_of_expr_stmt e)
+    | RANGE (a, b) ->
+            make_json_kv "RangeOp" (make_json_kvs ["start";"end"]
+                                                  [string_of_atom a; string_of_atom b])
     | _ -> raise (Failure "Invalid ast.");;
 

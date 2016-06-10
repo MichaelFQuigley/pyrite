@@ -32,29 +32,10 @@ and parse_initial =
             | _ -> Ast.IF (test, Array.of_list [t]))
     (*loop statement*)
     | [< 'Token.KWD "loop"; stream>] -> 
-            let rec loop_arg_helper end_token stream = 
-                (match Stream.peek stream with
-                    | Some tok when tok = end_token -> 
-                            begin 
-                                Stream.junk stream;
-                                loop_arg_helper end_token stream
-                            end
-                    | _ ->
-                            begin parser
-                                | [< e=parse_expr; stream >] -> 
-                                        e::(loop_arg_helper end_token stream)
-                                | [<>] -> []
-                            end stream)
-            in begin parser
-                [< 'Token.LPAREN; loop_args=loop_arg_helper (Token.PUNCT ";") ; 'Token.RPAREN;
-                   'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC>] ->
-                    (if    (((List.length loop_args) == 0) 
-                        || ((List.length loop_args) == 1)
-                        || ((List.length loop_args) == 3)) then
-                        Ast.LOOP ((Array.of_list loop_args), stmts)
-                    else 
-                        raise (Stream.Error "Loop must have zero, one, or three arguments."))
-            end stream
+        (parser
+         | [< 'Token.LPAREN; loop_var=parse_atom; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
+              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC>] ->
+                   Ast.LOOP (loop_var, itt, stmts)) stream
     | [< 'Token.KWD "func"; stream >] -> 
             let parse_func_proto_and_body name stream =
                  (parser
@@ -70,8 +51,18 @@ and parse_initial =
                 | Some (Token.IDENT name) ->
                         (Stream.junk stream;
                         parse_func_proto_and_body name stream)
-                | _ -> raise (Failure "INvalid function definition."))
+                | _ -> raise (Failure "Invalid function definition."))
     end
+and parse_atom =
+    let check_for_dots lhs stream = 
+        (match Stream.peek stream with
+            | Some (Token.PUNCT "..") -> (Stream.junk stream; Ast.RANGE (lhs, parse_atom stream))
+            | _ -> lhs) in 
+    parser
+        | [< 'Token.LIT n; stream >] -> (check_for_dots (Ast.LIT n) stream)
+    | [< 'Token.IDENT id; stream>] -> (check_for_dots (parse_ident id stream) stream)
+    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream>] -> 
+            (check_for_dots (Ast.PAREN_EXPR e) stream)
 and parse_var_def = parser
     | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
 and parse_typed_arg = parser

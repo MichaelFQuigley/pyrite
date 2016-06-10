@@ -61,6 +61,7 @@ class AstWalker
             bool raise_fail_exception = true, 
             std::string error_msg="Undefined function");
         std::string createConstructorName(std::string func_name, std::vector<llvm::Value*> argsV);
+        llvm::Value* newVarInScope(std::string varName, llvm::Value* value);
 
     public:
         void writeToFile(std::string filename);

@@ -1,17 +1,8 @@
-func testfn(a:Int, b:Int) -> Int
-{
-   println(String(a)) 
-
-    if(true)
-    {
-        println("here")
-    }
-    return {1}
-}
-
-
 func main() -> Void
 {
-   println(String(testfn(5, 4)))
+    loop(i in 0..1000)
+    {
+        println(String(i))
+    }
     return {}
 }

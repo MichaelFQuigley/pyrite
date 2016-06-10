@@ -38,7 +38,6 @@ typedef struct Float {
     double raw_value;
 } Float;
 
-
 //Bool
 typedef struct Bool {
     bool raw_value;
@@ -49,6 +48,14 @@ typedef struct String {
     bool raw_is_on_heap;
     char* raw_value;
 } String;
+
+//IntRange
+typedef struct IntRange {
+    Int* curr_val;
+    Int* start;
+    Int* step;
+    Int* end;
+} IntRange;
 
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
@@ -108,6 +115,10 @@ void String_Bool(Bool* bool_val, String* result);
 bool rawVal_Bool(Bool* this);
 
 
+void init_IntRange(Int* start, Int* step, Int* end, IntRange* result);
 
+void hasNext_IntRange(IntRange* range, Bool* hasNext);
 
+void next_IntRange(IntRange* range, Int* next);
 
+void begin_IntRange(IntRange* range, Int* start);

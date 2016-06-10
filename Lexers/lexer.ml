@@ -35,7 +35,11 @@ let rec lex = parser
     | [<' ('|'); stream >] -> lex_eq_sign '|' stream
     | [<' ('&'); stream >] -> lex_eq_sign '&' stream
     | [<' ('^'); stream >] -> lex_eq_sign '^' stream
-    | [<' (','|':'|'.'|';'|'~' as c); stream>] 
+    | [<' ('.'); stream>] ->
+            (match Stream.peek stream with
+            | Some '.' -> (Stream.junk stream; [<'Token.PUNCT ".."; lex stream>])
+            | _ -> [<'Token.PUNCT "."; lex stream>])
+    | [<' (','|':'|';'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     | [<>] -> [<>]
 (*lex_eq_sign checks to see if the first character in the stream is first_punct
@@ -76,7 +80,13 @@ and lex_hex buffer = parser
 and lex_number buffer = parser
     | [<' ('0' .. '9' as c); stream>] -> Buffer.add_char buffer c; lex_number buffer stream
     | [<' ('_'); stream>] -> lex_number buffer stream
-    | [<' ('.' as c); stream>] -> Buffer.add_char buffer c; lex_float buffer stream
+    | [<' ('.' as c); stream>] -> 
+            (match Stream.peek stream with
+            | Some '.' -> (Stream.junk stream; 
+                            [< 'Token.LIT (int_lit (Buffer.contents buffer)); 
+                               'Token.PUNCT ".."; 
+                               lex stream>])
+            | _ -> Buffer.add_char buffer c; lex_float buffer stream)
     | [<' ('a' .. 'z' | 'A' .. 'Z') ; _>] -> raise (Failure "Could not parse decimal value.")
     | [<stream>] ->
         [<'Token.LIT (int_lit (Buffer.contents buffer)); lex stream>]
