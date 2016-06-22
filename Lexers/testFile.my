@@ -1,42 +1,13 @@
-func chainCount(n:Int) -> Int
-{
-    let curr_val:Int = n
-    let count:Int    = 0
-
-    while( curr_val != 1 )
-    {
-        curr_val = if( curr_val % 2 == 0 ) {curr_val / 2} 
-                   else {curr_val * 3 + 1}
-        count += 1
-    }
-
-    return {count}
-}
-
-func collatz(min:Int, max:Int) -> Void
-{
-    let mNum:Int    = 0
-    let mCount:Int  = 0
-    let temp_count:Int = 0
-    for( curr_num in 1..1001 )
-    {
-        temp_count = chainCount(curr_num)
-        if( temp_count > mCount )
-        {
-            mNum   = curr_num
-            mCount = temp_count
-        }
-    }
-
-    println("Resulting number is " + String(mNum) + ", max count is " + String(mCount))
-
-    return {}
-}
-
 func main() -> Void
 {
-    collatz(1,1000000)
-    println(String(chainCount(837_799)))
+
+    let i:Int = 0
+for( curr_num in 0..10 )
+    {
+        println(String(curr_num))
+        i += 1
+    }
+
 
     return {}
 }

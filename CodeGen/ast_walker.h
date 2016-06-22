@@ -50,7 +50,6 @@ class AstWalker
         //being called. If no return value is needed, then this function returns nullptr.
         llvm::Value* createCall(std::string func_name, 
                                 std::vector<llvm::Value*> argsV, 
-                                bool allocate_return_space,
                                 bool restore_insert_point=true);
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);

@@ -154,11 +154,11 @@ Bool* hasNext_IntRange(IntRange* range)
     Bool* hasNext;
     if(range->step->raw_value > 0)
     {
-        hasNext->raw_value = init_Bool(range->curr_val->raw_value < range->end->raw_value);
+        hasNext = init_Bool(range->curr_val->raw_value < range->end->raw_value);
     }
     else
     {
-        hasNext->raw_value = init_Bool(range->curr_val->raw_value > range->end->raw_value);
+        hasNext = init_Bool(range->curr_val->raw_value > range->end->raw_value);
     }
 
     return hasNext;
@@ -167,11 +167,10 @@ Bool* hasNext_IntRange(IntRange* range)
 Int* next_IntRange(IntRange* range)
 {
     range->curr_val->raw_value += range->step->raw_value;
-
     return init_Int(range->curr_val->raw_value);
 }
 
 Int* begin_IntRange(IntRange* range)
 {
-    return range->start;
+    return init_Int(range->start->raw_value);
 }

@@ -8,7 +8,7 @@ all: | $(C_FILES) clean_ ll
 	rm *.bc
 
 ll:
-	clang -S -emit-llvm -c $(C_FILES) 
+	clang -Wall -S -emit-llvm -c $(C_FILES) 
 
 
 clean_ :
