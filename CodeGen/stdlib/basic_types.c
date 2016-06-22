@@ -14,15 +14,17 @@ void uninit_Int(Int* int_val)
     free(int_val);
 }
 
-void String_Int(Int* int_val, String* result)
+String* String_Int(Int* int_val)
 {
     size_t buffer_size = 32;
     char* buffer       = (char*) malloc(buffer_size);
     //TODO error checking for sprintf, maybe
     snprintf(buffer, buffer_size, "%ld", int_val->raw_value);
 
-    result->raw_value      = buffer;
+    String* result = init_String(buffer);
     result->raw_is_on_heap = true;
+
+    return result;
 }
 
 CREATE_NUM_ARITH_FN(Int, int64_t, add, +)
@@ -51,14 +53,16 @@ void uninit_Float( Float* float_val)
     free(float_val);
 }
 
-void String_Float(Float* float_val, String* result)
+String* String_Float(Float* float_val)
 {
     size_t buffer_size = 32;
     char* buffer       = (char*) malloc(buffer_size);
     //TODO error checking for sprintf, maybe
     snprintf(buffer, buffer_size, "%f", float_val->raw_value);
-    result->raw_value      = buffer;
+    String* result = init_String(buffer);
     result->raw_is_on_heap = true;
+
+    return result;
 }
 
 CREATE_NUM_ARITH_FN(Float, double, add, +)
@@ -86,7 +90,7 @@ void uninit_String( String* str_val)
     free(str_val);
 }
 
-void add_String( String* lhs,  String* rhs, String* result)
+String* add_String( String* lhs,  String* rhs)
 {
     char* lhs_raw = lhs->raw_value;
     char* rhs_raw = rhs->raw_value;
@@ -94,22 +98,27 @@ void add_String( String* lhs,  String* rhs, String* result)
     char * result_buf = malloc(strlen(lhs_raw) + strlen(rhs_raw) + 1);
     strcpy(result_buf, lhs_raw);
     strcat(result_buf, rhs_raw);
-    result->raw_value      = result_buf;
+
+    String* result = init_String(result_buf);
     result->raw_is_on_heap = true;
+
+    return result;
 }
 
 
 //Bool
 CREATE_PRIMITIVE_INIT_FN(Bool, bool)
 
-void String_Bool(Bool* bool_val, String* result)
+String* String_Bool(Bool* bool_val)
 {
     size_t buffer_size = 5;
     char* buffer       = (char*) calloc(1, buffer_size);
     //TODO error checking for sprintf, maybe
     strcpy(buffer, (bool_val->raw_value) ? "true" : "false");
-    result->raw_value = buffer;
+    String* result = init_String(buffer);
     result->raw_is_on_heap = true;
+
+    return result;
 }
 
 bool rawVal_Bool(Bool* this)
@@ -124,8 +133,9 @@ void uninit_Bool( Bool* bool_val)
 
 
 //IntRange
-void init_IntRange(Int* start, Int* step, Int* end, IntRange* result)
+IntRange* init_IntRange(Int* start, Int* step, Int* end)
 {
+    IntRange* result = (IntRange*) gc_malloc(sizeof(IntRange));
     result->curr_val = start;
     result->start    = start;
     result->step     = step;
@@ -135,27 +145,33 @@ void init_IntRange(Int* start, Int* step, Int* end, IntRange* result)
           || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
           || (start->raw_value == end->raw_value)) 
         && "Cannot get to end of iterator from start with current step value.");
+
+    return result;
 }
 
-void hasNext_IntRange(IntRange* range, Bool* hasNext)
+Bool* hasNext_IntRange(IntRange* range)
 {
+    Bool* hasNext;
     if(range->step->raw_value > 0)
     {
-        hasNext->raw_value = range->curr_val->raw_value < range->end->raw_value;
+        hasNext->raw_value = init_Bool(range->curr_val->raw_value < range->end->raw_value);
     }
     else
     {
-        hasNext->raw_value = range->curr_val->raw_value > range->end->raw_value;
+        hasNext->raw_value = init_Bool(range->curr_val->raw_value > range->end->raw_value);
     }
+
+    return hasNext;
 }
 
-void next_IntRange(IntRange* range, Int* next)
+Int* next_IntRange(IntRange* range)
 {
     range->curr_val->raw_value += range->step->raw_value;
-    next->raw_value = range->curr_val->raw_value;
+
+    return init_Int(range->curr_val->raw_value);
 }
 
-void begin_IntRange(IntRange* range, Int* start)
+Int* begin_IntRange(IntRange* range)
 {
-    start->raw_value = range->start->raw_value;
+    return range->start;
 }

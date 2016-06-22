@@ -1,29 +1,34 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+
+#define gc_malloc(a) calloc(1,a)
+
 //Arithmetic function macros
 #define CREATE_NUM_ARITH_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    void (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs, STRUCT_TYPE * result );
+    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs);
 
 #define CREATE_NUM_ARITH_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                           \
-    void (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs, STRUCT_TYPE * result ) { \
-        result->raw_value = lhs->raw_value OP rhs->raw_value; \
+    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs) {  \
+        return init_ ## STRUCT_TYPE (lhs->raw_value OP rhs->raw_value);                   \
     }
 //Compare function macros
 #define CREATE_NUM_CMP_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    void (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs, Bool * result );
+    Bool * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs);
 
 #define CREATE_NUM_CMP_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                                      \
-    void (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs, Bool * result ) {    \
-        result->raw_value = lhs->raw_value OP rhs->raw_value;                                      \
+    Bool * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs) {    \
+        return init_Bool( lhs->raw_value OP rhs->raw_value );                        \
     }
 //Initialization function macros
 #define CREATE_PRIMITIVE_INIT_FN_DECL(STRUCT_TYPE, RAW_TYPE)    \
-    void ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value, STRUCT_TYPE * val);
+    STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value);
 
 #define CREATE_PRIMITIVE_INIT_FN(STRUCT_TYPE, RAW_TYPE)                      \
-    void ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value, STRUCT_TYPE * val) {  \
+    STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {  \
+        STRUCT_TYPE* val = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));    \
         val->raw_value = raw_value;                                          \
+        return val;                                                          \
     }
 
 
@@ -60,7 +65,7 @@ typedef struct IntRange {
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
 
-void String_Int(Int* int_val, String* result);
+String* String_Int(Int* int_val);
 
 void uninit_Int(Int* int_val);
 
@@ -85,7 +90,7 @@ CREATE_PRIMITIVE_INIT_FN_DECL(Float, double)
 
 void uninit_Float(Float* int_val);
 
-void String_Float(Float* float_val, String* result);
+String* String_Float(Float* float_val);
 
 CREATE_NUM_ARITH_FN_DECL(Float, double, add, +)
 CREATE_NUM_ARITH_FN_DECL(Float, double, sub, -)
@@ -104,21 +109,21 @@ CREATE_PRIMITIVE_INIT_FN_DECL(String, char*)
 
 void uninit_String(String* int_val);
 
-void add_String(String* lhs, String* rhs, String* result);
+String* add_String(String* lhs, String* rhs);
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 
 void uninit_Bool(Bool* int_val);
 
-void String_Bool(Bool* bool_val, String* result);
+String* String_Bool(Bool* bool_val);
 
 bool rawVal_Bool(Bool* this);
 
 
-void init_IntRange(Int* start, Int* step, Int* end, IntRange* result);
+IntRange* init_IntRange(Int* start, Int* step, Int* end);
 
-void hasNext_IntRange(IntRange* range, Bool* hasNext);
+Bool* hasNext_IntRange(IntRange* range);
 
-void next_IntRange(IntRange* range, Int* next);
+Int* next_IntRange(IntRange* range);
 
-void begin_IntRange(IntRange* range, Int* start);
+Int* begin_IntRange(IntRange* range);
