@@ -87,7 +87,7 @@ llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string resu
     }
    
     std::string funcName          = json_node["name"].asString();
-    llvm::FunctionType* funcProto = llvm::FunctionType::get(llvm::Type::getVoidTy(currContext), 
+    llvm::FunctionType* funcProto = llvm::FunctionType::get(retType, 
                                                                 argsV, 
                                                                 false);    
     llvm::Function* func          = llvm::Function::Create(funcProto, 
