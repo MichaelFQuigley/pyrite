@@ -53,6 +53,8 @@ class AstWalker
                                 bool restore_insert_point=true);
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);
+        void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
+        void popScope();
         llvm::Function* makeFuncProto(Json::Value json_node, std::string result_param_name);
         //startBlock adds block to back of function and starts insert point there.
         void startBlock(llvm::BasicBlock* block);

@@ -59,6 +59,17 @@ llvm::Type* AstWalker::getPtrTypeFromStr(std::string typeName)
     return llvm::PointerType::getUnqual(type);
 }
 
+void AstWalker::pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid)
+{
+    scopeHelper->pushScope(scopeType, funcScopeRetVoid);
+}
+
+void AstWalker::popScope()
+{
+    scopeHelper->popScope();
+
+}
+
 llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string result_param_name)
 {
     std::vector<llvm::Type*> argsV;
@@ -148,7 +159,22 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
             std::string var_name = lhs_val.asString();
             llvm::Value* var_val = scopeHelper->getNamedVal(var_name, true);
             GEN_ASSERT(var_val != nullptr, "No variable avaiable");
-            return Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
+
+            llvm::Value* result = Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
+            uint64_t varIndex   = scopeHelper->getNamedValInd(var_name);
+            std::vector<llvm::Value*> argsV;
+            argsV.push_back(Builder.CreatePointerCast(Builder.CreateLoad(var_val), 
+                        llvm::PointerType::get(llvm::Type::getInt8Ty(currContext), 0)));
+            llvm::Value* obj_back_ptr = createCall("get_back_ptr", argsV);
+            argsV.clear();
+
+            argsV.push_back(obj_back_ptr);
+            argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
+                                                                    varIndex, 
+                                                                    false)));
+            createCall("gc_set_named_var_in_scope", argsV);
+
+            return result;
         }
         else
         {
@@ -346,7 +372,7 @@ llvm::Value* AstWalker::codeGen_ForOp(Json::Value json_node){
     llvm::BasicBlock* loopBody   = llvm::BasicBlock::Create(currContext, "loopBody");
     llvm::BasicBlock* loopBottom = llvm::BasicBlock::Create(currContext, "loopBottom");
 
-    scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+    pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
     llvm::Value* itt                = codeGen_AtomOp(json_node["itt"]);
     //XXX only supports int iterators for now
@@ -382,7 +408,7 @@ llvm::Value* AstWalker::codeGen_ForOp(Json::Value json_node){
     Builder.CreateBr(loopTop);
     startBlock(loopBottom);
 
-    scopeHelper->popScope();
+    popScope();
 
     return nullptr;
 }
@@ -393,7 +419,7 @@ llvm::Value* AstWalker::codeGen_WhileOp(Json::Value json_node)
     llvm::BasicBlock* loopBody   = llvm::BasicBlock::Create(currContext, "whileBody");
     llvm::BasicBlock* loopBottom = llvm::BasicBlock::Create(currContext, "whileBottom");
 
-    scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+    pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
     
     Builder.CreateBr(loopTop);
     startBlock(loopTop);
@@ -407,7 +433,7 @@ llvm::Value* AstWalker::codeGen_WhileOp(Json::Value json_node)
     Builder.CreateBr(loopTop);
     startBlock(loopBottom);
 
-    scopeHelper->popScope();
+    popScope();
 
     return nullptr;
 }
@@ -432,14 +458,14 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     //check to see if there is an else block
     if( json_node["bodies"].size() == 1 )
     {
-        scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+        pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
         endIf = llvm::BasicBlock::Create(currContext, "endif");
         createBoolCondBr(test, ifTrue, endIf);
         Builder.SetInsertPoint(ifTrue);
         codeGen_initial(json_node["bodies"][0]);
         Builder.CreateBr(endIf);
         startBlock(endIf);
-        scopeHelper->popScope();
+        popScope();
     }
     //else block (size == 2)
     else
@@ -448,12 +474,12 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         endIf = llvm::BasicBlock::Create(currContext, "endif");
         createBoolCondBr(test, ifTrue, ifFalse);
         //if true codegen
-        scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+        pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
         Builder.SetInsertPoint(ifTrue);
         llvm::Value* ifTrueLastStmt = codeGen_initial(json_node["bodies"][0]);
-        scopeHelper->popScope();
+        popScope();
         //if false codegen
-        scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+        pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
         Builder.CreateBr(endIf);
         ifTrue = Builder.GetInsertBlock();
         startBlock(ifFalse);
@@ -461,7 +487,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         Builder.CreateBr(endIf);
         ifFalse = Builder.GetInsertBlock();
         startBlock(endIf);
-        scopeHelper->popScope();
+        popScope();
         //phi node
         CodeGenUtil::assertType(ifTrueLastStmt, 
                 ifFalseLastStmt, 
@@ -477,7 +503,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
 
 llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
 { 
-    scopeHelper->pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
+    pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
 
     std::string result_param_name = "result";
     llvm::Function* func          = makeFuncProto(json_node, result_param_name);
@@ -487,16 +513,11 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
     scopeHelper->setBlockOnCurrScope(entry);
     Builder.SetInsertPoint(entry);
 
-    //iterate to the n-1 th argument to get the appropriate names since the last argument
-    //is a pointer to the return value.
     {
         int arg_index = 0;
         for(auto argI = func->arg_begin(); arg_index < ((int)func->arg_size()); argI++, arg_index++)
         {
-            llvm::Value *allc  = Builder.CreateAlloca(argI->getType());
-            Builder.CreateStore(argI, allc);
-            std::string temp = argI->getName();
-            scopeHelper->setNamedVal(argI->getName(), allc, true);
+            newVarInScope(argI->getName(), argI);
         }
 
     }
@@ -507,7 +528,20 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
     Builder.SetInsertPoint(entry);
     Builder.CreateBr(funcBody);
     Builder.SetInsertPoint(funcBody);
-    scopeHelper->popScope();
+
+    llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
+    llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
+
+    uint64_t numVarsInFunc = scopeHelper->getNumNamedVarsSinceFunc();
+    Builder.SetInsertPoint(&func_block);
+    std::vector<llvm::Value*> argsV;
+    argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
+                                                                    numVarsInFunc, 
+                                                                    false)));
+    createCall("gc_push_scope", argsV); 
+    Builder.SetInsertPoint(originalBlock);
+
+    popScope();
 
     return func; 
 }
@@ -516,11 +550,13 @@ llvm::Value* AstWalker::codeGen_TypedArg(Json::Value json_node){ return nullptr;
 
 llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node)
 { 
-    scopeHelper->pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+    pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
     llvm::Value* ret_val = codeGen_initial(json_node);
     //check for return param
-    scopeHelper->popScope();
+    popScope();
+    std::vector<llvm::Value*> argsV;
+    createCall("gc_pop_scope", argsV); 
 
     if( scopeHelper->parentFuncReturnsVoid() )
     {

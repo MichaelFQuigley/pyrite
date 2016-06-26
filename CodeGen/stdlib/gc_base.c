@@ -3,6 +3,10 @@
  * Michael Quigley
  * 
  */
+#include <stdio.h>
+
+
+#include "basic_types.h"
 #include "gc_base.h"
 
 static gc_list_t gc_list;
@@ -13,6 +17,11 @@ static gc_stack_t gc_stack;
 
 //stack that holds count for number of alloced objects at each scope
 static gc_scope_stack_t gc_scope_stack;
+
+static gc_scope_stack_el_t* get_scope_stack_top()
+{
+    return &(gc_scope_stack.stack[gc_scope_stack.curr_index]);
+}
 
 //linked list helpers
 static void add_node(gc_base_t* node)
@@ -40,19 +49,37 @@ static void remove_node(gc_base_t* node)
 }
 
 //gc helpers
+//
+/* gc_free
+ *
+ * Frees object and any references to the object as well as removing it from the global linked
+ * list of allocated objects.
+ */
+static void gc_free(void* val)
+{
+    remove_node((gc_base_t*) val);
+    free(((gc_base_t*)val)->raw_obj);
+    free(val);
+}
+
 static bool should_garbage_collect()
 {
-    return gc_list.size > (MAX_STACK_SIZE / 2);
+    return gc_list.size >  ((MAX_STACK_SIZE) / 2);
 }
 
 static void mark(gc_base_t* obj)
 {
-    if( !lang_core_get_obj_is_marked(obj) )
+    if( obj )
     {
-        lang_core_set_obj_is_marked(obj, true);
-        for( int i = 0; i < obj->ref_size; i++ )
+        if( !lang_core_get_obj_is_marked(obj) )
         {
-            mark((gc_base_t*) obj->refs[i]);
+            lang_core_set_obj_is_marked(obj, true);
+           // printf("flags = %ld\n", obj->flags);
+           // printf("ref   = %ld\n", obj->ref_size);
+            for( int i = 0; i < obj->ref_size; i++ )
+            {
+                mark((gc_base_t*) obj->refs[i]);
+            }
         }
     }
 }
@@ -79,9 +106,20 @@ static void sweep()
 
 void gc_mark_and_sweep(void)
 {
+    printf("collecting garbage\n");
+    //mark all anon vars
     for(int i = 0; i < gc_stack.curr_index; i++)
     {
         mark(gc_stack.stack[i]);
+    }
+    //mark all named vars
+    for(int i = 0; i <= gc_scope_stack.curr_index; i++)
+    {
+        gc_scope_stack_el_t* scope_el = &(gc_scope_stack.stack[i]);
+        for(int j = 0; j < scope_el->num_named_vars; j++)
+        {
+            mark(scope_el->named_vars[j]);
+        }
     }
 
     sweep();
@@ -93,7 +131,7 @@ void gc_init(void)
     gc_scope_stack.curr_index = 0;
 }
 
-void* gc_malloc(size_t size)
+gc_base_t* gc_malloc(size_t size)
 {
     static const int num_elements = 1;
     void* raw_obj                 = calloc(num_elements, size);
@@ -105,6 +143,7 @@ void* gc_malloc(size_t size)
     }
 
     base->raw_obj = raw_obj;
+    lang_core_set_obj_is_marked(base, false);
 
     //add to stack
     assert(gc_stack.curr_index < MAX_STACK_SIZE &&
@@ -114,7 +153,7 @@ void* gc_malloc(size_t size)
     gc_stack.curr_index++;
 
     //update scope stack
-    gc_scope_stack.stack[gc_scope_stack.curr_index]++;
+    gc_scope_stack.stack[gc_scope_stack.curr_index].num_anon_vars++;
 
     //add to linked list
     add_node(base);    
@@ -122,36 +161,51 @@ void* gc_malloc(size_t size)
     return base;
 }
 
-static void gc_free(void* val)
-{
-    remove_node((gc_base_t*) val);
-    free(((gc_base_t*)val)->raw_obj);
-    free(val);
-}
-
-
-void gc_push_scope(void)
+void gc_push_scope(uint64_t num_named_vars_in_scope)
 {
     assert(gc_scope_stack.curr_index < MAX_SCOPE_DEPTH - 1 &&
            gc_scope_stack.curr_index >= 0 &&
            "Scope too deep!");
-   gc_scope_stack.curr_index++; 
+   gc_scope_stack.curr_index++;
+
+   gc_scope_stack_el_t* scope_el = get_scope_stack_top();
+   scope_el->num_named_vars      = num_named_vars_in_scope;
+   if( num_named_vars_in_scope > 0 )
+   {
+       scope_el->named_vars = calloc(1, sizeof(gc_base_t) * num_named_vars_in_scope);
+   }
+   else
+   {
+       scope_el->named_vars = NULL;
+   }
 }
 
 void gc_pop_scope(void)
 {
     assert(gc_scope_stack.curr_index > 0 &&
             "Scope stack undeflow!");
-
-    uint64_t num_alloced_in_scope = gc_scope_stack.stack[gc_scope_stack.curr_index];
+    if( should_garbage_collect() )
+    {
+        gc_mark_and_sweep();
+    }
+    gc_scope_stack_el_t* scope_el = get_scope_stack_top();
+    uint64_t num_alloced_in_scope = scope_el->num_anon_vars;
 
     gc_stack.curr_index -= num_alloced_in_scope;
     assert(gc_stack.curr_index >= 0 &&
             "Object stack undeflow!");
 
+    scope_el->num_anon_vars  = 0;
+    scope_el->num_named_vars = 0;
+    free(scope_el->named_vars);
+    scope_el->named_vars = NULL;
 
-    gc_scope_stack.stack[gc_scope_stack.curr_index] = 0;
     gc_scope_stack.curr_index--;
 }
 
-
+void gc_set_named_var_in_scope(gc_base_t* base, uint64_t index)
+{
+    gc_scope_stack_el_t* el = get_scope_stack_top();
+    assert(index < el->num_named_vars && "Out of bounds var index!");
+    el->named_vars[index] = base;
+}

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
+#include "gc_base.h"
 #include "basic_types.h"
 
 //TODO change how the String_* methods allocate memory
@@ -135,7 +137,9 @@ void uninit_Bool( Bool* bool_val)
 //IntRange
 IntRange* init_IntRange(Int* start, Int* step, Int* end)
 {
-    IntRange* result = (IntRange*) gc_malloc(sizeof(IntRange));
+    gc_base_t* base  = gc_malloc(sizeof(IntRange));
+    IntRange* result = (IntRange*) (base->raw_obj);
+    result->back_ptr = base;
     result->curr_val = start;
     result->start    = start;
     result->step     = step;
@@ -160,14 +164,13 @@ Bool* hasNext_IntRange(IntRange* range)
     {
         hasNext = init_Bool(range->curr_val->raw_value > range->end->raw_value);
     }
-
     return hasNext;
 }
 
 Int* next_IntRange(IntRange* range)
 {
-    range->curr_val->raw_value += range->step->raw_value;
-    return init_Int(range->curr_val->raw_value);
+    range->curr_val = init_Int(range->curr_val->raw_value + range->step->raw_value);
+    return range->curr_val;
 }
 
 Int* begin_IntRange(IntRange* range)

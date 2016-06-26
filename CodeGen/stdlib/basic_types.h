@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define gc_malloc(a) calloc(1,a)
+#include "gc_base.h"
 
 //Arithmetic function macros
 #define CREATE_NUM_ARITH_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
@@ -26,36 +26,42 @@
 
 #define CREATE_PRIMITIVE_INIT_FN(STRUCT_TYPE, RAW_TYPE)                      \
     STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {  \
-        STRUCT_TYPE* val = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));    \
-        val->raw_value = raw_value;                                          \
-        return val;                                                          \
+        gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));    \
+        ((STRUCT_TYPE *)val->raw_obj)->raw_value = raw_value;                \
+        ((STRUCT_TYPE *)val->raw_obj)->back_ptr = val;                      \
+        return (STRUCT_TYPE*) (val->raw_obj);                                \
     }
 
 
 
 //Int
 typedef struct Int {
+    gc_base_t* back_ptr;
     int64_t raw_value;
 } Int;
 
 //Double
 typedef struct Float {
+    gc_base_t* back_ptr;
     double raw_value;
 } Float;
 
 //Bool
 typedef struct Bool {
+    gc_base_t* back_ptr;
     bool raw_value;
 } Bool;
 
 //String
 typedef struct String {
+    gc_base_t* back_ptr;
     bool raw_is_on_heap;
     char* raw_value;
 } String;
 
 //IntRange
 typedef struct IntRange {
+    gc_base_t* back_ptr;
     Int* curr_val;
     Int* start;
     Int* step;
