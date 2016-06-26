@@ -18,6 +18,15 @@
 #define MAX_STACK_SIZE (1 << 26) //64MB
 #define MAX_SCOPE_DEPTH (1 << 10) //1024
 
+//#define GC_DEBUG
+
+#ifdef GC_DEBUG
+    #define GC_ASSERT(COND) \
+        assert(COND);
+#else
+    #define GC_ASSERT(COND) {do {} while(0);}
+#endif
+
 typedef const uint64_t bits_t;
 
 static bits_t flags_num_bits_obj       = (sizeof(uint64_t)*8);
