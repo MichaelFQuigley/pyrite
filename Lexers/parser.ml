@@ -60,45 +60,23 @@ and parse_atom =
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream>] -> 
             (check_for_dots (Ast.PAREN_EXPR e) stream)
 and parse_var_def = parser
-    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
-and parse_typed_arg = parser
-    | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition>] -> Ast.TYPEDARG (id, t) 
+    | [< 'Token.IDENT v; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
 and parse_func_proto = 
-       let rec typed_arg_helper curr_args stream = 
+       let rec arg_helper curr_args stream = 
              begin 
                  parser 
-                 | [< arg=parse_typed_arg; stream >] ->
+                 | [< 'Token.IDENT arg; stream >] ->
                          (parser
-                         | [< 'Token.PUNCT ","; arg=typed_arg_helper (arg::curr_args) >] -> arg
+                         | [< 'Token.PUNCT ","; arg=arg_helper (arg::curr_args) >] -> arg
                          | [< >] -> arg::curr_args) stream
                  | [< >] -> curr_args
              end stream in
              (parser 
-                 [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; stream >] 
+                 [< 'Token.LPAREN; args=arg_helper []; 'Token.RPAREN ?? "Expected ) in function definition."; stream >] 
                  -> (match Stream.peek stream with
-                        | Some (Token.PUNCT "->")
-                            -> (Stream.junk stream; Ast.FUNC_PROTO (Array.of_list (List.rev args), (parse_type_definition stream)))
                         | Some (Token.LBRAC)
-                            -> Ast.FUNC_PROTO (Array.of_list (List.rev args), (Ast.SIMPLE_TYPE "Void"))
+                            -> Ast.FUNC_PROTO (Array.of_list (List.rev args))
                         | _ -> raise (Failure "Invalid function declaration")))
-                    
-and parse_type_definition = parser
-    | [< stream >] -> 
-          (match Stream.peek stream with
-          | Some (Token.IDENT typ) -> 
-                  begin
-                      Stream.junk stream;
-                      Ast.SIMPLE_TYPE typ
-                  end
-          | Some (Token.LPAREN) ->
-                  Ast.FUNC_TYPE (parse_func_proto stream)
-          | Some (Token.LSQ) ->
-            begin parser
-                | [<'Token.LSQ; e=parse_type_definition; 'Token.RSQ>] ->
-                        Ast.LIST_TYPE e
-                | [<>] -> raise (Failure "Arg type did not parse.")
-            end stream
-          | _ -> raise (Failure "Arg type did not parse."))
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
 and parse_stmt = parser

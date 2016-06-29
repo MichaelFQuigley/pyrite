@@ -41,7 +41,7 @@ let rec lex = parser
             (match Stream.peek stream with
             | Some '.' -> (Stream.junk stream; [<'Token.PUNCT ".."; lex stream>])
             | _ -> [<'Token.PUNCT "."; lex stream>])
-    | [<' (','|':'|';'|'~' as c); stream>] 
+    | [<' (','|';'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     | [<>] -> [<>]
 (*lex_eq_sign checks to see if the first character in the stream is first_punct
