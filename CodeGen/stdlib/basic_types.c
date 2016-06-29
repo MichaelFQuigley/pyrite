@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "basic_funcs.h"
 #include "gc_base.h"
 #include "basic_types.h"
 
@@ -11,17 +12,17 @@
 //Int
 CREATE_PRIMITIVE_INIT_FN(Int, int64_t)
 
-void uninit_Int(Int* int_val)
+void uninit_Int(void* int_val)
 {
     free(int_val);
 }
 
-String* String_Int(Int* int_val)
+void* String_Int(void* int_val)
 {
     size_t buffer_size = 32;
     char* buffer       = (char*) malloc(buffer_size);
     //TODO error checking for sprintf, maybe
-    snprintf(buffer, buffer_size, "%ld", int_val->raw_value);
+    snprintf(buffer, buffer_size, "%ld", ((Int*)int_val)->raw_value);
 
     String* result = init_String(buffer);
     result->raw_is_on_heap = true;
@@ -50,17 +51,17 @@ CREATE_NUM_CMP_FN(Int, int64_t, cmpeq, ==)
 //Float
 CREATE_PRIMITIVE_INIT_FN(Float, double)
 
-void uninit_Float( Float* float_val)
+void uninit_Float(void* float_val)
 {
     free(float_val);
 }
 
-String* String_Float(Float* float_val)
+void* String_Float(void* float_val)
 {
     size_t buffer_size = 32;
     char* buffer       = (char*) malloc(buffer_size);
     //TODO error checking for sprintf, maybe
-    snprintf(buffer, buffer_size, "%f", float_val->raw_value);
+    snprintf(buffer, buffer_size, "%f", ((Float*)float_val)->raw_value);
     String* result = init_String(buffer);
     result->raw_is_on_heap = true;
 
@@ -83,8 +84,9 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 //String
 CREATE_PRIMITIVE_INIT_FN(String, char*)
 
-void uninit_String( String* str_val)
+void uninit_String(void* this)
 {
+    String* str_val = (String*)this;
     if( str_val->raw_is_on_heap )
     {
         free(str_val->raw_value);
@@ -92,8 +94,10 @@ void uninit_String( String* str_val)
     free(str_val);
 }
 
-String* add_String(String* lhs,  String* rhs)
+void* add_String(void* this,  va_list* rhs_obj)
 {
+    String* lhs   = (String*)this;
+    String* rhs   = (String*)va_arg(*rhs_obj, void*);
     char* lhs_raw = lhs->raw_value;
     char* rhs_raw = rhs->raw_value;
    
@@ -111,32 +115,35 @@ String* add_String(String* lhs,  String* rhs)
 //Bool
 CREATE_PRIMITIVE_INIT_FN(Bool, bool)
 
-String* String_Bool(Bool* bool_val)
+void* String_Bool(void* bool_val)
 {
     size_t buffer_size = 5;
     char* buffer       = (char*) calloc(1, buffer_size);
     //TODO error checking for sprintf, maybe
-    strcpy(buffer, (bool_val->raw_value) ? "true" : "false");
+    strcpy(buffer, (((Bool*)bool_val)->raw_value) ? "true" : "false");
     String* result = init_String(buffer);
     result->raw_is_on_heap = true;
 
     return result;
 }
 
-bool rawVal_Bool(Bool* this)
+bool rawVal_Bool(void* this)
 {
-    return this->raw_value;
+    return ((Bool*)this)->raw_value;
 }
 
-void uninit_Bool( Bool* bool_val)
+void uninit_Bool(void* bool_val)
 {
     free(bool_val);
 }
 
 
 //IntRange
-IntRange* init_IntRange(Int* start, Int* step, Int* end)
+void* init_IntRange(void* start_obj, void* step_obj, void* end_obj)
 {
+    Int* start = start_obj;
+    Int* step  = step_obj;
+    Int* end   = end_obj;
     gc_base_t* base   = gc_malloc(sizeof(IntRange));
     IntRange* result  = (IntRange*) (base->raw_obj);
     result->back_ptr  = base;
@@ -154,8 +161,9 @@ IntRange* init_IntRange(Int* start, Int* step, Int* end)
     return result;
 }
 
-Bool* hasNext_IntRange(IntRange* range)
+void* hasNext_IntRange(void* range_obj)
 {
+    IntRange* range = (IntRange*)range_obj;
     Bool* hasNext;
     if(range->step->raw_value > 0)
     {
@@ -168,20 +176,22 @@ Bool* hasNext_IntRange(IntRange* range)
     return hasNext;
 }
 
-Int* next_IntRange(IntRange* range)
+void* next_IntRange(void* range_obj)
 {
+    IntRange* range = (IntRange*)range_obj;
     range->curr_val = init_Int(range->curr_val->raw_value + range->step->raw_value);
     return range->curr_val;
 }
 
-Int* begin_IntRange(IntRange* range)
+void* begin_IntRange(void* range_obj)
 {
+    IntRange* range = (IntRange*)range_obj;
     return init_Int(range->start->raw_value);
 }
 
 
 //List
-List* init_List(uint64_t initial_size)
+void* init_List(uint64_t initial_size)
 {
     gc_base_t* base   = gc_malloc(sizeof(List));
     List* result      = (List*) (base->raw_obj);
@@ -194,8 +204,11 @@ List* init_List(uint64_t initial_size)
     return result;
 }
 
-void set_List(List* this, Int* index, void* value)
+void set_List(void* this_obj, va_list* args_rest)
 {
+    List* this  = (List*)this_obj;
+    Int* index  = (Int*)va_arg(*args_rest, void*);
+    void* value = va_arg(*args_rest, void*);
     int64_t raw_ind = index->raw_value;
 
     assert(raw_ind < this->size && raw_ind >= 0 &&
@@ -203,8 +216,10 @@ void set_List(List* this, Int* index, void* value)
     this->raw_value[raw_ind] = value;
 }
 
-void* get_List(List* this, Int* index)
+void* get_List(void* this_obj, va_list* args_rest)
 {
+    List* this  = (List*)this_obj;
+    Int* index  = (Int*)va_arg(*args_rest, void*);
     int64_t raw_ind = index->raw_value;
 
     assert(raw_ind < this->size && raw_ind >= 0 &&
@@ -213,8 +228,10 @@ void* get_List(List* this, Int* index)
     return this->raw_value[raw_ind];
 }
 
-List* add_List(List* this, void* el)
+void* add_List(void* this_obj, va_list* args_rest)
 {
+    List* this = (List*)this_obj;
+    void* el   = va_arg(*args_rest, void*);
     if( (this->size + 1) == this->capacity ) 
     {
         this->capacity = this->capacity * 2;
@@ -236,9 +253,9 @@ List* add_List(List* this, void* el)
     return this;
 }
 
-void uninit_List(List* arr)
+void uninit_List(void* arr)
 {
-    free(arr->raw_value);
+    free(((List*)arr)->raw_value);
 }
 
 

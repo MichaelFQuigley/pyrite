@@ -1,41 +1,50 @@
+#ifndef BASIC_TYPES_H
+#define BASIC_TYPES_H
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include "gc_base.h"
+#include "small_set.h"
 
 //Arithmetic function macros
 #define CREATE_NUM_ARITH_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs);
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest);
 
 #define CREATE_NUM_ARITH_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                           \
-    STRUCT_TYPE * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs) {  \
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest) {           \
+        STRUCT_TYPE * lhs = (STRUCT_TYPE *) lhs_obj;                                       \
+        STRUCT_TYPE * rhs = (STRUCT_TYPE *) va_arg(*args_rest, void*);                     \
         return init_ ## STRUCT_TYPE (lhs->raw_value OP rhs->raw_value);                   \
     }
 //Compare function macros
 #define CREATE_NUM_CMP_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    Bool * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs);
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest);
 
 #define CREATE_NUM_CMP_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                                      \
-    Bool * (FN_NAME ## _ ## STRUCT_TYPE) (STRUCT_TYPE * lhs, STRUCT_TYPE * rhs) {    \
-        return init_Bool( lhs->raw_value OP rhs->raw_value );                        \
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest)  {    \
+        STRUCT_TYPE * lhs = (STRUCT_TYPE *) lhs_obj;                                 \
+        STRUCT_TYPE * rhs = (STRUCT_TYPE *) va_arg(*args_rest, void*);               \
+        return init_Bool( lhs->raw_value OP rhs->raw_value );                       \
     }
 //Initialization function macros
 #define CREATE_PRIMITIVE_INIT_FN_DECL(STRUCT_TYPE, RAW_TYPE)    \
-    STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value);
+    void * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value);
 
 #define CREATE_PRIMITIVE_INIT_FN(STRUCT_TYPE, RAW_TYPE)                      \
-    STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {  \
-        gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));    \
+    void * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {                    \
+        gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));        \
         ((STRUCT_TYPE *)val->raw_obj)->raw_value = raw_value;                \
         ((STRUCT_TYPE *)val->raw_obj)->back_ptr  = val;                      \
         ((STRUCT_TYPE *)val->raw_obj)->type_name = # STRUCT_TYPE ;                      \
-        return (STRUCT_TYPE*) (val->raw_obj);                                \
+        return (val->raw_obj);                                \
     }
 
 #define BASE_VALS \
     gc_base_t* back_ptr; \
-    char* type_name;
+    char* type_name;     \
+    small_set_t* funcs; 
 
 typedef struct Base
 {
@@ -94,9 +103,9 @@ typedef struct List {
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
 
-String* String_Int(Int* int_val);
+void* String_Int(void* int_val);
 
-void uninit_Int(Int* int_val);
+void uninit_Int(void* int_val);
 
 CREATE_NUM_ARITH_FN_DECL(Int, int64_t, add, +)
 CREATE_NUM_ARITH_FN_DECL(Int, int64_t, sub, -)
@@ -117,9 +126,9 @@ CREATE_NUM_CMP_FN_DECL(Int, int64_t, cmpeq, ==)
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Float, double)
 
-void uninit_Float(Float* int_val);
+void uninit_Float(void* int_val);
 
-String* String_Float(Float* float_val);
+void* String_Float(void* float_val);
 
 CREATE_NUM_ARITH_FN_DECL(Float, double, add, +)
 CREATE_NUM_ARITH_FN_DECL(Float, double, sub, -)
@@ -136,37 +145,38 @@ CREATE_NUM_CMP_FN_DECL(Float, double, cmpeq, ==)
 
 CREATE_PRIMITIVE_INIT_FN_DECL(String, char*)
 
-void uninit_String(String* int_val);
+void uninit_String(void* int_val);
 
-String* add_String(String* lhs, String* rhs);
+void* add_String(void* this,  va_list* rhs_obj);
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 
-void uninit_Bool(Bool* int_val);
+void uninit_Bool(void* int_val);
 
-String* String_Bool(Bool* bool_val);
+void* String_Bool(void* bool_val);
 
-bool rawVal_Bool(Bool* this);
+bool rawVal_Bool(void* this);
 
 
-IntRange* init_IntRange(Int* start, Int* step, Int* end);
+//IntRange
+void* init_IntRange(void* start_obj, void* step_obj, void* end_obj);
 
-Bool* hasNext_IntRange(IntRange* range);
+void* hasNext_IntRange(void* range_obj);
 
-Int* next_IntRange(IntRange* range);
+void* next_IntRange(void* range_obj);
 
-Int* begin_IntRange(IntRange* range);
+void* begin_IntRange(void* range_obj);
 
 
 //List
-List* init_List(uint64_t size);
+void* init_List(uint64_t initial_size);
 
-void set_List(List* this, Int* index, void* value);
+void set_List(void* this_obj, va_list* args_rest);
 
-void* get_List(List* this, Int* index);
+void* get_List(void* this_obj, va_list* args_rest);
 
-List* add_List(List* this, void* el);
+void* add_List(void* this_obj, va_list* args_rest);
 
-void uninit_List(List* arr);
+void uninit_List(void* arr);
 
-
+#endif

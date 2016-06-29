@@ -45,6 +45,11 @@ static char* get_key(int i)
    return buf;
 }
 
+static int testfn(int i)
+{
+    return i;
+}
+
 int main(void)
 {
     small_set_t* set = small_set_init();
@@ -69,5 +74,10 @@ int main(void)
     assert(size == set->size);
     
     small_set_uninit(set);
+
+    void* fn = testfn;
+
+    ((void (*)(void*, ...))fn)(NULL, 6, 7);
+
     return 0;
 }
