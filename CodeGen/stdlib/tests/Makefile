@@ -5,3 +5,6 @@ gc-tests:
 
 types-tests:
 	clang -Wall -I`pwd`/.. $(STDLIB_FILES) types_tests.c  -o types_tests.o
+
+set-tests:
+	clang -Wall -I`pwd`/.. $(STDLIB_FILES) set_tests.c  -o set_tests.o
