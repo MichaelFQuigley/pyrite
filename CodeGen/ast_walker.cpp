@@ -125,6 +125,8 @@ llvm::Value* AstWalker::codeGen_VarDef(Json::Value json_node){
     std::string varName   = json_node["var"]["TypedArg"]["name"].asString();
     llvm::Value* rhs_expr = codeGen_initial(json_node["expr"]); 
 
+    GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
+
     newVarInScope(varName, rhs_expr); 
 
     return nullptr; 
@@ -159,8 +161,12 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
             std::string var_name = lhs_val.asString();
             llvm::Value* var_val = scopeHelper->getNamedVal(var_name, true);
             GEN_ASSERT(var_val != nullptr, "No variable avaiable");
+            
+            llvm::Value* rhs_val = codeGen_initial(json_node["rhs"]);
 
-            llvm::Value* result = Builder.CreateStore(codeGen_initial(json_node["rhs"]), var_val);
+            GEN_ASSERT(rhs_val != nullptr, "Invalid expression on rhs of assignment.");
+
+            llvm::Value* result = Builder.CreateStore(rhs_val, var_val);
             uint64_t varIndex   = scopeHelper->getNamedValInd(var_name);
             std::vector<llvm::Value*> argsV;
             argsV.push_back(Builder.CreatePointerCast(Builder.CreateLoad(var_val), 
@@ -455,7 +461,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
     llvm::BasicBlock* endIf;
 
     llvm::Value* result = nullptr;
-    //check to see if there is an else block
+    //check to see if there is just an if block without an else
     if( json_node["bodies"].size() == 1 )
     {
         pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
@@ -489,13 +495,20 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         startBlock(endIf);
         popScope();
         //phi node
-        CodeGenUtil::assertType(ifTrueLastStmt, 
-                ifFalseLastStmt, 
-                "Types at end of if-else must match");
-        llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getType(), 2, "ifPhi");
-        phi->addIncoming(ifTrueLastStmt, ifTrue);
-        phi->addIncoming(ifFalseLastStmt, ifFalse);
-        result = phi;
+        if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr
+            &&
+            CodeGenUtil::getTypeStr(ifTrueLastStmt, true) 
+                == CodeGenUtil::getTypeStr(ifFalseLastStmt, true) )
+        {
+            llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getType(), 2, "ifPhi");
+            phi->addIncoming(ifTrueLastStmt, ifTrue);
+            phi->addIncoming(ifFalseLastStmt, ifFalse);
+            result = phi;
+        }
+        else
+        {
+            result = nullptr;
+        }
     }
 
     return result;

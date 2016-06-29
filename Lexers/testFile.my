@@ -13,7 +13,7 @@ func chainCount(n:Int) -> Int
     return {count}
 }
 
-func collatz(min:Int, max:Int) -> Void
+func collatz(min:Int, max:Int) -> String
 {
     let mNum:Int    = 0
     let mCount:Int  = 523
@@ -22,33 +22,19 @@ func collatz(min:Int, max:Int) -> Void
     for( curr_num in min..max )
     {
             test_num = mCount
-#println(String(test_num))
         temp_count = chainCount(curr_num)
         if( temp_count > mCount )
         {
-            if(curr_num == 837799)
-            {
-                println("tempCount at 837799 = " + String(temp_count))
-            }
-            println("tempCount = " + String(temp_count))
-            println("mCount = " + String(mCount))
             mNum   = curr_num
             mCount = temp_count
         }
 #   println("m = " + String(mCount))
     }
 
-   println("Resulting number is " + String(mNum) + ", max count is " + String(mCount))
-    return {}
+   return {"Resulting number is " + String(mNum) + ", max count is " + String(mCount)}
 }
 
-func wrapper(min:Int, max:Int) -> Void
-{
-    collatz(min, max)
-    return {}
-}
-
-func loopy() -> Void
+func loopy()
 {
     let i:Int = 0
     while( i < 2 )
@@ -60,11 +46,13 @@ func loopy() -> Void
     return {}
 }
 
-func main() -> Void
+
+
+func main()
 {
 
-wrapper(1, 1_000_000)
-println(String(chainCount(998969)))
+    println(collatz(1, 1_000_000))
+#println(String(chainCount(998969)))
 
     for( j in 0..4 )
     {

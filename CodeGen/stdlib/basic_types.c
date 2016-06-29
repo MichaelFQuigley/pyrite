@@ -92,7 +92,7 @@ void uninit_String( String* str_val)
     free(str_val);
 }
 
-String* add_String( String* lhs,  String* rhs)
+String* add_String(String* lhs,  String* rhs)
 {
     char* lhs_raw = lhs->raw_value;
     char* rhs_raw = rhs->raw_value;
@@ -137,13 +137,14 @@ void uninit_Bool( Bool* bool_val)
 //IntRange
 IntRange* init_IntRange(Int* start, Int* step, Int* end)
 {
-    gc_base_t* base  = gc_malloc(sizeof(IntRange));
-    IntRange* result = (IntRange*) (base->raw_obj);
-    result->back_ptr = base;
-    result->curr_val = start;
-    result->start    = start;
-    result->step     = step;
-    result->end      = end;
+    gc_base_t* base   = gc_malloc(sizeof(IntRange));
+    IntRange* result  = (IntRange*) (base->raw_obj);
+    result->back_ptr  = base;
+    result->type_name = "IntRange";
+    result->curr_val  = start;
+    result->start     = start;
+    result->step      = step;
+    result->end       = end;
 
     assert( (((start->raw_value < end->raw_value) && (step->raw_value > 0)) 
           || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
@@ -177,3 +178,69 @@ Int* begin_IntRange(IntRange* range)
 {
     return init_Int(range->start->raw_value);
 }
+
+
+//List
+List* init_List(uint64_t initial_size)
+{
+    gc_base_t* base   = gc_malloc(sizeof(List));
+    List* result      = (List*) (base->raw_obj);
+    result->back_ptr  = base;
+    result->type_name = "List";
+    result->size      = initial_size;
+    result->capacity  = (initial_size + 1) * 2;
+    result->raw_value = calloc(1, result->capacity * sizeof(void*));
+
+    return result;
+}
+
+void set_List(List* this, Int* index, void* value)
+{
+    int64_t raw_ind = index->raw_value;
+
+    assert(raw_ind < this->size && raw_ind >= 0 &&
+            "List index out of bounds!");
+    this->raw_value[raw_ind] = value;
+}
+
+void* get_List(List* this, Int* index)
+{
+    int64_t raw_ind = index->raw_value;
+
+    assert(raw_ind < this->size && raw_ind >= 0 &&
+            "List index out of bounds!");
+
+    return this->raw_value[raw_ind];
+}
+
+List* add_List(List* this, void* el)
+{
+    if( (this->size + 1) == this->capacity ) 
+    {
+        this->capacity = this->capacity * 2;
+
+        void** new_mem = calloc(1, this->capacity * sizeof(void*));
+
+        if( !new_mem )
+        {
+            assert(false && "Memory allocation failed in add_List!");
+        }
+
+        memcpy(new_mem, this->raw_value, sizeof(void*) * this->size);
+        free(this->raw_value);
+        this->raw_value = new_mem;
+    }
+    this->raw_value[this->size] = el;
+    this->size++;
+
+    return this;
+}
+
+void uninit_List(List* arr)
+{
+    free(arr->raw_value);
+}
+
+
+
+

@@ -28,45 +28,68 @@
     STRUCT_TYPE * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {  \
         gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));    \
         ((STRUCT_TYPE *)val->raw_obj)->raw_value = raw_value;                \
-        ((STRUCT_TYPE *)val->raw_obj)->back_ptr = val;                      \
+        ((STRUCT_TYPE *)val->raw_obj)->back_ptr  = val;                      \
+        ((STRUCT_TYPE *)val->raw_obj)->type_name = # STRUCT_TYPE ;                      \
         return (STRUCT_TYPE*) (val->raw_obj);                                \
     }
 
+#define BASE_VALS \
+    gc_base_t* back_ptr; \
+    char* type_name;
 
+typedef struct Base
+{
+    BASE_VALS
+} Base;
 
 //Int
 typedef struct Int {
-    gc_base_t* back_ptr;
+    BASE_VALS 
+
     int64_t raw_value;
 } Int;
 
 //Double
 typedef struct Float {
-    gc_base_t* back_ptr;
+    BASE_VALS
+
     double raw_value;
 } Float;
 
 //Bool
 typedef struct Bool {
-    gc_base_t* back_ptr;
+    BASE_VALS
+
     bool raw_value;
 } Bool;
 
 //String
 typedef struct String {
-    gc_base_t* back_ptr;
+    BASE_VALS
+
     bool raw_is_on_heap;
     char* raw_value;
 } String;
 
 //IntRange
 typedef struct IntRange {
-    gc_base_t* back_ptr;
+    BASE_VALS
+
     Int* curr_val;
     Int* start;
     Int* step;
     Int* end;
 } IntRange;
+
+typedef struct List {
+    BASE_VALS
+    //size is actual size of array
+    uint64_t size;
+    //capacity represents number of elements are supported by currently allocated array
+    size_t capacity;
+    void** raw_value;
+} List;
+
 
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
@@ -133,3 +156,17 @@ Bool* hasNext_IntRange(IntRange* range);
 Int* next_IntRange(IntRange* range);
 
 Int* begin_IntRange(IntRange* range);
+
+
+//List
+List* init_List(uint64_t size);
+
+void set_List(List* this, Int* index, void* value);
+
+void* get_List(List* this, Int* index);
+
+List* add_List(List* this, void* el);
+
+void uninit_List(List* arr);
+
+

@@ -46,6 +46,8 @@ and parse_initial =
                         (Stream.junk stream;
                         parse_func_proto_and_body name stream)
                 | _ -> raise (Failure "Invalid function definition."))
+    | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ>] ->
+            Ast.LIST (Array.of_list (List.rev stream))
     end
 and parse_atom =
     let check_for_dots lhs stream = 
@@ -72,9 +74,14 @@ and parse_func_proto =
                  | [< >] -> curr_args
              end stream in
              (parser 
-             [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; 
-                'Token.PUNCT "->" ?? "Expected return type in function."; ret_type=parse_type_definition>] -> 
-                    Ast.FUNC_PROTO (Array.of_list (List.rev args), ret_type))
+                 [< 'Token.LPAREN; args=typed_arg_helper []; 'Token.RPAREN ?? "Expected ) in function type definition."; stream >] 
+                 -> (match Stream.peek stream with
+                        | Some (Token.PUNCT "->")
+                            -> (Stream.junk stream; Ast.FUNC_PROTO (Array.of_list (List.rev args), (parse_type_definition stream)))
+                        | Some (Token.LBRAC)
+                            -> Ast.FUNC_PROTO (Array.of_list (List.rev args), (Ast.SIMPLE_TYPE "Void"))
+                        | _ -> raise (Failure "Invalid function declaration")))
+                    
 and parse_type_definition = parser
     | [< stream >] -> 
           (match Stream.peek stream with
@@ -85,6 +92,12 @@ and parse_type_definition = parser
                   end
           | Some (Token.LPAREN) ->
                   Ast.FUNC_TYPE (parse_func_proto stream)
+          | Some (Token.LSQ) ->
+            begin parser
+                | [<'Token.LSQ; e=parse_type_definition; 'Token.RSQ>] ->
+                        Ast.LIST_TYPE e
+                | [<>] -> raise (Failure "Arg type did not parse.")
+            end stream
           | _ -> raise (Failure "Arg type did not parse."))
 and parse_stmts = parser
     [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))

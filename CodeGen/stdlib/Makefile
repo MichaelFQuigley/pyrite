@@ -1,6 +1,7 @@
 C_FILES=$(wildcard *.c)
 LL_FILES=$(wildcard *.ll)
 STDLIB=stdlib
+C_FLAGS=-fno-strict-aliasing -Wall -S -g -O3 -emit-llvm -c
 
 all: | $(C_FILES) clean_ ll
 	llvm-link-3.6 $(LL_FILES) > $(STDLIB).bc;
@@ -8,7 +9,7 @@ all: | $(C_FILES) clean_ ll
 	rm *.bc
 
 ll:
-	clang -Wall -S -g -O3 -emit-llvm -c $(C_FILES) 
+	clang $(C_FLAGS) $(C_FILES) 
 
 
 clean_ :
