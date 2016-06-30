@@ -5,6 +5,11 @@
 
 using namespace std;
 
+llvm::Type* AstWalker::getVoidStarType()
+{
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(currContext), 0);
+}
+
 AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builder(currContext)
 {
 
@@ -73,32 +78,18 @@ void AstWalker::popScope()
 llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string result_param_name)
 {
     std::vector<llvm::Type*> argsV;
-    Json::Value header_node = json_node["header"]["FuncProto"];
-    Json::Value retTypeNode = header_node["ret_type"];
-
-     GEN_ASSERT(retTypeNode["simple"], 
-             "Simples are the only types supported at the moment");
-
-    std::string retTypeName = retTypeNode["simple"].asString();
-    llvm::Type* retType     = getPtrTypeFromStr(retTypeName);
-
-    scopeHelper->setParentFuncReturnsVoid(retType->isVoidTy());
+    Json::Value header_node  = json_node["header"]["FuncProto"];
 
     for( const Json::Value& val : header_node["args"] )
     {
-        Json::Value typedArg = val["TypedArg"];
-        Json::Value argType  = typedArg["type"];
-
-        GEN_ASSERT(argType["simple"], 
-                "Simples are the only types supported at the moment");
-
-        std::string argTypeName = argType["simple"].asString();
-        
-        argsV.push_back(getPtrTypeFromStr(argTypeName));
+        argsV.push_back(getVoidStarType());
     }
    
     std::string funcName          = json_node["name"].asString();
-    llvm::FunctionType* funcProto = llvm::FunctionType::get(retType, 
+    llvm::Type* ret_type = funcName == "main" ?  
+                                        llvm::Type::getVoidTy(currContext)
+                                        : getVoidStarType();
+    llvm::FunctionType* funcProto = llvm::FunctionType::get(ret_type, 
                                                                 argsV, 
                                                                 false);    
     llvm::Function* func          = llvm::Function::Create(funcProto, 
@@ -112,7 +103,7 @@ llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string resu
                 arg_index < ((int)func->arg_size()); 
                 argI++, arg_index++)
         {
-            argI->setName(header_node["args"][arg_index]["TypedArg"]["name"].asString());
+            argI->setName(header_node["args"][arg_index].asString());
         }
     }
 
@@ -122,7 +113,7 @@ llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string resu
 llvm::Value* AstWalker::codeGen_ExprOp(Json::Value json_node){ return codeGen_initial(json_node); }
 
 llvm::Value* AstWalker::codeGen_VarDef(Json::Value json_node){ 
-    std::string varName   = json_node["var"]["TypedArg"]["name"].asString();
+    std::string varName   = json_node["var"].asString();
     llvm::Value* rhs_expr = codeGen_initial(json_node["expr"]); 
 
     GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
@@ -139,7 +130,7 @@ llvm::Value* AstWalker::newVarInScope(std::string varName, llvm::Value* value)
     llvm::Value* allocaRes;
     
     Builder.SetInsertPoint(&func_block);
-    allocaRes = Builder.CreateAlloca(value->getType());
+    allocaRes = Builder.CreateAlloca(getVoidStarType());
     Builder.SetInsertPoint(originalBlock);
     Builder.CreateStore(value, allocaRes);
     scopeHelper->setNamedVal(varName, allocaRes, true);
@@ -187,35 +178,35 @@ llvm::Value* AstWalker::codeGen_BinOp(Json::Value json_node){
             GEN_ASSERT(false, "Lhs of assignment must be variable.");
         }
     }
-    else if( op == "+" )  { op_func_prefix = "add_";}
-    else if( op == "-" )  { op_func_prefix = "sub_";}
-    else if( op == "*" )  { op_func_prefix = "mul_";}
-    else if( op == "/" )  { op_func_prefix = "div_";}
-    else if( op == "%" )  { op_func_prefix = "mod_";}
-    else if( op == "&" )  { op_func_prefix = "and_";}
-    else if( op == "|" )  { op_func_prefix = "or_";}
-    else if( op == "^" )  { op_func_prefix = "xor_";}
-    else if( op == "<" )  { op_func_prefix = "cmplt_";}
-    else if( op == "<=" ) { op_func_prefix = "cmple_";}
-    else if( op == "==" ) { op_func_prefix = "cmpeq_";}
-    else if( op == ">" )  { op_func_prefix = "cmpgt_";}
-    else if( op == ">=" ) { op_func_prefix = "cmpge_";}
-    else if( op == "!=" ) { op_func_prefix = "cmpne_";}
+    else if( op == "+" )  { op_func_prefix = "add";}
+    else if( op == "-" )  { op_func_prefix = "sub";}
+    else if( op == "*" )  { op_func_prefix = "mul";}
+    else if( op == "/" )  { op_func_prefix = "div";}
+    else if( op == "%" )  { op_func_prefix = "mod";}
+    else if( op == "&" )  { op_func_prefix = "and";}
+    else if( op == "|" )  { op_func_prefix = "or";}
+    else if( op == "^" )  { op_func_prefix = "xor";}
+    else if( op == "<" )  { op_func_prefix = "cmplt";}
+    else if( op == "<=" ) { op_func_prefix = "cmple";}
+    else if( op == "==" ) { op_func_prefix = "cmpeq";}
+    else if( op == ">" )  { op_func_prefix = "cmpgt";}
+    else if( op == ">=" ) { op_func_prefix = "cmpge";}
+    else if( op == "!=" ) { op_func_prefix = "cmpne";}
     else { 
         cout << "Unimplemented operator type" << endl;
         return nullptr;
     }
 
-    llvm::Value* lhs = codeGen_initial(json_node["lhs"]); 
-    llvm::Value* rhs = codeGen_initial(json_node["rhs"]); 
+    llvm::Value* lhs      = codeGen_initial(json_node["lhs"]); 
+    llvm::Value* funcname = CodeGenUtil::generateString(currModule.get(), op_func_prefix);
+    llvm::Value* rhs      = codeGen_initial(json_node["rhs"]); 
 
     std::vector<llvm::Value *> argsV;
     argsV.push_back(lhs);
+    argsV.push_back(funcname);
     argsV.push_back(rhs);
 
-    std::string type_str = CodeGenUtil::getTypeStr(lhs, false);
-    std::string op_funcname = op_func_prefix + type_str; 
-    llvm::Value* result_val = createCall(op_funcname, argsV);
+    llvm::Value* result_val = createCall("lang_try_call", argsV);
 
     return result_val;
 }
@@ -495,10 +486,7 @@ llvm::Value* AstWalker::codeGen_IfOp(Json::Value json_node)
         startBlock(endIf);
         popScope();
         //phi node
-        if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr
-            &&
-            CodeGenUtil::getTypeStr(ifTrueLastStmt, true) 
-                == CodeGenUtil::getTypeStr(ifFalseLastStmt, true) )
+        if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr )
         {
             llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getType(), 2, "ifPhi");
             phi->addIncoming(ifTrueLastStmt, ifTrue);
@@ -559,8 +547,6 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
     return func; 
 }
 
-llvm::Value* AstWalker::codeGen_TypedArg(Json::Value json_node){ return nullptr; }
-
 llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node)
 { 
     pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
@@ -593,7 +579,6 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, WhileOp);
     TRY_NODE(json_node, IfOp);
     TRY_NODE(json_node, FuncDef);
-    TRY_NODE(json_node, TypedArg);
     TRY_NODE(json_node, ReturnOp);
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
@@ -615,23 +600,6 @@ Json::Value AstWalker::generateFromJson(std::string json_string)
     Json::Value  json_root;
     reader.parse(json_string, json_root);
     return json_root;
-}
-
-llvm::Value* AstWalker::createObject(llvm::Type* obj_type, bool restore_insert_point)
-{
-    llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
-    llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
-    
-    Builder.SetInsertPoint(&func_block);
-
-    llvm::Value* valuePtr = Builder.CreateAlloca(obj_type);
-
-    if( restore_insert_point )
-    {
-        Builder.SetInsertPoint(originalBlock);
-    }
-
-    return valuePtr;
 }
 
 llvm::Value* AstWalker::createConstObject(std::string type_name, llvm::Value* raw_value)

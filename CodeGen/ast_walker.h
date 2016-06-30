@@ -33,6 +33,7 @@
 class AstWalker
 {
     private:
+        llvm::Type* getVoidStarType();
         ScopeHelper* scopeHelper;
         llvm::LLVMContext currContext;
         llvm::IRBuilder<> Builder;

@@ -10,7 +10,30 @@
 //TODO change how the String_* methods allocate memory
 
 //Int
-CREATE_PRIMITIVE_INIT_FN(Int, int64_t)
+void * init_Int(int64_t raw_value)
+{
+    CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
+
+    small_set_set(obj->funcs, "str", String_Int);
+
+    small_set_set(obj->funcs, "add", add_Int);
+    small_set_set(obj->funcs, "sub", sub_Int);
+    small_set_set(obj->funcs, "mul", mul_Int);
+    small_set_set(obj->funcs, "div", div_Int);
+    small_set_set(obj->funcs, "mod", mod_Int);
+    small_set_set(obj->funcs, "and", and_Int);
+    small_set_set(obj->funcs, "or", or_Int);
+    small_set_set(obj->funcs, "xor", xor_Int);
+
+    small_set_set(obj->funcs, "cmplt", cmplt_Int);
+    small_set_set(obj->funcs, "cmple", cmple_Int);
+    small_set_set(obj->funcs, "cmpne", cmpne_Int);
+    small_set_set(obj->funcs, "cmpgt", cmpgt_Int);
+    small_set_set(obj->funcs, "cmpge", cmpge_Int);
+    small_set_set(obj->funcs, "cmpeq", cmpeq_Int);
+
+    return obj;
+}
 
 void uninit_Int(void* int_val)
 {
@@ -49,7 +72,27 @@ CREATE_NUM_CMP_FN(Int, int64_t, cmpeq, ==)
 
 
 //Float
-CREATE_PRIMITIVE_INIT_FN(Float, double)
+void * init_Float(double raw_value)
+{
+    CREATE_PRIMITIVE_INIT_BLOCK(Float, double, obj);
+
+    small_set_set(obj->funcs, "str", String_Float);
+
+    small_set_set(obj->funcs, "add", add_Float);
+    small_set_set(obj->funcs, "sub", sub_Float);
+    small_set_set(obj->funcs, "mul", mul_Float);
+    small_set_set(obj->funcs, "div", div_Float);
+
+    small_set_set(obj->funcs, "cmplt", cmplt_Float);
+    small_set_set(obj->funcs, "cmple", cmple_Float);
+    small_set_set(obj->funcs, "cmpne", cmpne_Float);
+    small_set_set(obj->funcs, "cmpgt", cmpgt_Float);
+    small_set_set(obj->funcs, "cmpge", cmpge_Float);
+    small_set_set(obj->funcs, "cmpeq", cmpeq_Float);
+
+    return obj;
+}
+
 
 void uninit_Float(void* float_val)
 {
@@ -82,7 +125,15 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 
 
 //String
-CREATE_PRIMITIVE_INIT_FN(String, char*)
+void * init_String(char* raw_value)
+{
+    CREATE_PRIMITIVE_INIT_BLOCK(String, char*, obj);
+    small_set_set(obj->funcs, "str", String_String);
+    small_set_set(obj->funcs, "add", add_String);
+    return obj;
+}
+
+
 
 void uninit_String(void* this)
 {
@@ -111,9 +162,18 @@ void* add_String(void* this,  va_list* rhs_obj)
     return result;
 }
 
-
+void* String_String(void* this)
+{
+    return this;
+}
 //Bool
-CREATE_PRIMITIVE_INIT_FN(Bool, bool)
+void * init_Bool(bool raw_value)
+{
+    CREATE_PRIMITIVE_INIT_BLOCK(Bool, bool, obj);
+    small_set_set(obj->funcs, "str", String_Bool);
+    return obj;
+}
+
 
 void* String_Bool(void* bool_val)
 {

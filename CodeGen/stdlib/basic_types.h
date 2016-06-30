@@ -32,14 +32,16 @@
 #define CREATE_PRIMITIVE_INIT_FN_DECL(STRUCT_TYPE, RAW_TYPE)    \
     void * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value);
 
-#define CREATE_PRIMITIVE_INIT_FN(STRUCT_TYPE, RAW_TYPE)                      \
-    void * ( init_ ## STRUCT_TYPE) (RAW_TYPE raw_value) {                    \
+#define CREATE_PRIMITIVE_INIT_BLOCK(STRUCT_TYPE, RAW_TYPE, OBJ_OUT)                \
+        STRUCT_TYPE * OBJ_OUT;                                                 \
+        do {                                                                 \
         gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));        \
         ((STRUCT_TYPE *)val->raw_obj)->raw_value = raw_value;                \
         ((STRUCT_TYPE *)val->raw_obj)->back_ptr  = val;                      \
         ((STRUCT_TYPE *)val->raw_obj)->type_name = # STRUCT_TYPE ;                      \
-        return (val->raw_obj);                                \
-    }
+        OBJ_OUT = (val->raw_obj); \
+        (OBJ_OUT) -> funcs = small_set_init();\
+        } while (0);                                                        
 
 #define BASE_VALS \
     gc_base_t* back_ptr; \
@@ -148,6 +150,9 @@ CREATE_PRIMITIVE_INIT_FN_DECL(String, char*)
 void uninit_String(void* int_val);
 
 void* add_String(void* this,  va_list* rhs_obj);
+
+void* String_String(void* this);
+
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 

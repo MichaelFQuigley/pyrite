@@ -1,4 +1,7 @@
-func main(a,b,c)
+func main()
 {
-    let i = 0
+    let i = 0.0
+    i = 1.0 + 2.0
+    println(str(i) + " test")
+    return {}
 }

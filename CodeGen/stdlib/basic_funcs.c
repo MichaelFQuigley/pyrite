@@ -4,6 +4,11 @@
 
 #include "basic_funcs.h"
 
+void* str(void* obj)
+{
+    return lang_try_call(obj, "str");
+}
+
 void println(void* str_obj)
 {
     String* str = (String*) str_obj;

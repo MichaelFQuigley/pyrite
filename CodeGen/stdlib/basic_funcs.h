@@ -4,6 +4,9 @@
 
 void println(void* str);
 void print(void* str);
+
+void* str(void* obj);
+
 gc_base_t* get_back_ptr(void* obj);
 
 void lang_type_assert(void* obj, char* type_name);
