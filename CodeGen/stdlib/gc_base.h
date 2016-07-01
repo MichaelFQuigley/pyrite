@@ -18,7 +18,7 @@
 #define MAX_STACK_SIZE (1 << 24) //32 M objects
 #define MAX_SCOPE_DEPTH (1 << 10) //1024
 
-//#define GC_DEBUG
+#define GC_DEBUG
 
 #ifdef GC_DEBUG
     #define GC_ASSERT(COND) \
@@ -36,7 +36,7 @@ static bits_t is_marked_mask           = 0x1;
 static bits_t size_mask                = ~(is_marked_mask);
 
 
-
+//XXX gc_base should be word aligned
 typedef struct gc_base
 {
     /*
@@ -52,9 +52,6 @@ typedef struct gc_base
     void**    refs;
     struct gc_base* prev;
     struct gc_base* next;
-
-    //raw object pointer
-    void* raw_obj;
 } gc_base_t;
 
 typedef struct 
@@ -76,6 +73,9 @@ typedef struct
 {
     uint64_t num_anon_vars;
     uint64_t num_named_vars;
+    //func_scope_offset specifies this stack element's
+    //distance below the nearest function scope
+    uint64_t func_scope_offset;
     //array of named variables
     gc_base_t** named_vars;
 } gc_scope_stack_el_t;
@@ -86,33 +86,15 @@ typedef struct
     int64_t curr_index;
 } gc_scope_stack_t;
 
-
-static inline uint64_t lang_core_get_obj_size(uint64_t flags)
-{
-    return ((flags & flags_num_bits_size) >> flags_num_bits_is_marked);
-}
-
 static inline uint64_t lang_core_get_obj_is_marked(gc_base_t* obj)
 {
     return (obj->flags & flags_num_bits_is_marked);
 }
 
-static inline void lang_core_set_obj_size(gc_base_t* this, uint64_t size)
+static inline void lang_core_set_obj_is_marked(gc_base_t* this, uint64_t is_marked)
 {
-    this->flags &= ~(size_mask);
-    this->flags |= (size << flags_num_bits_size);
-}
-
-static inline void lang_core_set_obj_is_marked(gc_base_t* this, bool is_marked)
-{
-    if( is_marked )
-    {
-        this->flags |= 1; 
-    }
-    else
-    {
-        this->flags &= ~(1);
-    }
+    this->flags &= ~(1);
+    this->flags |= (is_marked & 1); 
 }
 
 /* gc_malloc
@@ -127,7 +109,7 @@ static inline void lang_core_set_obj_is_marked(gc_base_t* this, bool is_marked)
  *
  * Returns gc_base_t with raw_obj pointing to zero alloced memory
  */
-gc_base_t* gc_malloc(size_t size);
+void* gc_malloc(size_t size);
 
 //must be called externally before any other function
 void gc_init(void);
@@ -136,12 +118,14 @@ void gc_init(void);
 void gc_mark_and_sweep(void);
 
 //should be called every time a new scope is introduced
-void gc_push_scope(uint64_t num_named_vars);
+void gc_push_func_scope(uint64_t num_named_vars);
+void gc_push_loop_scope(void);
 
 //should be called every time a scope is removed
-void gc_pop_scope(void);
+void gc_pop_func_scope(void);
 
 //sets value of var in scope
 void gc_set_named_var_in_scope(gc_base_t* base, uint64_t index);
 
+gc_base_t* get_back_ptr(void* obj);
 #endif

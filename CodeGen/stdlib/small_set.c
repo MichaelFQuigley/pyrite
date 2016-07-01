@@ -7,7 +7,7 @@
 
 small_set_t* small_set_init(void)
 {
-    small_set_t* result = (small_set_t*) fast_malloc(sizeof(small_set_t));
+    small_set_t* result = (small_set_t*) fast_zalloc(sizeof(small_set_t));
     return result;
 }
 
@@ -28,9 +28,10 @@ void small_set_uninit(small_set_t* set)
     fast_free(set);
 }
 
-static uint64_t small_set_hash(char* key)
+static inline uint64_t small_set_hash(char* key)
 {
-    uint64_t result = 1;
+    return key[0] % SET_ARR_SIZE;
+    /*uint64_t result = 1;
     int i           = 0;
 
     while( key[i] != '\0' )
@@ -39,7 +40,7 @@ static uint64_t small_set_hash(char* key)
         i++;
     }
 
-    return result % SET_ARR_SIZE;
+    return result % SET_ARR_SIZE;*/
 }
 
 /*small_set_list_get
@@ -48,7 +49,7 @@ static uint64_t small_set_hash(char* key)
  * else returns null.
  * does not check list head.
  */
-static set_list_node_t* small_set_list_get(set_list_node_t* list_head, 
+static inline set_list_node_t* small_set_list_get(set_list_node_t* list_head, 
                                             char* key)
 {
     set_list_node_t* curr_node = list_head->next;
@@ -69,8 +70,6 @@ void small_set_set(small_set_t* set, char* key, void* value)
 {
     uint64_t index = small_set_hash(key);
 
-    small_set_remove(set, key);
-
     set->size++;
     set_list_node_t* list_head = &(set->set_arr[index]); 
     set_list_node_t* new_node  = fast_malloc(sizeof(set_list_node_t)); 
@@ -85,7 +84,7 @@ void small_set_set(small_set_t* set, char* key, void* value)
 
     new_node->next  = list_head->next;
     new_node->prev  = list_head;
-    list_head->next  = new_node;
+    list_head->next = new_node;
 
     if( new_node->next )
     {

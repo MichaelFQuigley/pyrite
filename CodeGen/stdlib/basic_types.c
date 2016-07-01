@@ -14,6 +14,7 @@ void * init_Int(int64_t raw_value)
 {
     CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
 
+    small_set_set(obj->funcs, "uninit", uninit_Int);
     small_set_set(obj->funcs, "str", String_Int);
 
     small_set_set(obj->funcs, "add", add_Int);
@@ -37,7 +38,7 @@ void * init_Int(int64_t raw_value)
 
 void uninit_Int(void* int_val)
 {
-    free(int_val);
+    CREATE_PRIMITIVE_UNINIT_BLOCK(int_val)
 }
 
 void* String_Int(void* int_val)
@@ -77,6 +78,7 @@ void * init_Float(double raw_value)
     CREATE_PRIMITIVE_INIT_BLOCK(Float, double, obj);
 
     small_set_set(obj->funcs, "str", String_Float);
+    small_set_set(obj->funcs, "uninit", uninit_Float);
 
     small_set_set(obj->funcs, "add", add_Float);
     small_set_set(obj->funcs, "sub", sub_Float);
@@ -96,7 +98,7 @@ void * init_Float(double raw_value)
 
 void uninit_Float(void* float_val)
 {
-    free(float_val);
+    CREATE_PRIMITIVE_UNINIT_BLOCK(float_val)
 }
 
 void* String_Float(void* float_val)
@@ -130,6 +132,7 @@ void * init_String(char* raw_value)
     CREATE_PRIMITIVE_INIT_BLOCK(String, char*, obj);
     small_set_set(obj->funcs, "str", String_String);
     small_set_set(obj->funcs, "add", add_String);
+    small_set_set(obj->funcs, "uninit", uninit_String);
     return obj;
 }
 
@@ -137,12 +140,12 @@ void * init_String(char* raw_value)
 
 void uninit_String(void* this)
 {
+    CREATE_PRIMITIVE_UNINIT_BLOCK(this)
     String* str_val = (String*)this;
     if( str_val->raw_is_on_heap )
     {
         free(str_val->raw_value);
     }
-    free(str_val);
 }
 
 void* add_String(void* this,  va_list* rhs_obj)
@@ -171,6 +174,7 @@ void * init_Bool(bool raw_value)
 {
     CREATE_PRIMITIVE_INIT_BLOCK(Bool, bool, obj);
     small_set_set(obj->funcs, "str", String_Bool);
+    small_set_set(obj->funcs, "uninit", uninit_Bool);
     return obj;
 }
 
@@ -194,7 +198,7 @@ bool rawVal_Bool(void* this)
 
 void uninit_Bool(void* bool_val)
 {
-    free(bool_val);
+    CREATE_PRIMITIVE_UNINIT_BLOCK(bool_val)
 }
 
 
@@ -204,15 +208,15 @@ void* init_IntRange(void* start_obj, void* step_obj, void* end_obj)
     Int* start = start_obj;
     Int* step  = step_obj;
     Int* end   = end_obj;
-    gc_base_t* base   = gc_malloc(sizeof(IntRange));
-    IntRange* result  = (IntRange*) (base->raw_obj);
-    result->back_ptr  = base;
+    IntRange* result  = gc_malloc(sizeof(IntRange));
     result->type_name = "IntRange";
     result->curr_val  = start;
     result->start     = start;
     result->step      = step;
     result->end       = end;
 
+    result->funcs = small_set_init();
+    small_set_set(result->funcs, "uninit", uninit_IntRange);
     assert( (((start->raw_value < end->raw_value) && (step->raw_value > 0)) 
           || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
           || (start->raw_value == end->raw_value)) 
@@ -249,16 +253,25 @@ void* begin_IntRange(void* range_obj)
     return init_Int(range->start->raw_value);
 }
 
+void uninit_IntRange(void* this)
+{
+    CREATE_PRIMITIVE_UNINIT_BLOCK(this)
+}
+
 
 //List
 void* init_List(uint64_t initial_size)
 {
-    gc_base_t* base   = gc_malloc(sizeof(List));
-    List* result      = (List*) (base->raw_obj);
-    result->back_ptr  = base;
+    List* result      = (List*) gc_malloc(sizeof(List));;
+    result->funcs = small_set_init();
+    small_set_set(result->funcs, "uninit", uninit_List);
+    small_set_set(result->funcs, "set", set_List);
+    small_set_set(result->funcs, "get", get_List);
+    small_set_set(result->funcs, "add", add_List);
+    small_set_set(result->funcs, "str", String_List);
     result->type_name = "List";
     result->size      = initial_size;
-    result->capacity  = (initial_size + 1) * 2;
+    result->capacity  = initial_size; //(initial_size + 1) * 2;
     result->raw_value = calloc(1, result->capacity * sizeof(void*));
 
     return result;
@@ -284,7 +297,7 @@ void* get_List(void* this_obj, va_list* args_rest)
 
     assert(raw_ind < this->size && raw_ind >= 0 &&
             "List index out of bounds!");
-
+    printf("get ptr val = %p\n", this->raw_value[raw_ind]);
     return this->raw_value[raw_ind];
 }
 
@@ -292,29 +305,28 @@ void* add_List(void* this_obj, va_list* args_rest)
 {
     List* this = (List*)this_obj;
     void* el   = va_arg(*args_rest, void*);
-    if( (this->size + 1) == this->capacity ) 
+    List* new_list = init_List(this->size + 1);
+
+    for(uint64_t i = 0; i < this->size; i++)
     {
-        this->capacity = this->capacity * 2;
-
-        void** new_mem = calloc(1, this->capacity * sizeof(void*));
-
-        if( !new_mem )
-        {
-            assert(false && "Memory allocation failed in add_List!");
-        }
-
-        memcpy(new_mem, this->raw_value, sizeof(void*) * this->size);
-        free(this->raw_value);
-        this->raw_value = new_mem;
+        new_list->raw_value[i] = this->raw_value[i];
     }
-    this->raw_value[this->size] = el;
-    this->size++;
 
-    return this;
+    new_list->raw_value[this->size] = el;
+
+    return new_list;
+}
+
+void* String_List(void* this)
+{
+    void* list_item = lang_try_call(this, "get", init_Int(0));
+    void* test  = lang_try_call(list_item, "str");
+    return test;
 }
 
 void uninit_List(void* arr)
 {
+    CREATE_PRIMITIVE_UNINIT_BLOCK(arr);
     free(((List*)arr)->raw_value);
 }
 

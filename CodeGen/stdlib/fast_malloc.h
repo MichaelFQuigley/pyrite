@@ -23,13 +23,14 @@ typedef struct fast_mem_node
     struct fast_mem_node* next;
 } fast_mem_node_t;
 
-/*fast_malloc:
+/*fast_zalloc:
  *
  * returns pointer to zero alloced memory on success
  *
  * returns NULL on failure
 */
 void* fast_malloc(size_t size);
+void* fast_zalloc(size_t size);
 
 /* fast_free:
  *

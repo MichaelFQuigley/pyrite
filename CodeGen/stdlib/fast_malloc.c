@@ -3,22 +3,17 @@
 
 #include "fast_malloc.h"
 
-#define MEM_ALIGN 8
-#define MAX_MEM_SIZE (32 * MEM_ALIGN)
+#define MEM_ALIGN 16
+#define MAX_MEM_SIZE (64 * MEM_ALIGN)
 
 static fast_mem_node_t mem_slabs[(MAX_MEM_SIZE / MEM_ALIGN) + 1];
 
 static inline void push_slab_head(void* mem)
 {
-    if( !mem )
-    {
-        return;
-    }
-
     fast_mem_node_t* mem_node = (fast_mem_node_t*)(mem - sizeof(fast_mem_node_t));
     size_t size               = mem_node->size;
 
-    if( size > MAX_MEM_SIZE || !mem )
+    if( size > MAX_MEM_SIZE )
     {
         free(mem_node);
         return;
@@ -72,7 +67,7 @@ void* fast_malloc(size_t size)
     //so there is no point in looking in pool
     if( !new_mem )
     {
-        fast_mem_node_t* mem_node = calloc(1, size + sizeof(fast_mem_node_t));
+        fast_mem_node_t* mem_node = malloc(size + sizeof(fast_mem_node_t));
         mem_node->size = size;
         result_mem = mem_node;
         result_mem += sizeof(fast_mem_node_t);
@@ -81,7 +76,14 @@ void* fast_malloc(size_t size)
     {
         result_mem = new_mem;
     }
-    
+
+    return result_mem; 
+}
+
+void* fast_zalloc(size_t size)
+{
+    void* result_mem = fast_malloc(size); 
+
     if( result_mem )
     {
         memset(result_mem, 0, size);
@@ -92,6 +94,5 @@ void* fast_malloc(size_t size)
 
 void fast_free(void* mem)
 {
-    //free(mem);
     push_slab_head(mem);
 }

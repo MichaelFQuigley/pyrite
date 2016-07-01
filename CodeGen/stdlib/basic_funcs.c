@@ -21,11 +21,6 @@ void print(void* str_obj)
     printf("%s", str->raw_value);
 }
 
-gc_base_t* get_back_ptr(void* obj)
-{
-    return ((gc_base_t**)obj)[0];
-}
-
 void lang_type_assert(void* obj, char* type_name)
 {
     if( !lang_type_check(obj, type_name) )
@@ -44,7 +39,7 @@ bool lang_type_check(void* obj, char* type_name)
 
 bool lang_has_call(void* obj, char* fn_name)
 {
-    small_set_t* set = ((Base*)obj)->funcs;
+    small_set_t* set = (((Base*)obj)->funcs);
 
     return small_set_get(set, fn_name) != NULL;
 }
@@ -53,7 +48,7 @@ void* lang_try_call(void* obj, char* fn_name, ...)
 {
     va_list args;
     va_start(args, fn_name);
-    small_set_t* set = ((Base*)obj)->funcs;
+    small_set_t* set = (((Base*)obj)->funcs);
 
     void* fn = small_set_get(set, fn_name);
 
@@ -75,7 +70,7 @@ void* lang_call(void* obj, char* fn_name, ...)
 {
     va_list args;
     va_start(args, fn_name);
-    small_set_t* set = ((Base*)obj)->funcs;
+    small_set_t* set = (((Base*)obj)->funcs);
 
     void* fn = small_set_get(set, fn_name);
 

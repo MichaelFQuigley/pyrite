@@ -394,6 +394,10 @@ llvm::Value* AstWalker::codeGen_ForOp(Json::Value json_node){
     createBoolCondBr(hasNext, loopBody, loopBottom);
 
     startBlock(loopBody);
+    
+    createCall("gc_push_loop_scope", argsV);
+    argsV.clear();
+
     codeGen_initial(json_node["body"]);
 
     argsV.push_back(itt);
@@ -402,6 +406,8 @@ llvm::Value* AstWalker::codeGen_ForOp(Json::Value json_node){
     Builder.CreateStore(createCall(itt_nextFuncName, argsV), scopeHelper->getNamedVal(loop_var_name, true));
     argsV.clear();
 
+    createCall("gc_pop_scope", argsV);
+    argsV.clear();
     Builder.CreateBr(loopTop);
     startBlock(loopBottom);
 
@@ -539,7 +545,7 @@ llvm::Value* AstWalker::codeGen_FuncDef(Json::Value json_node)
     argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
                                                                     numVarsInFunc, 
                                                                     false)));
-    createCall("gc_push_scope", argsV); 
+    createCall("gc_push_func_scope", argsV); 
     Builder.SetInsertPoint(originalBlock);
 
     popScope();
@@ -552,12 +558,14 @@ llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node)
     pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
     llvm::Value* ret_val = codeGen_initial(json_node);
+    llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
+    llvm::Function* func_block    = originalBlock->getParent();
     //check for return param
     popScope();
     std::vector<llvm::Value*> argsV;
     createCall("gc_pop_scope", argsV); 
-
-    if( scopeHelper->parentFuncReturnsVoid() )
+    
+    if(func_block->getName() == "main")
     {
         return Builder.CreateRetVoid();
     }
@@ -566,6 +574,37 @@ llvm::Value* AstWalker::codeGen_ReturnOp(Json::Value json_node)
         return Builder.CreateRet(ret_val); 
     }
 
+}
+
+llvm::Value* AstWalker::codeGen_ListOp(Json::Value json_node)
+{
+
+    std::vector<llvm::Value*> argsV;
+    int numListItems = 0;
+    argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
+                                                                    numListItems, 
+                                                                    false)));
+    llvm::Value* list = createConstObject("List", llvm::ConstantInt::get(currContext, 
+                                                llvm::APInt(64, 
+                                                json_node.size(), 
+                                                false)));
+    for( unsigned i = 0; i < json_node.size(); i++ )
+    {
+        argsV.clear();
+        llvm::Value* list_el = codeGen_initial(json_node[i]);
+        argsV.push_back(list);
+        argsV.push_back(CodeGenUtil::generateString(currModule.get(), "set"));
+        /* index */
+        argsV.push_back(createConstObject("Int",
+                    llvm::ConstantInt::get(currContext, llvm::APInt(64, 
+                                                                    i, 
+                                                                    false))));
+        /* value */
+        argsV.push_back(list_el);
+        createCall("lang_try_call", argsV);
+    }
+
+    return list;   
 }
 
 llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
@@ -580,6 +619,7 @@ llvm::Value* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, IfOp);
     TRY_NODE(json_node, FuncDef);
     TRY_NODE(json_node, ReturnOp);
+    TRY_NODE(json_node, ListOp);
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
     cout << json_node << endl;

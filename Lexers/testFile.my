@@ -1,7 +1,7 @@
 func main()
 {
-    let i = 0.0
-    i = 1.0 + 2.0
-    println(str(i) + " test")
+    let l = [1,2]
+        l += 3
+    println(str(l))
     return {}
 }

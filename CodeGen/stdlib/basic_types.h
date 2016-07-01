@@ -35,16 +35,16 @@
 #define CREATE_PRIMITIVE_INIT_BLOCK(STRUCT_TYPE, RAW_TYPE, OBJ_OUT)                \
         STRUCT_TYPE * OBJ_OUT;                                                 \
         do {                                                                 \
-        gc_base_t* val = (gc_base_t *)gc_malloc(sizeof(STRUCT_TYPE));        \
-        ((STRUCT_TYPE *)val->raw_obj)->raw_value = raw_value;                \
-        ((STRUCT_TYPE *)val->raw_obj)->back_ptr  = val;                      \
-        ((STRUCT_TYPE *)val->raw_obj)->type_name = # STRUCT_TYPE ;                      \
-        OBJ_OUT = (val->raw_obj); \
-        (OBJ_OUT) -> funcs = small_set_init();\
+        (OBJ_OUT) = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));        \
+        (OBJ_OUT)->raw_value = raw_value;                \
+        (OBJ_OUT)->type_name = # STRUCT_TYPE ;                      \
+        (OBJ_OUT) -> funcs = small_set_init(); \
         } while (0);                                                        
 
+#define CREATE_PRIMITIVE_UNINIT_BLOCK(OBJ_IN)                \
+    small_set_uninit(((Base*)(OBJ_IN)) ->funcs);
+
 #define BASE_VALS \
-    gc_base_t* back_ptr; \
     char* type_name;     \
     small_set_t* funcs; 
 
@@ -156,7 +156,7 @@ void* String_String(void* this);
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 
-void uninit_Bool(void* int_val);
+void uninit_Bool(void* bool_val);
 
 void* String_Bool(void* bool_val);
 
@@ -165,6 +165,8 @@ bool rawVal_Bool(void* this);
 
 //IntRange
 void* init_IntRange(void* start_obj, void* step_obj, void* end_obj);
+
+void uninit_IntRange(void* this);
 
 void* hasNext_IntRange(void* range_obj);
 
@@ -176,11 +178,15 @@ void* begin_IntRange(void* range_obj);
 //List
 void* init_List(uint64_t initial_size);
 
+void uninit_List(void* this);
+
 void set_List(void* this_obj, va_list* args_rest);
 
 void* get_List(void* this_obj, va_list* args_rest);
 
 void* add_List(void* this_obj, va_list* args_rest);
+
+void* String_List(void* this);
 
 void uninit_List(void* arr);
 

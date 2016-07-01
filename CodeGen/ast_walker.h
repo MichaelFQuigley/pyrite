@@ -90,6 +90,7 @@ class AstWalker
         llvm::Value* codeGen_FuncDef(Json::Value json_node);
         llvm::Value* codeGen_TypedArg(Json::Value json_node);
         llvm::Value* codeGen_ReturnOp(Json::Value json_node);
+        llvm::Value* codeGen_ListOp(Json::Value json_node);
 
         Json::Value generateFromJson(std::string json_string);
         void dumpIR();
