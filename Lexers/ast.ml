@@ -11,17 +11,22 @@ and expr_stmt =
     (*format of for loop, index_var * iterator * stmts*)
     | ATOMOP of atom
     | FUNCDEF of string * func_proto * stmts
-    | LIST of expr_stmt array
 and simple_stmt = 
     | EXPROP of expr_stmt
     (*format of VARDEF is variable * expression assigned to variable*)
-    | VARDEF of string * expr_stmt
+    | VARDEF of typed_arg * expr_stmt
     | RETURN of stmts
     | FOR of atom * atom * stmts
     | WHILE of expr_stmt * stmts
+and typed_arg = 
+    (*format of typedarg is name * type*)
+    | TYPEDARG of string * type_definition
+and type_definition = 
+    | SIMPLE_TYPE of string
+    | FUNC_TYPE of func_proto
 and func_proto = 
-    (*format of FUNC_PROTO is array(arg1, arg2, ...)*)
-    | FUNC_PROTO of string array
+    (*format of FUNC_PROTO is array(arg1, arg2, ...) * ret_type*)
+    | FUNC_PROTO of typed_arg array * type_definition
 and stmts = 
     | STMTS of simple_stmt array
 
@@ -51,18 +56,22 @@ and make_json_kvs keys values =
 let rec string_of_stmts ast = 
     match ast with
     |  STMTS args -> make_json_kv "StmtsOp" (make_json_arr args string_of_simple_stmt)
+and string_of_type_definition ast =
+    match ast with
+    | SIMPLE_TYPE typ -> make_json_kv "simple" ("\""^typ^"\"")
+    | FUNC_TYPE func_proto -> make_json_kv "func_type" (string_of_prototype func_proto)
 and string_of_prototype ast = 
     match ast with
-    | FUNC_PROTO args_arr -> make_json_kv "FuncProto" (make_json_kv "args" 
-                                                                     (make_json_arr args_arr (fun n -> ("\""^n^"\""))))
+    | FUNC_PROTO (args_arr, ret_type) -> make_json_kv "FuncProto" (make_json_kvs ["args"; "ret_type"] 
+                                                                                 [(make_json_arr args_arr string_of_typed_arg); string_of_type_definition ret_type])
 
 and string_of_simple_stmt ast = 
     match ast with
     | EXPROP op -> 
             make_json_kv "ExprOp" (string_of_expr_stmt op)
-    | VARDEF (v, expr) ->
+    | VARDEF (t, expr) ->
             make_json_kv "VarDef" (make_json_kvs ["var"; "expr"]
-                                                 ["\""^v^"\""; string_of_expr_stmt expr])
+                                                 [string_of_typed_arg t; string_of_expr_stmt expr])
     | RETURN s -> 
             make_json_kv "ReturnOp" (string_of_stmts s)
     | FOR (loop_var, itt, stmts) -> 
@@ -84,8 +93,11 @@ and string_of_expr_stmt ast =
     | FUNCDEF (name, proto, stmts) ->
             make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "stmts"]
                                 ["\""^name^"\""; string_of_prototype proto; string_of_stmts stmts])
-    | LIST elements ->
-            make_json_kv "ListOp" (make_json_arr elements string_of_expr_stmt)
+and string_of_typed_arg ast = 
+    match ast with 
+    | TYPEDARG (name, t) -> 
+            make_json_kv "TypedArg" (make_json_kvs ["name"; "type"]
+                                                   ["\""^name^"\""; string_of_type_definition t])
 and string_of_atom ast = 
     match ast with
     | LIT a -> 

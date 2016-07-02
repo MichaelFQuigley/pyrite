@@ -5,8 +5,6 @@ let rec lex = parser
     | [<' (')'); stream>] -> [<'Token.RPAREN; lex stream>]
     | [<' ('{'); stream>] -> [<'Token.LBRAC; lex stream>]
     | [<' ('}'); stream>] -> [<'Token.RBRAC; lex stream>]
-    | [<' ('['); stream>] -> [<'Token.LSQ; lex stream>]
-    | [<' (']'); stream>] -> [<'Token.RSQ; lex stream>]
     | [<' ('"'); stream>] -> let buffer = Buffer.create 1 in lex_string buffer stream;
     | [<' ('0' .. '9' as c); stream>] ->  
         let buffer = Buffer.create 1 in
@@ -41,7 +39,7 @@ let rec lex = parser
             (match Stream.peek stream with
             | Some '.' -> (Stream.junk stream; [<'Token.PUNCT ".."; lex stream>])
             | _ -> [<'Token.PUNCT "."; lex stream>])
-    | [<' (','|';'|'~' as c); stream>] 
+    | [<' (','|':'|';'|'~' as c); stream>] 
         -> [< 'Token.PUNCT (Char.escaped c); lex stream>]
     | [<>] -> [<>]
 (*lex_eq_sign checks to see if the first character in the stream is first_punct
