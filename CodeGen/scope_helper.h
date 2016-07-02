@@ -2,7 +2,9 @@
 #define SCOPE_HELPER_H
 
 #include <map>
+
 #include "llvm/IR/Value.h"
+#include "compile_type.h"
 
 class ScopeNode
 {
@@ -17,13 +19,13 @@ class ScopeNode
                 ScopeNode* parent = nullptr, 
                 std::map<std::string, 
                         std::tuple<uint64_t, 
-                        llvm::Value*>*>* namedVals = nullptr);
+                        CompileVal*>*>* namedVals = nullptr);
 
         ~ScopeNode();
         ScopeNode* getParent();
         void setParent(ScopeNode* parent);
-        void setNamedVal(std::string name, llvm::Value* value, uint64_t index);
-        llvm::Value* getNamedVal(std::string name);
+        void setNamedVal(std::string name, CompileVal* value, uint64_t index);
+        CompileVal* getNamedVal(std::string name);
         uint64_t getNamedValInd(std::string name);
         void setBlock(llvm::BasicBlock* block);
         bool isVoidReturn();
@@ -34,7 +36,7 @@ class ScopeNode
     private:
         //namedVals: key = var name, 
         //value = tuple(order in which named val was created, val)
-        std::map<std::string, std::tuple<uint64_t, llvm::Value*>*>* namedVals;
+        std::map<std::string, std::tuple<uint64_t, CompileVal*>*>* namedVals;
         ScopeNode* parent;
         llvm::BasicBlock* block;
         ScopeType scopeType;
@@ -49,8 +51,8 @@ class ScopeHelper
        ~ScopeHelper(); 
        void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
        void popScope();
-       void setNamedVal(std::string name, llvm::Value* value, bool isDecl);
-       llvm::Value* getNamedVal(std::string name, bool walkScopes);
+       void setNamedVal(std::string name, CompileVal* value, bool isDecl);
+       CompileVal* getNamedVal(std::string name, bool walkScopes);
        uint64_t getNamedValInd(std::string name);
        void setBlockOnCurrScope(llvm::BasicBlock* block);
        //getNearestScopeOfType returns nullptr if no scope of appropriate type is found

@@ -71,7 +71,7 @@ static inline void gc_free(gc_base_t* val)
 {
     remove_node(val);
     Base* raw_obj = (Base*)gc_get_raw_obj(val);
-    lang_try_call(raw_obj, "uninit");
+    raw_obj->uninit(raw_obj);
     fast_free(val);
 }
 

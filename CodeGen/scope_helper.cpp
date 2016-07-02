@@ -6,14 +6,14 @@
 //ScopeNode
 ScopeNode::ScopeNode(ScopeNode::ScopeType scopeType,
         ScopeNode* parent, 
-        std::map<std::string, std::tuple<uint64_t, llvm::Value *>*>* namedVals)
+        std::map<std::string, std::tuple<uint64_t, CompileVal*>*>* namedVals)
 {
-    this->parent = parent;
+    this->parent        = parent;
     numNamedVarsInScope = 0;
 
     if( namedVals == nullptr )
     {
-        this->namedVals = new std::map<std::string, std::tuple<uint64_t, llvm::Value *>*>();
+        this->namedVals = new std::map<std::string, std::tuple<uint64_t, CompileVal*>*>();
     }
     else
     {
@@ -33,13 +33,13 @@ ScopeNode* ScopeNode::getParent() { return parent; }
 
 void ScopeNode::setParent(ScopeNode* parent) { this->parent = parent; }
 
-void ScopeNode::setNamedVal(std::string name, llvm::Value* value, uint64_t index) { 
+void ScopeNode::setNamedVal(std::string name, CompileVal* value, uint64_t index) { 
         (*namedVals)[name] = new std::tuple<uint64_t, 
-                                            llvm::Value *>
+                                            CompileVal*>
                                                 (index, value);
 }
 
-llvm::Value* ScopeNode::getNamedVal(std::string name) { 
+CompileVal* ScopeNode::getNamedVal(std::string name) { 
     if( (*namedVals)[name] == nullptr )
     {
         return nullptr;
@@ -109,7 +109,7 @@ void ScopeHelper::popScope()
     delete oldScope;
 }
 
-void ScopeHelper::setNamedVal(std::string name, llvm::Value* value, bool isDecl)
+void ScopeHelper::setNamedVal(std::string name, CompileVal* value, bool isDecl)
 {
     if( isDecl )
     {
@@ -139,7 +139,7 @@ void ScopeHelper::setNamedVal(std::string name, llvm::Value* value, bool isDecl)
     }
 }
 
-llvm::Value* ScopeHelper::getNamedVal(std::string name, bool walkScopes)
+CompileVal* ScopeHelper::getNamedVal(std::string name, bool walkScopes)
 {
     if( walkScopes )
     {
@@ -147,7 +147,7 @@ llvm::Value* ScopeHelper::getNamedVal(std::string name, bool walkScopes)
 
         while( tempScope != nullptr )
         {
-            llvm::Value* tempNamedVal = tempScope->getNamedVal(name);
+            CompileVal* tempNamedVal = tempScope->getNamedVal(name);
 
             if( tempNamedVal != nullptr )
             {
@@ -170,7 +170,7 @@ uint64_t ScopeHelper::getNamedValInd(std::string name)
 
     while( tempScope != nullptr )
     {
-        llvm::Value* tempNamedVal = tempScope->getNamedVal(name);
+        CompileVal* tempNamedVal = tempScope->getNamedVal(name);
 
         if( tempNamedVal != nullptr )
         {

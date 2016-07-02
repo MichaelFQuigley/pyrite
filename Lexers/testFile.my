@@ -1,7 +1,11 @@
 func main()
 {
-    let l = [1,2]
+    let l = 1
         l += 3
-    println(str(l))
+    for( i in 0..10 )
+    {
+        l += 4
+        println(String_Int(i))
+    }
     return {}
 }

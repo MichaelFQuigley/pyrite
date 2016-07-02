@@ -6,26 +6,25 @@
 #include <stdlib.h>
 
 #include "gc_base.h"
-#include "small_set.h"
 
 //Arithmetic function macros
 #define CREATE_NUM_ARITH_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest);
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, void* rhs_obj);
 
 #define CREATE_NUM_ARITH_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                           \
-    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest) {           \
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, void* rhs_obj) {           \
         STRUCT_TYPE * lhs = (STRUCT_TYPE *) lhs_obj;                                       \
-        STRUCT_TYPE * rhs = (STRUCT_TYPE *) va_arg(*args_rest, void*);                     \
+        STRUCT_TYPE * rhs = (STRUCT_TYPE *) rhs_obj;                     \
         return init_ ## STRUCT_TYPE (lhs->raw_value OP rhs->raw_value);                   \
     }
 //Compare function macros
 #define CREATE_NUM_CMP_FN_DECL(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP) \
-    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest);
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, void * rhs_obj);
 
 #define CREATE_NUM_CMP_FN(STRUCT_TYPE, RAW_TYPE, FN_NAME, OP)                                      \
-    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, va_list * args_rest)  {    \
+    void * (FN_NAME ## _ ## STRUCT_TYPE) (void * lhs_obj, void * rhs_obj)  {    \
         STRUCT_TYPE * lhs = (STRUCT_TYPE *) lhs_obj;                                 \
-        STRUCT_TYPE * rhs = (STRUCT_TYPE *) va_arg(*args_rest, void*);               \
+        STRUCT_TYPE * rhs = (STRUCT_TYPE *) rhs_obj;               \
         return init_Bool( lhs->raw_value OP rhs->raw_value );                       \
     }
 //Initialization function macros
@@ -36,17 +35,12 @@
         STRUCT_TYPE * OBJ_OUT;                                                 \
         do {                                                                 \
         (OBJ_OUT) = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));        \
-        (OBJ_OUT)->raw_value = raw_value;                \
-        (OBJ_OUT)->type_name = # STRUCT_TYPE ;                      \
-        (OBJ_OUT) -> funcs = small_set_init(); \
+        (OBJ_OUT)->raw_value = raw_value; \
+        (OBJ_OUT)->uninit    = (uninit_ ## STRUCT_TYPE);\
         } while (0);                                                        
 
-#define CREATE_PRIMITIVE_UNINIT_BLOCK(OBJ_IN)                \
-    small_set_uninit(((Base*)(OBJ_IN)) ->funcs);
-
 #define BASE_VALS \
-    char* type_name;     \
-    small_set_t* funcs; 
+    void (*uninit)(void *);
 
 typedef struct Base
 {
@@ -149,7 +143,7 @@ CREATE_PRIMITIVE_INIT_FN_DECL(String, char*)
 
 void uninit_String(void* int_val);
 
-void* add_String(void* this,  va_list* rhs_obj);
+void* add_String(void* this,  void* rhs_obj);
 
 void* String_String(void* this);
 
@@ -180,11 +174,11 @@ void* init_List(uint64_t initial_size);
 
 void uninit_List(void* this);
 
-void set_List(void* this_obj, va_list* args_rest);
+void set_List(void* this_obj, void* index_obj, void* value);
 
-void* get_List(void* this_obj, va_list* args_rest);
+void* get_List(void* this_obj, void* index_obj);
 
-void* add_List(void* this_obj, va_list* args_rest);
+void* add_List(void* this_obj, void* el);
 
 void* String_List(void* this);
 
