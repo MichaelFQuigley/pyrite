@@ -77,7 +77,7 @@ static inline void gc_free(gc_base_t* val)
 
 static inline bool should_garbage_collect()
 {
-    return gc_list.size >  (MAX_STACK_SIZE / 4);
+    return gc_list.size >  (MAX_STACK_SIZE / 2);
 }
 
 static void mark(gc_base_t* obj)

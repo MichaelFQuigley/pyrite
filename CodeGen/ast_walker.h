@@ -56,7 +56,7 @@ class AstWalker
         llvm::Type* getPtrTypeFromStr(std::string typeName);
         void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
         void popScope();
-        llvm::Function* makeFuncProto(Json::Value json_node, std::string result_param_name);
+        CompileVal* makeFuncProto(Json::Value json_node);
         //startBlock adds block to back of function and starts insert point there.
         void startBlock(llvm::BasicBlock* block);
         //tryGetFunction tries to get the function based on func_name from the current module

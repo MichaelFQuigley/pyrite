@@ -18,15 +18,33 @@ bool CompileType::isGeneric()
     return genericsList.size() != 0;
 }
 
-std::list<CompileType> CompileType::getGenericsList()
+std::list<CompileType*>* CompileType::getGenericsList()
 {
-    return genericsList;
+    return &genericsList;
 }
 
-void CompileType::insertGenericsList(CompileType compileType)
+void CompileType::insertGenericsList(CompileType* compileType)
 {
     genericsList.push_back(compileType);
 }
+
+
+CompileFunc::CompileFunc(CompileType retType, std::list<CompileType*> arguments) 
+    : CompileType("Function"), retType(retType)
+{
+    this->arguments = arguments;
+}
+
+CompileType* CompileFunc::getRetType()
+{
+    return &retType;
+}
+
+std::list<CompileType*>* CompileFunc::getArguments()
+{
+    return &arguments;
+}
+
 
 
 CompileVal::CompileVal(llvm::Value* rawValue, std::string typeName) : compileType(typeName)

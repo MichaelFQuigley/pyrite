@@ -75,7 +75,7 @@ void AstWalker::popScope()
 
 }
 
-llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string result_param_name)
+CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
 {
     std::vector<llvm::Type*> argsV;
     Json::Value header_node  = json_node["header"]["FuncProto"];
@@ -107,7 +107,9 @@ llvm::Function* AstWalker::makeFuncProto(Json::Value json_node, std::string resu
         }
     }
 
-    return func; 
+    CompileFunc* compileFunc = CompileFunc(CompileType("Void"), {new CompileType("UNIMPLEMENTED")});
+
+    return compileFunc; 
 }
 
 CompileVal* AstWalker::codeGen_ExprOp(Json::Value json_node){ return codeGen_initial(json_node); }
@@ -515,8 +517,7 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 { 
     pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
 
-    std::string result_param_name = "result";
-    llvm::Function* func          = makeFuncProto(json_node, result_param_name);
+    llvm::Function* func          = makeFuncProto(json_node);
     llvm::BasicBlock* entry       = llvm::BasicBlock::Create(currContext, "varDecls", func);
     llvm::BasicBlock* funcBody    = llvm::BasicBlock::Create(currContext, "funcBody");
 

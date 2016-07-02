@@ -10,17 +10,27 @@ class CompileType
 {
     private:
         std::string typeName;
-        std::list<CompileType> genericsList;
+        std::list<CompileType*> genericsList;
     public:
         CompileType(std::string typeName);
         std::string getTypeName();
         //isGeneric: returns true if this type has generic types within it
         bool isGeneric();
-        std::list<CompileType> getGenericsList();
+        std::list<CompileType*>* getGenericsList();
         //insertGenericsList: adds element to back of generics list
-        void insertGenericsList(CompileType compileType);
+        void insertGenericsList(CompileType* compileType);
 };
 
+class CompileFunc : CompileType
+{
+    private:
+        CompileType retType;
+        std::list<CompileType*> arguments;
+    public:
+        CompileFunc(CompileType retType, std::list<CompileType*> arguments);
+        CompileType* getRetType();
+        std::list<CompileType*>* getArguments();
+};
 
 class CompileVal
 {
