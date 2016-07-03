@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MAX_STACK_SIZE (1 << 24) //64 M objects
+#define MAX_STACK_SIZE (1 << 23) //8 M objects
 #define MAX_SCOPE_DEPTH (1 << 10) //1024
 
 //#define GC_DEBUG
