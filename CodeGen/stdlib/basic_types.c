@@ -7,14 +7,51 @@
 #include "gc_base.h"
 #include "basic_types.h"
 
-//TODO change how the String_* methods allocate memory
+#define NUM_PREALLOC_INTS  256
+#define NUM_PREALLOC_BOOLS 2
+
+static void* prealloc_ints[NUM_PREALLOC_INTS];
+static void* prealloc_bools[NUM_PREALLOC_BOOLS];
+
+int initialize_types(void)
+{
+    for( int64_t i = 0; i < NUM_PREALLOC_INTS; i++ )
+    {
+        Int* prealloced_int       = gc_malloc(sizeof(Int)); 
+        prealloced_int->uninit    = NULL;
+        prealloced_int->raw_value = i;
+        prealloc_ints[i] = prealloced_int;
+    }  
+
+    for( int64_t i = 0; i < NUM_PREALLOC_BOOLS; i++ )
+    {
+        Bool* prealloced_bool      = gc_malloc(sizeof(Bool)); 
+        prealloced_bool->uninit    = NULL;
+        prealloced_bool->raw_value = (bool)i;
+        prealloc_bools[i] = prealloced_bool;
+    }  
+
+    return 0;
+}
+
+int uninitialize_types(void)
+{
+    return 0;
+}
+
 
 //Int
 void * init_Int(int64_t raw_value)
 {
-    CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
-
-    return obj;
+    if( raw_value >= NUM_PREALLOC_INTS )
+    {
+        CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
+        return obj;
+    }
+    else
+    {
+        return prealloc_ints[raw_value];
+    }
 }
 
 void uninit_Int(void* int_val)
@@ -96,6 +133,7 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 void * init_String(char* raw_value)
 {
     CREATE_PRIMITIVE_INIT_BLOCK(String, char*, obj);
+    obj->uninit = uninit_String;
     obj->raw_is_on_heap = false;
     return obj;
 }
@@ -135,15 +173,15 @@ void* String_String(void* this)
 //Bool
 void * init_Bool(bool raw_value)
 {
-    CREATE_PRIMITIVE_INIT_BLOCK(Bool, bool, obj);
-    return obj;
+    return prealloc_bools[raw_value ? 1 : 0];
 }
 
 
 void* String_Bool(void* bool_val)
 {
     size_t buffer_size = 5;
-    char* buffer       = (char*) calloc(1, buffer_size);
+    char* buffer       = (char*) malloc(buffer_size);
+    buffer[buffer_size - 1] = '\0';
     //TODO error checking for sprintf, maybe
     strcpy(buffer, (((Bool*)bool_val)->raw_value) ? "true" : "false");
     String* result = init_String(buffer);
@@ -174,11 +212,11 @@ void* init_IntRange(void* start_obj, void* step_obj, void* end_obj)
     result->start     = start;
     result->step      = step;
     result->end       = end;
-
+/*
     assert( (((start->raw_value < end->raw_value) && (step->raw_value > 0)) 
           || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
           || (start->raw_value == end->raw_value)) 
-        && "Cannot get to end of iterator from start with current step value.");
+        && "Cannot get to end of iterator from start with current step value.");*/
 
     return result;
 }
@@ -208,7 +246,7 @@ void* next_IntRange(void* range_obj)
 void* begin_IntRange(void* range_obj)
 {
     IntRange* range = (IntRange*)range_obj;
-    return init_Int(range->start->raw_value);
+    return range->start; 
 }
 
 void uninit_IntRange(void* this)

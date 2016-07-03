@@ -15,4 +15,4 @@ ll:
 clean_ :
 	-rm *.ll
 
-.PHONY : clean_
+.PHONY : clean_ ll all

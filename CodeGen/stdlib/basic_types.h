@@ -36,7 +36,7 @@
         do {                                                                 \
         (OBJ_OUT) = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));        \
         (OBJ_OUT)->raw_value = raw_value; \
-        (OBJ_OUT)->uninit    = (uninit_ ## STRUCT_TYPE);\
+        (OBJ_OUT)->uninit    = NULL;      \
         } while (0);                                                        
 
 #define BASE_VALS \
@@ -95,6 +95,12 @@ typedef struct List {
     void** raw_value;
 } List;
 
+
+//initialize_types should be called before any other
+//function from this file
+int initialize_types(void);
+
+int uninitialize_types(void);
 
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)

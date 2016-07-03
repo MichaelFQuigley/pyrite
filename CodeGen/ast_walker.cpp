@@ -186,13 +186,9 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
 
             llvm::Value* result_store = Builder.CreateStore(rhs_val->getRawValue(), var_val->getRawValue());
             uint64_t varIndex   = scopeHelper->getNamedValInd(var_name);
-            std::vector<llvm::Value*> argsV;
-            argsV.push_back(Builder.CreatePointerCast(Builder.CreateLoad(var_val->getRawValue()), 
-                        llvm::PointerType::get(llvm::Type::getInt8Ty(currContext), 0)));
-            llvm::Value* obj_back_ptr = createNativeCall("get_back_ptr", argsV);
-            argsV.clear();
 
-            argsV.push_back(obj_back_ptr);
+            std::vector<llvm::Value*> argsV;
+            argsV.push_back(Builder.CreateLoad(var_val->getRawValue()));
             argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
                                                                     varIndex, 
                                                                     false)));
@@ -576,6 +572,13 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 
     scopeHelper->setBlockOnCurrScope(entry);
     Builder.SetInsertPoint(entry);
+
+    if( json_node["name"].asString() == "main" )
+    {
+        std::vector<llvm::Value*> argsV;
+        createNativeCall("initialize_core",argsV);
+    }
+
     {
         int arg_index = 0;
         for(auto argI = func->arg_begin(); arg_index < ((int)func->arg_size()); argI++, arg_index++)

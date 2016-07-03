@@ -15,10 +15,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MAX_STACK_SIZE (1 << 25) //64 M objects
+#define MAX_STACK_SIZE (1 << 24) //64 M objects
 #define MAX_SCOPE_DEPTH (1 << 10) //1024
 
-#define GC_DEBUG
+//#define GC_DEBUG
 
 #ifdef GC_DEBUG
     #define GC_ASSERT(COND) \
@@ -114,9 +114,6 @@ void* gc_malloc(size_t size);
 //must be called externally before any other function
 void gc_init(void);
 
-//runs mark and sweep gc algorithm
-void gc_mark_and_sweep(void);
-
 //should be called every time a new scope is introduced
 void gc_push_func_scope(uint64_t num_named_vars);
 void gc_push_loop_scope(void);
@@ -125,7 +122,5 @@ void gc_push_loop_scope(void);
 void gc_pop_func_scope(void);
 
 //sets value of var in scope
-void gc_set_named_var_in_scope(gc_base_t* base, uint64_t index);
-
-gc_base_t* get_back_ptr(void* obj);
+void gc_set_named_var_in_scope(void* named_var, uint64_t index);
 #endif

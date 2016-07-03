@@ -28,10 +28,6 @@ func collatz(min:Int, max:Int) -> String
             mNum   = curr_num
             mCount = temp_count
         }
-            if(curr_num % 10000 == 0)
-            {
-                println(String_Int(curr_num))
-            }
     }
 
    return {"Resulting number is " + String_Int(mNum) + ", max count is " + String_Int(mCount)}

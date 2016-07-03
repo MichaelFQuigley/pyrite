@@ -60,6 +60,11 @@ static inline void* gc_get_raw_obj(gc_base_t* base)
     return ((void*)base) + sizeof(gc_base_t);
 }
 
+static inline gc_base_t* get_gc_base_ptr(void* val)
+{
+    return val - sizeof(gc_base_t);
+}
+
 //gc helpers
 //
 /* gc_free
@@ -71,13 +76,18 @@ static inline void gc_free(gc_base_t* val)
 {
     remove_node(val);
     Base* raw_obj = (Base*)gc_get_raw_obj(val);
-    raw_obj->uninit(raw_obj);
+
+    if( raw_obj->uninit )
+    {
+        raw_obj->uninit(raw_obj);
+    }
+
     fast_free(val);
 }
 
 static inline bool should_garbage_collect()
 {
-    return gc_list.size >  (MAX_STACK_SIZE / 2);
+    return gc_list.size >  ((2 * MAX_STACK_SIZE) / 3);
 }
 
 static void mark(gc_base_t* obj)
@@ -115,7 +125,7 @@ static inline void sweep()
     }
 }
 
-void gc_mark_and_sweep(void)
+static void gc_mark_and_sweep(void)
 {
     printf("collecting garbage\n");
     //mark all anon vars
@@ -233,17 +243,11 @@ void gc_pop_scope(void)
     gc_scope_stack.curr_index--;
 }
 
-void gc_set_named_var_in_scope(gc_base_t* base, uint64_t index)
+void gc_set_named_var_in_scope(void* named_var, uint64_t index)
 {
     gc_scope_stack_el_t* func_scope = get_nearest_func_scope();
     GC_ASSERT(index < func_scope->num_named_vars && "Out of bounds var index!");
-    func_scope->named_vars[index] = base;
-}
-
-gc_base_t* get_back_ptr(void* obj)
-{
-    return (gc_base_t*)(obj - sizeof(gc_base_t));
-    //return ((gc_base_t**)obj)[0];
+    func_scope->named_vars[index] = get_gc_base_ptr(named_var);
 }
 
 
