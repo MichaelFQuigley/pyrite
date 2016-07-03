@@ -15,11 +15,18 @@ AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builde
 
     currModule  = llvm::make_unique<llvm::Module>(filename, currContext);
     scopeHelper = new ScopeHelper();
-
+    globalFuncs = new std::map<std::string, CompileFunc*>();
     if( !CodeGenUtil::load_stdlib(stdlib_filename, currModule.get(), &currContext) )
     {
         return;
     }
+
+    //TODO automate this process...
+    auto printlnArgs = new std::vector<CompileType*>({new CompileType("String")});;
+    (*globalFuncs)["println"] = new CompileFunc(new CompileType("Void"), printlnArgs);
+
+    auto String_IntArgs = new std::vector<CompileType*>({new CompileType("Int")});;
+    (*globalFuncs)["String_Int"] = new CompileFunc(new CompileType("String"), String_IntArgs);
 }
 
 bool AstWalker::json_node_has(Json::Value json_node, std::string name, Json::Value* out_node)
@@ -75,14 +82,28 @@ void AstWalker::popScope()
 
 }
 
+CompileType* AstWalker::makeCompileType(Json::Value json_node)
+{
+    if( json_node["simple"] != Json::nullValue )
+    {
+        return new CompileType(json_node["simple"].asString());
+    }
+
+    cout << json_node << endl;
+    GEN_ASSERT(false, "Unimplemented compile type for makeCompileType");
+}
+
 CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
 {
     std::vector<llvm::Type*> argsV;
-    Json::Value header_node  = json_node["header"]["FuncProto"];
+    Json::Value header_node                = json_node["header"]["FuncProto"];
+    Json::Value args_node                  = header_node["args"];
+    std::vector<CompileType*>* compileArgs = new std::vector<CompileType*>();
 
-    for( const Json::Value& val : header_node["args"] )
+    for( const Json::Value& val : args_node )
     {
         argsV.push_back(getVoidStarType());
+        compileArgs->push_back(makeCompileType(val["TypedArg"]["type"]));
     }
    
     std::string funcName          = json_node["name"].asString();
@@ -103,19 +124,22 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
                 arg_index < ((int)func->arg_size()); 
                 argI++, arg_index++)
         {
-            argI->setName(header_node["args"][arg_index].asString());
+            argI->setName(header_node["args"][arg_index]["TypedArg"]["name"].asString());
         }
     }
+    CompileType* compileRetType = makeCompileType(header_node["ret_type"]);
+    CompileFunc* compileFunc    = new CompileFunc(compileRetType, compileArgs);
+    cout << "args " << compileFunc->getArguments()->size() << endl;
+    CompileVal* result          = new CompileVal(func, "Function"); 
+    (*globalFuncs)[funcName] = compileFunc;
 
-    CompileFunc* compileFunc = CompileFunc(CompileType("Void"), {new CompileType("UNIMPLEMENTED")});
-
-    return compileFunc; 
+    return result;
 }
 
 CompileVal* AstWalker::codeGen_ExprOp(Json::Value json_node){ return codeGen_initial(json_node); }
 
 CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){ 
-    std::string varName   = json_node["var"].asString();
+    std::string varName   = json_node["var"]["TypedArg"]["name"].asString();
     CompileVal* rhs_expr = codeGen_initial(json_node["expr"]); 
 
     GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
@@ -136,7 +160,6 @@ CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value)
     Builder.SetInsertPoint(originalBlock);
     Builder.CreateStore(value->getRawValue(), allocaRes);
     CompileVal* result = new CompileVal(allocaRes, value->getCompileType());
-
     scopeHelper->setNamedVal(varName, result, true);
    
     return result;
@@ -166,14 +189,14 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
             std::vector<llvm::Value*> argsV;
             argsV.push_back(Builder.CreatePointerCast(Builder.CreateLoad(var_val->getRawValue()), 
                         llvm::PointerType::get(llvm::Type::getInt8Ty(currContext), 0)));
-            llvm::Value* obj_back_ptr = createCall("get_back_ptr", argsV);
+            llvm::Value* obj_back_ptr = createNativeCall("get_back_ptr", argsV);
             argsV.clear();
 
             argsV.push_back(obj_back_ptr);
             argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
                                                                     varIndex, 
                                                                     false)));
-            createCall("gc_set_named_var_in_scope", argsV);
+            createNativeCall("gc_set_named_var_in_scope", argsV);
 
             return new CompileVal(result_store, rhs_val->getCompileType());
         }
@@ -209,7 +232,7 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     argsV.push_back(lhs->getRawValue());
     argsV.push_back(rhs->getRawValue());
 
-    llvm::Value* result_val = createCall(op_func_name, argsV);
+    llvm::Value* result_val = createNativeCall(op_func_name, argsV);
 
     //TODO change so that lhs type isn't blindly used
     return new CompileVal(result_val, lhs->getCompileType());
@@ -256,13 +279,13 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
     else if( json_node_has(json_node, "FCall", &val_node) ) 
     {
         std::string func_name = val_node["name"].asString();
-        std::vector<llvm::Value*> argsV;
+        std::vector<CompileVal*>* argsV = new  std::vector<CompileVal*>();
         for(const Json::Value& val : val_node["args"])
         {
-            argsV.push_back(codeGen_initial(val)->getRawValue());
+            argsV->push_back(codeGen_initial(val));
         }
 
-        return new CompileVal(createCall(func_name, argsV), "UNIMPLEMENTED");
+        return createLangCall(func_name, argsV);
     }
     else if( json_node_has(json_node, "Variable", &val_node) ) 
     {
@@ -293,7 +316,7 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
         argsV.push_back(start->getRawValue());
         argsV.push_back(step->getRawValue());
         argsV.push_back(end->getRawValue());
-        return new CompileVal(createCall("init_IntRange", argsV), "Int");
+        return new CompileVal(createNativeCall("init_IntRange", argsV), "Int");
     }
     else
     {
@@ -337,9 +360,38 @@ llvm::Function* AstWalker::tryGetFunction(std::string func_name,
     return func;   
 }
 
-llvm::Value* AstWalker::createCall(std::string func_name, 
-        std::vector<llvm::Value*> argsV, 
-        bool restore_insert_point)
+CompileVal* AstWalker::createLangCall(std::string funcName,
+        std::vector<CompileVal*>* argsV)
+{
+    CompileFunc* funcType   = (*globalFuncs)[funcName];
+
+    GEN_ASSERT(funcType != nullptr, "Undefined function " + funcName);
+
+    std::vector<CompileType*>* funcArgs = funcType->getArguments();
+    std::vector<llvm::Value*> nativeArgs;
+    cout << "here " << (*argsV)[0]->getCompileType()->getTypeName() << endl;
+    cout << "here " << funcType->getRetType() << endl;
+    GEN_ASSERT(argsV->size() == funcArgs->size(), 
+            "Number of arguments in function call " +  funcName + " must match.\n"
+            + "expected " + to_string(funcArgs->size())  
+            + "arguments, but received " + to_string(argsV->size()));
+
+    for(int i = 0; i < argsV->size(); i++)
+    {
+        //TODO recursive type assertions
+        GEN_ASSERT((*argsV)[i]->getCompileType()->getTypeName()
+                    == (*funcArgs)[i]->getTypeName(), 
+                  "Types in function call must match");
+        nativeArgs.push_back((*argsV)[i]->getRawValue());
+    }
+
+    llvm::Value* nativeResult = createNativeCall(funcName, nativeArgs);
+
+    return new CompileVal(nativeResult, funcType->getRetType());
+}
+
+llvm::Value* AstWalker::createNativeCall(std::string func_name, 
+        std::vector<llvm::Value*> argsV)
 {
     std::string full_func_name = func_name; 
 
@@ -361,7 +413,7 @@ void AstWalker::createBoolCondBr(llvm::Value* Bool,
 {
     std::vector<llvm::Value*> argsV;
     argsV.push_back(Bool);
-    llvm::Value* raw_bool = createCall("rawVal_Bool", argsV);
+    llvm::Value* raw_bool = createNativeCall("rawVal_Bool", argsV);
     argsV.clear();
 
     Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
@@ -383,7 +435,7 @@ CompileVal* AstWalker::codeGen_ForOp(Json::Value json_node){
     std::string loop_var_name       = json_node["loop_var"]["Variable"].asString();
 
     argsV.push_back(itt->getRawValue());
-    llvm::Value* loop_var           = createCall(itt_beginFuncName, argsV);
+    llvm::Value* loop_var           = createNativeCall(itt_beginFuncName, argsV);
     argsV.clear();
 
     //XXX change from 'Int' when possible
@@ -393,25 +445,25 @@ CompileVal* AstWalker::codeGen_ForOp(Json::Value json_node){
     Builder.SetInsertPoint(loopTop);
 
     argsV.push_back(itt->getRawValue());
-    llvm::Value* hasNext          = createCall(itt_hasNextFuncName, argsV);
+    llvm::Value* hasNext          = createNativeCall(itt_hasNextFuncName, argsV);
     argsV.clear();
 
     createBoolCondBr(hasNext, loopBody, loopBottom);
 
     startBlock(loopBody);
     
-    createCall("gc_push_loop_scope", argsV);
+    createNativeCall("gc_push_loop_scope", argsV);
     argsV.clear();
 
     codeGen_initial(json_node["body"]);
 
     argsV.push_back(itt->getRawValue());
-    //loop_var = createCall(itt_nextFuncName, argsV);
+    //loop_var = createNativeCall(itt_nextFuncName, argsV);
     //llvm::Value* loaded_loop_var = Builder.CreateLoad(loop_var);
-    Builder.CreateStore(createCall(itt_nextFuncName, argsV), scopeHelper->getNamedVal(loop_var_name, true)->getRawValue());
+    Builder.CreateStore(createNativeCall(itt_nextFuncName, argsV), scopeHelper->getNamedVal(loop_var_name, true)->getRawValue());
     argsV.clear();
 
-    createCall("gc_pop_scope", argsV);
+    createNativeCall("gc_pop_scope", argsV);
     argsV.clear();
     Builder.CreateBr(loopTop);
     startBlock(loopBottom);
@@ -517,18 +569,25 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 { 
     pushScope(ScopeNode::ScopeType::FUNC_SCOPE);
 
-    llvm::Function* func          = makeFuncProto(json_node);
-    llvm::BasicBlock* entry       = llvm::BasicBlock::Create(currContext, "varDecls", func);
-    llvm::BasicBlock* funcBody    = llvm::BasicBlock::Create(currContext, "funcBody");
+    CompileVal* compileFunc = makeFuncProto(json_node);
+    llvm::Function* func       = static_cast<llvm::Function*>(compileFunc->getRawValue());
+    llvm::BasicBlock* entry    = llvm::BasicBlock::Create(currContext, "varDecls", func);
+    llvm::BasicBlock* funcBody = llvm::BasicBlock::Create(currContext, "funcBody");
 
     scopeHelper->setBlockOnCurrScope(entry);
     Builder.SetInsertPoint(entry);
-
     {
         int arg_index = 0;
         for(auto argI = func->arg_begin(); arg_index < ((int)func->arg_size()); argI++, arg_index++)
         {
-            newVarInScope(argI->getName(), new CompileVal(argI, "UNIMPLEMENTED TYPE IN FUNC DEF"));
+            newVarInScope(argI->getName(), 
+                    new CompileVal(argI, 
+                        makeCompileType(json_node["header"]
+                                                 ["FuncProto"]
+                                                 ["args"]
+                                                 [arg_index]
+                                                 ["TypedArg"]
+                                                 ["type"])));
         }
 
     }
@@ -549,12 +608,12 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
     argsV.push_back(llvm::ConstantInt::get(currContext, llvm::APInt(64, 
                                                                     numVarsInFunc, 
                                                                     false)));
-    createCall("gc_push_func_scope", argsV); 
+    createNativeCall("gc_push_func_scope", argsV); 
     Builder.SetInsertPoint(originalBlock);
 
     popScope();
 
-    return new CompileVal(func, "Function"); 
+    return compileFunc; 
 }
 
 CompileVal* AstWalker::codeGen_ReturnOp(Json::Value json_node)
@@ -567,7 +626,7 @@ CompileVal* AstWalker::codeGen_ReturnOp(Json::Value json_node)
     //check for return param
     popScope();
     std::vector<llvm::Value*> argsV;
-    createCall("gc_pop_scope", argsV); 
+    createNativeCall("gc_pop_scope", argsV); 
     
     if(func_block->getName() == "main")
     {
@@ -605,7 +664,7 @@ llvm::Value* AstWalker::codeGen_ListOp(Json::Value json_node)
                                                                     false))));
         // value 
         argsV.push_back(list_el);
-        createCall("lang_try_call", argsV);
+        createNativeCall("lang_try_call", argsV);
     }
 
     return list;   
@@ -654,7 +713,7 @@ CompileVal* AstWalker::createConstObject(std::string type_name, llvm::Value* raw
     argsV.push_back(raw_value);
 
     llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
-    llvm::Value* result             = createCall(init_func_name, argsV, false);
+    llvm::Value* result             = createNativeCall(init_func_name, argsV);
 
     Builder.SetInsertPoint(originalBlock);
 

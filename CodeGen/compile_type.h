@@ -1,7 +1,7 @@
 #ifndef COMPILE_TYPE_H
 #define COMPILE_TYPE_H
 
-#include <list>
+#include <vector>
 #include <string>
 
 #include "llvm/IR/Value.h"
@@ -10,26 +10,26 @@ class CompileType
 {
     private:
         std::string typeName;
-        std::list<CompileType*> genericsList;
+        std::vector<CompileType*> genericsList;
     public:
         CompileType(std::string typeName);
         std::string getTypeName();
         //isGeneric: returns true if this type has generic types within it
         bool isGeneric();
-        std::list<CompileType*>* getGenericsList();
-        //insertGenericsList: adds element to back of generics list
+        std::vector<CompileType*>* getGenericsList();
+        //insertGenericsList: adds element to back of generics vector
         void insertGenericsList(CompileType* compileType);
 };
 
-class CompileFunc : CompileType
+class CompileFunc
 {
     private:
-        CompileType retType;
-        std::list<CompileType*> arguments;
+        CompileType* retType;
+        std::vector<CompileType*>* arguments;
     public:
-        CompileFunc(CompileType retType, std::list<CompileType*> arguments);
+        CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments);
         CompileType* getRetType();
-        std::list<CompileType*>* getArguments();
+        std::vector<CompileType*>* getArguments();
 };
 
 class CompileVal

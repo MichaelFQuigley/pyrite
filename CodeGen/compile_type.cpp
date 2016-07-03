@@ -1,3 +1,4 @@
+#include <iostream>
 #include "compile_type.h"
 
 CompileType::CompileType(std::string typeName)
@@ -18,7 +19,7 @@ bool CompileType::isGeneric()
     return genericsList.size() != 0;
 }
 
-std::list<CompileType*>* CompileType::getGenericsList()
+std::vector<CompileType*>* CompileType::getGenericsList()
 {
     return &genericsList;
 }
@@ -29,20 +30,21 @@ void CompileType::insertGenericsList(CompileType* compileType)
 }
 
 
-CompileFunc::CompileFunc(CompileType retType, std::list<CompileType*> arguments) 
-    : CompileType("Function"), retType(retType)
+CompileFunc::CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments) 
 {
+    std::cout << arguments->size() << std::endl;
     this->arguments = arguments;
+    this->retType   = retType;
 }
 
 CompileType* CompileFunc::getRetType()
 {
-    return &retType;
+    return retType;
 }
 
-std::list<CompileType*>* CompileFunc::getArguments()
+std::vector<CompileType*>* CompileFunc::getArguments()
 {
-    return &arguments;
+    return arguments;
 }
 
 

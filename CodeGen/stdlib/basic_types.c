@@ -96,7 +96,7 @@ CREATE_NUM_CMP_FN(Float, double, cmpeq, ==)
 void * init_String(char* raw_value)
 {
     CREATE_PRIMITIVE_INIT_BLOCK(String, char*, obj);
-
+    obj->raw_is_on_heap = false;
     return obj;
 }
 

@@ -33,6 +33,7 @@
 class AstWalker
 {
     private:
+        std::map<std::string, CompileFunc*>* globalFuncs;
         llvm::Type* getVoidStarType();
         ScopeHelper* scopeHelper;
         llvm::LLVMContext currContext;
@@ -43,15 +44,14 @@ class AstWalker
         bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
         bool load_stdlib(std::string stdlib_filename);
         llvm::BasicBlock* makeBasicBlock(std::string name = "");
-        //createCall will create a function call with the convention that
-        //the function returns void, and the last parameter is the out parameter
-        //where a return value would be stored. This function will allocate space
-        //for the out parameter and return a pointer to this space. Note that the 
-        //argsV parameter should only include the input params to the function
-        //being called. If no return value is needed, then this function returns nullptr.
-        llvm::Value* createCall(std::string func_name, 
-                                std::vector<llvm::Value*> argsV, 
-                                bool restore_insert_point=true);
+        CompileType* makeCompileType(Json::Value json_node);
+        //createNativeCall will create a native function call
+        llvm::Value* createNativeCall(std::string func_name, 
+                                std::vector<llvm::Value*> argsV);
+        //createLangCall will create a function call that was 
+        //existent in the file being compiled
+        CompileVal* createLangCall(std::string funcName,
+                                std::vector<CompileVal*>* argsV);
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);
         void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
