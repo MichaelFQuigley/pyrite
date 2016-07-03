@@ -9,6 +9,7 @@ and expr_stmt =
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
     | IF of expr_stmt * stmts array
     (*format of for loop, index_var * iterator * stmts*)
+    | LIST of expr_stmt array
     | ATOMOP of atom
     | FUNCDEF of string * func_proto * stmts
 and simple_stmt = 
