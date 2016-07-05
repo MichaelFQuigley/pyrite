@@ -5,6 +5,8 @@ let rec lex = parser
     | [<' (')'); stream>] -> [<'Token.RPAREN; lex stream>]
     | [<' ('{'); stream>] -> [<'Token.LBRAC; lex stream>]
     | [<' ('}'); stream>] -> [<'Token.RBRAC; lex stream>]
+    | [<' ('['); stream>] -> [<'Token.LSQ; lex stream>]
+    | [<' (']'); stream>] -> [<'Token.RSQ; lex stream>]
     | [<' ('"'); stream>] -> let buffer = Buffer.create 1 in lex_string buffer stream;
     | [<' ('0' .. '9' as c); stream>] ->  
         let buffer = Buffer.create 1 in

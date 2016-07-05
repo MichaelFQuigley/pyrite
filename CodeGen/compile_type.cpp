@@ -64,6 +64,16 @@ CompileType* CompileVal::getCompileType()
     return &compileType;
 }
 
+void CompileVal::setCompileType(CompileType* compileType)
+{
+    this->compileType = *compileType;
+}
+
+void CompileVal::insertGenericType(CompileType* compileType)
+{
+    this->compileType.insertGenericsList(compileType);
+}
+
 llvm::Value* CompileVal::getRawValue()
 {
     return rawValue;

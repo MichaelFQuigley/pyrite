@@ -4,6 +4,11 @@ type atom =
     | FCALL of string * expr_stmt array
     | PAREN_EXPR of expr_stmt
     | VARIABLE of string
+    (*example of INDEXED_VARIABLE: v["a"]*)
+    | INDEXED_VARIABLE of atom * expr_stmt
+(*and trailer = 
+    | FCALL of expr_stmt array
+    | INDEX of expr_stmt*)
 and expr_stmt = 
     | BINOP of string * expr_stmt * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
@@ -25,6 +30,7 @@ and typed_arg =
 and type_definition = 
     | SIMPLE_TYPE of string
     | FUNC_TYPE of func_proto
+    | LIST_TYPE of type_definition
 and func_proto = 
     (*format of FUNC_PROTO is array(arg1, arg2, ...) * ret_type*)
     | FUNC_PROTO of typed_arg array * type_definition
@@ -61,6 +67,7 @@ and string_of_type_definition ast =
     match ast with
     | SIMPLE_TYPE typ -> make_json_kv "simple" ("\""^typ^"\"")
     | FUNC_TYPE func_proto -> make_json_kv "func_type" (string_of_prototype func_proto)
+    | LIST_TYPE list_type -> make_json_kv "list_type" (string_of_type_definition list_type)
 and string_of_prototype ast = 
     match ast with
     | FUNC_PROTO (args_arr, ret_type) -> make_json_kv "FuncProto" (make_json_kvs ["args"; "ret_type"] 
@@ -91,6 +98,8 @@ and string_of_expr_stmt ast =
     | IF (test_expr, stmts_arr) -> 
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
+    | LIST elements ->
+            make_json_kv "ListOp" (make_json_arr elements string_of_expr_stmt)
     | FUNCDEF (name, proto, stmts) ->
             make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "stmts"]
                                 ["\""^name^"\""; string_of_prototype proto; string_of_stmts stmts])
@@ -105,6 +114,9 @@ and string_of_atom ast =
             make_json_kv "Lit" a
     | VARIABLE a -> 
             make_json_kv "Variable" ("\""^a^"\"")
+    | INDEXED_VARIABLE (v, index) ->
+            make_json_kv "IndexedVariable" (make_json_kvs ["var"; "index"]
+                                                          [string_of_atom v; string_of_expr_stmt index])
     | FCALL (name,exprs_arr) -> 
             make_json_kv "FCall" (make_json_kvs ["name"; "args"]
                                                 ["\""^name^"\""; make_json_arr exprs_arr string_of_expr_stmt])

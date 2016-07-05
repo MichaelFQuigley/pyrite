@@ -1,16 +1,18 @@
 func chainCount(n:Int) -> Int
 {
-    let curr_val:Int = n
-    let count:Int    = 0
-
-    while( curr_val != 1 )
+    return 
     {
-        curr_val = if( curr_val % 2 == 0 ) {curr_val / 2} 
-                   else {curr_val*3 + 1}
-        count += 1
-    }
+        let curr_val:Int = n
+        let count:Int    = 0
 
-    return {count}
+        while( curr_val != 1 )
+        {
+            curr_val = if(curr_val%2 == 0) {curr_val/2} else {curr_val*3 + 1}
+            count += 1
+        }
+
+        count
+    }
 }
 
 func collatz(min:Int, max:Int) -> String
@@ -39,7 +41,7 @@ func test(i:Int) -> Int
     return {0}
 }
 
-func main() -> Void
+func main()
 {
     println(collatz(1,1_000_000))
     return {}

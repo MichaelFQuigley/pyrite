@@ -41,6 +41,8 @@ class CompileVal
         CompileVal(llvm::Value* rawValue, std::string typeName);
         CompileVal(llvm::Value* rawValue, CompileType* compileType);
         CompileType* getCompileType();
+        void setCompileType(CompileType* compileType);
+        void insertGenericType(CompileType* compileType);
         llvm::Value* getRawValue();
 };
 
