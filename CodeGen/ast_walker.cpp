@@ -415,15 +415,7 @@ CompileVal* AstWalker::createLangCall(CompileVal* func,
 llvm::Value* AstWalker::createNativeCall(std::string func_name, 
         std::vector<llvm::Value*> argsV)
 {
-    std::string full_func_name = func_name; 
-
-    //Upper case function call is by convention a constructor call
-    /*if( isupper(func_name[0]) )
-    {
-        full_func_name = createConstructorName(func_name, argsV);
-    }*/
-
-    auto func            = tryGetFunction(full_func_name);
+    auto func            = tryGetFunction(func_name);
     llvm::Value* ret_val = Builder.CreateCall(func, argsV);
 
     return ret_val;
@@ -457,7 +449,7 @@ CompileVal* AstWalker::codeGen_ForOp(Json::Value json_node){
     std::string loop_var_name       = json_node["loop_var"].asString();
 
     argsV.push_back(itt->getRawValue());
-    llvm::Value* loop_var           = createNativeCall(itt_beginFuncName, argsV);
+    llvm::Value* loop_var = createNativeCall(itt_beginFuncName, argsV);
     argsV.clear();
     //XXX change from 'Int' when possible
     newVarInScope(loop_var_name, new CompileVal(loop_var, "Int"));
@@ -479,8 +471,6 @@ CompileVal* AstWalker::codeGen_ForOp(Json::Value json_node){
     codeGen_initial(json_node["body"]);
 
     argsV.push_back(itt->getRawValue());
-    //loop_var = createNativeCall(itt_nextFuncName, argsV);
-    //llvm::Value* loaded_loop_var = Builder.CreateLoad(loop_var);
     Builder.CreateStore(createNativeCall(itt_nextFuncName, argsV), scopeHelper->getNamedVal(loop_var_name, true)->getRawValue());
     argsV.clear();
 
