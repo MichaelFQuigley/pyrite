@@ -285,7 +285,6 @@ void* get_List(void* this_obj, void* index_obj)
 
     assert(raw_ind < this->size && raw_ind >= 0 &&
             "List index out of bounds!");
-    printf("get ptr val = %p\n", this->raw_value[raw_ind]);
     return this->raw_value[raw_ind];
 }
 

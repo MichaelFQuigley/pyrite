@@ -15,12 +15,12 @@ func chainCount(n:Int) -> Int
     }
 }
 
-func collatz(min:Int, max:Int) -> String
+func collatz(min:Int, max:Int) -> [Int]
 {
-    let mNum:Int    = 0
-    let mCount:Int = 0
-    let temp_count:Int = 0
-    let test_num:Int = 0
+    let mNum:Int        = 0
+    let mCount:Int      = 0
+    let temp_count:Int  = 0
+    let test_num:Int    = 0
     for( curr_num in min..max )
     {
             test_num = mCount
@@ -32,7 +32,7 @@ func collatz(min:Int, max:Int) -> String
         }
     }
 
-   return {"Resulting number is " + String_Int(mNum) + ", max count is " + String_Int(mCount)}
+   return { [mNum, mCount] }
 }
 
 
@@ -43,6 +43,7 @@ func test(i:Int) -> Int
 
 func main()
 {
-    println(collatz(1,1_000_000))
+    let result:[Int] = collatz(1,1_000_000)
+    println("Resulting number is " + String_Int( result[0] ) + ", max count is " + String_Int( result[1] ))
     return {}
 }

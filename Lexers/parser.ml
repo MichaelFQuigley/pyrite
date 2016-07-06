@@ -113,7 +113,7 @@ and parse_stmt = parser
     (*for loop*)
     | [< 'Token.KWD "for"; stream>] -> 
         (parser
-         | [< 'Token.LPAREN; loop_var=parse_atom; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
+         | [< 'Token.LPAREN; 'Token.IDENT loop_var; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
               'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC; stream>] ->
                    (Ast.FOR (loop_var, itt, stmts))::(parse_stmt stream)) stream
     | [< 'Token.KWD "while"; stream >] ->
@@ -143,11 +143,21 @@ and parse_ident id =
     begin
         Util.debug_print "in parse_ident";
         parser
-        | [< 'Token.LPAREN ; args=parse_args []; 'Token.RPAREN ?? "Expected ')' for fcall." >] 
-            -> Ast.FCALL (id, Array.of_list (List.rev args)) 
-        | [< >] -> Ast.VARIABLE id
-
+            | [< stream >] -> Ast.ID (id, Array.of_list (parse_trailers [] stream))
     end
+and parse_trailers trailers_list = 
+    parser
+        | [< 'Token.LPAREN ; 
+            args=parse_args []; 
+            'Token.RPAREN ?? "Expected ')' for fcall.";
+            stream>] 
+            -> (Ast.FCALL (Array.of_list (List.rev args)))::(parse_trailers trailers_list stream)
+        | [< 'Token.LSQ;
+             expr=parse_expr;
+             'Token.RSQ ?? "Expected ']' for index.";
+             stream >]
+            -> (Ast.INDEX expr)::(parse_trailers trailers_list stream)
+        | [< >] -> trailers_list
 (*parse_bin_rhs parses binary operations*)
 and parse_bin_rhs prec lhs stream =
     let make_augassign op lhs stream =

@@ -14,11 +14,12 @@ class CompileType
     public:
         CompileType(std::string typeName);
         std::string getTypeName();
-        //isGeneric: returns true if this type has generic types within it
-        bool isGeneric();
-        std::vector<CompileType*>* getGenericsList();
-        //insertGenericsList: adds element to back of generics vector
-        void insertGenericsList(CompileType* compileType);
+        //isArgument: returns true if this type has generic types within it
+        bool isArgument();
+        std::vector<CompileType*>* getArgumentsList();
+        //insertArgumentsList: adds element to back of generics vector
+        void insertArgumentsList(CompileType* compileType);
+        void setArgumentsList(std::vector<CompileType*>* argsList);
 };
 
 class CompileFunc
@@ -42,7 +43,8 @@ class CompileVal
         CompileVal(llvm::Value* rawValue, CompileType* compileType);
         CompileType* getCompileType();
         void setCompileType(CompileType* compileType);
-        void insertGenericType(CompileType* compileType);
+        void insertArgumentType(CompileType* compileType);
+        void setArgumentsList(std::vector<CompileType*>* argsList);
         llvm::Value* getRawValue();
 };
 

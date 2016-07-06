@@ -33,7 +33,6 @@
 class AstWalker
 {
     private:
-        std::map<std::string, CompileFunc*>* globalFuncs;
         llvm::Type* getVoidStarType();
         ScopeHelper* scopeHelper;
         llvm::LLVMContext currContext;
@@ -50,8 +49,8 @@ class AstWalker
                                 std::vector<llvm::Value*> argsV);
         //createLangCall will create a function call that was 
         //existent in the file being compiled
-        CompileVal* createLangCall(std::string funcName,
-                                std::vector<CompileVal*>* argsV);
+        CompileVal* createLangCall(CompileVal* func,
+                std::vector<CompileVal*>* argsV);
         llvm::StructType* getTypeFromStr(std::string typeName);
         llvm::Type* getPtrTypeFromStr(std::string typeName);
         void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);

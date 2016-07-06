@@ -1,14 +1,11 @@
 type atom = 
     | LIT of string
     | RANGE of atom * atom
-    | FCALL of string * expr_stmt array
     | PAREN_EXPR of expr_stmt
-    | VARIABLE of string
-    (*example of INDEXED_VARIABLE: v["a"]*)
-    | INDEXED_VARIABLE of atom * expr_stmt
-(*and trailer = 
+    | ID of string * trailer array
+and trailer = 
     | FCALL of expr_stmt array
-    | INDEX of expr_stmt*)
+    | INDEX of expr_stmt
 and expr_stmt = 
     | BINOP of string * expr_stmt * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
@@ -22,7 +19,7 @@ and simple_stmt =
     (*format of VARDEF is variable * expression assigned to variable*)
     | VARDEF of typed_arg * expr_stmt
     | RETURN of stmts
-    | FOR of atom * atom * stmts
+    | FOR of string * atom * stmts
     | WHILE of expr_stmt * stmts
 and typed_arg = 
     (*format of typedarg is name * type*)
@@ -84,7 +81,7 @@ and string_of_simple_stmt ast =
             make_json_kv "ReturnOp" (string_of_stmts s)
     | FOR (loop_var, itt, stmts) -> 
             make_json_kv "ForOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
-            [(string_of_atom loop_var); (string_of_atom itt); (string_of_stmts stmts)])
+            ["\""^loop_var^"\""; (string_of_atom itt); (string_of_stmts stmts)])
     | WHILE (header, stmts) ->
             make_json_kv "WhileOp" (make_json_kvs ["header"; "body"]
             [string_of_expr_stmt header; string_of_stmts stmts])
@@ -108,18 +105,19 @@ and string_of_typed_arg ast =
     | TYPEDARG (name, t) -> 
             make_json_kv "TypedArg" (make_json_kvs ["name"; "type"]
                                                    ["\""^name^"\""; string_of_type_definition t])
+and string_of_trailers ast = 
+    match ast with
+    | INDEX expr ->
+            make_json_kv "Index" (string_of_expr_stmt expr)
+    | FCALL exprs_arr -> 
+            make_json_kv "FCall" (make_json_kv "args" (make_json_arr exprs_arr string_of_expr_stmt))
 and string_of_atom ast = 
     match ast with
     | LIT a -> 
             make_json_kv "Lit" a
-    | VARIABLE a -> 
-            make_json_kv "Variable" ("\""^a^"\"")
-    | INDEXED_VARIABLE (v, index) ->
-            make_json_kv "IndexedVariable" (make_json_kvs ["var"; "index"]
-                                                          [string_of_atom v; string_of_expr_stmt index])
-    | FCALL (name,exprs_arr) -> 
-            make_json_kv "FCall" (make_json_kvs ["name"; "args"]
-                                                ["\""^name^"\""; make_json_arr exprs_arr string_of_expr_stmt])
+    | ID (name, trailers) -> 
+            make_json_kv "Id" (make_json_kvs ["name"; "trailers"]
+                                             ["\""^name^"\""; (make_json_arr trailers string_of_trailers)])
     | PAREN_EXPR e ->
             make_json_kv "ParenExpr" (string_of_expr_stmt e)
     | RANGE (a, b) ->

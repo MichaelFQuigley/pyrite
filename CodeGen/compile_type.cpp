@@ -14,19 +14,24 @@ CompileType::CompileType(CompileType* compileType)
 */
 std::string CompileType::getTypeName() { return typeName; }
 
-bool CompileType::isGeneric()
+bool CompileType::isArgument()
 {
     return genericsList.size() != 0;
 }
 
-std::vector<CompileType*>* CompileType::getGenericsList()
+std::vector<CompileType*>* CompileType::getArgumentsList()
 {
     return &genericsList;
 }
 
-void CompileType::insertGenericsList(CompileType* compileType)
+void CompileType::insertArgumentsList(CompileType* compileType)
 {
     genericsList.push_back(compileType);
+}
+
+void CompileType::setArgumentsList(std::vector<CompileType*>* argsList)
+{
+    genericsList = *argsList;
 }
 
 
@@ -69,10 +74,16 @@ void CompileVal::setCompileType(CompileType* compileType)
     this->compileType = *compileType;
 }
 
-void CompileVal::insertGenericType(CompileType* compileType)
+void CompileVal::insertArgumentType(CompileType* compileType)
 {
-    this->compileType.insertGenericsList(compileType);
+    this->compileType.insertArgumentsList(compileType);
 }
+
+void CompileVal::setArgumentsList(std::vector<CompileType*>* argsList)
+{
+    this->compileType.setArgumentsList(argsList);
+}
+
 
 llvm::Value* CompileVal::getRawValue()
 {
