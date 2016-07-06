@@ -37,10 +37,16 @@
         (OBJ_OUT) = (STRUCT_TYPE *)gc_malloc(sizeof(STRUCT_TYPE));        \
         (OBJ_OUT)->raw_value = raw_value; \
         (OBJ_OUT)->uninit    = NULL;      \
+        (OBJ_OUT)->get_refs  = NULL;      \
         } while (0);                                                        
 
 #define BASE_VALS \
-    void (*uninit)(void *);
+    void (*uninit)(void *); \
+    /*get_refs returns an array of references that the object contains. 
+     * The end of the array is determined by the
+     * last element being a NULL value. It is the caller's responsibility
+     * to free the memory that is allocated by get_refs.*/ \
+    void** (*get_refs)(void *);
 
 typedef struct Base
 {
@@ -190,4 +196,5 @@ void* String_List(void* this);
 
 void uninit_List(void* arr);
 
+void** get_refs_List(void* this);
 #endif

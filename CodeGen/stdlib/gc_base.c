@@ -97,9 +97,18 @@ static void mark(gc_base_t* obj)
         if( !lang_core_get_obj_is_marked(obj) )
         {
             lang_core_set_obj_is_marked(obj, 1);
-            for( int i = 0; i < obj->ref_size; i++ )
+            Base* base_obj = gc_get_raw_obj(obj);
+
+            if( base_obj->get_refs )
             {
-                mark((gc_base_t*) obj->refs[i]);
+                void** obj_refs         = base_obj->get_refs(base_obj);
+                uint32_t curr_ref_index = 0;
+                while( obj_refs[curr_ref_index] != NULL )
+                {
+                    mark((gc_base_t*) get_gc_base_ptr(obj_refs[curr_ref_index]));
+                    curr_ref_index++;
+                }
+                free(obj_refs);
             }
         }
     }
@@ -154,9 +163,8 @@ void gc_init(void)
 
 void* gc_malloc(size_t size)
 {
-    gc_base_t* base               = (gc_base_t*) fast_malloc(sizeof(gc_base_t) + size);
-    void* raw_obj                 = ((void*)base) + sizeof(gc_base_t);
-    base->ref_size = 0; 
+    gc_base_t* base = (gc_base_t*) fast_malloc(sizeof(gc_base_t) + size);
+    void* raw_obj   = ((void*)base) + sizeof(gc_base_t);
     if( !base )
     {
         return NULL;

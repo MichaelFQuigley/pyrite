@@ -64,6 +64,7 @@ class ScopeHelper
        //from the nearest scope of 'scopeType'
        uint64_t getNumNamedVarsSinceFunc();
        void incFuncNamedVars();
+        ScopeNode::ScopeType getCurrScopeType();
     private:
         ScopeNode* parentScope;
         ScopeNode* currScope;

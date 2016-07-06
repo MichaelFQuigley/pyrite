@@ -47,9 +47,6 @@ typedef struct gc_base
      * 
      */
     uint64_t flags;
-    uint64_t ref_size;
-    //refs: array of other objects this object references
-    void**    refs;
     struct gc_base* prev;
     struct gc_base* next;
 } gc_base_t;

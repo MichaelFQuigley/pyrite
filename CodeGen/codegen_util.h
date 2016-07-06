@@ -28,6 +28,7 @@ class CodeGenUtil
     public:
         static void writeToFile(std::string filename, llvm::Module* currModule);
         static void dumpIR(llvm::Module* currModule);
+        static llvm::Value* getConstInt64(llvm::LLVMContext* currContext, int64_t val, bool is_signed=true);
         static bool load_stdlib(std::string stdlib_filename, 
                 llvm::Module* currModule, 
                 llvm::LLVMContext* currContext);

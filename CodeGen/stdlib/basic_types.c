@@ -19,6 +19,7 @@ int initialize_types(void)
     {
         Int* prealloced_int       = gc_malloc(sizeof(Int)); 
         prealloced_int->uninit    = NULL;
+        prealloced_int->get_refs  = NULL;
         prealloced_int->raw_value = i;
         prealloc_ints[i] = prealloced_int;
     }  
@@ -27,6 +28,7 @@ int initialize_types(void)
     {
         Bool* prealloced_bool      = gc_malloc(sizeof(Bool)); 
         prealloced_bool->uninit    = NULL;
+        prealloced_bool->get_refs  = NULL;
         prealloced_bool->raw_value = (bool)i;
         prealloc_bools[i] = prealloced_bool;
     }  
@@ -208,6 +210,8 @@ void* init_IntRange(void* start_obj, void* step_obj, void* end_obj)
     Int* step  = step_obj;
     Int* end   = end_obj;
     IntRange* result  = gc_malloc(sizeof(IntRange));
+    result->uninit    = NULL;
+    result->get_refs  = NULL;
     result->curr_val  = start;
     result->start     = start;
     result->step      = step;
@@ -258,7 +262,9 @@ void uninit_IntRange(void* this)
 //List
 void* init_List(uint64_t initial_size)
 {
-    List* result      = (List*) gc_malloc(sizeof(List));;
+    List* result      = (List*) gc_malloc(sizeof(List));
+    result->uninit    = NULL;
+    result->get_refs  = get_refs_List;
     result->size      = initial_size;
     result->capacity  = initial_size; //(initial_size + 1) * 2;
     result->raw_value = calloc(1, result->capacity * sizeof(void*));
@@ -308,11 +314,25 @@ void* String_List(void* this)
     return init_String("String_List not implemented!");
 }
 
-void uninit_List(void* arr)
+void uninit_List(void* this)
 {
-    free(((List*)arr)->raw_value);
+    free(((List*)this)->raw_value);
 }
 
+void** get_refs_List(void* this)
+{
+    List* list  = (List*)this;
+    void** refs = (void**)malloc(sizeof(List) * (list->size + 1));
 
+    assert(refs && "Allocation failed in get_refs_List");
+
+    for(uint32_t i = 0; i < list->size; i++)
+    {
+        refs[i] = list->raw_value[i];
+    }
+    refs[list->size] = NULL;
+
+    return refs;
+}
 
 

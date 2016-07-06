@@ -235,3 +235,8 @@ void ScopeHelper::incFuncNamedVars()
         tempScope->incFuncNamedVars();
     }
 }
+
+ScopeNode::ScopeType ScopeHelper::getCurrScopeType()
+{
+    return currScope->getScopeType();
+}

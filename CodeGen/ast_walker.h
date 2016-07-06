@@ -69,6 +69,7 @@ class AstWalker
         void createBoolCondBr(llvm::Value* Bool, 
                 llvm::BasicBlock* trueBlock,
                 llvm::BasicBlock* falseBlock);
+        llvm::Value* createGlobalFunctionConst(std::string constName, llvm::Function* initValue, CompileType* functionType);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);

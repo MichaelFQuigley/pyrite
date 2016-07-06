@@ -14,6 +14,11 @@ void CodeGenUtil::dumpIR(llvm::Module* currModule)
     currModule->dump();
 }
 
+llvm::Value* CodeGenUtil::getConstInt64(llvm::LLVMContext* currContext, int64_t val, bool is_signed)
+{
+    return llvm::ConstantInt::get(*currContext, llvm::APInt(64, val, is_signed));
+}
+
 bool CodeGenUtil::load_stdlib(std::string stdlib_filename, 
         llvm::Module* currModule, 
         llvm::LLVMContext* currContext)
