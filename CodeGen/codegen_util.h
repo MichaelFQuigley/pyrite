@@ -43,6 +43,7 @@ class CodeGenUtil
                 llvm::Value* valB, 
                 std::string error_msg="Types are not matching.");
         static uint64_t getPointedToStructSize(llvm::Module * module, llvm::Value* val);
+        static llvm::Type* getVoidStarType(llvm::LLVMContext* currContext);
 };
 
 #endif

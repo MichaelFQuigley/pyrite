@@ -116,3 +116,9 @@ uint64_t CodeGenUtil::getPointedToStructSize(llvm::Module * module, llvm::Value*
 
         return dl->getTypeAllocSize(ptrType->getElementType());
 }
+
+llvm::Type* CodeGenUtil::getVoidStarType(llvm::LLVMContext* currContext)
+{
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(*currContext), 0);
+}
+

@@ -114,7 +114,7 @@ void ScopeHelper::setNamedVal(std::string name, CompileVal* value, bool isDecl)
     if( isDecl )
     {
         GEN_ASSERT(currScope->getNamedVal(name) == nullptr, 
-                    "Variable already declared in scope.");
+                    "Variable " + name + " already declared in scope.");
         uint64_t numNamedVarsSinceFunc = getNumNamedVarsSinceFunc();
         currScope->setNamedVal(name, value, numNamedVarsSinceFunc);
         incFuncNamedVars();

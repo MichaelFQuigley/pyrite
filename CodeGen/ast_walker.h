@@ -51,8 +51,6 @@ class AstWalker
         //existent in the file being compiled
         CompileVal* createLangCall(CompileVal* func,
                 std::vector<CompileVal*>* argsV);
-        llvm::StructType* getTypeFromStr(std::string typeName);
-        llvm::Type* getPtrTypeFromStr(std::string typeName);
         void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
         void popScope();
         CompileVal* makeFuncProto(Json::Value json_node);
@@ -69,7 +67,9 @@ class AstWalker
         void createBoolCondBr(llvm::Value* Bool, 
                 llvm::BasicBlock* trueBlock,
                 llvm::BasicBlock* falseBlock);
-        llvm::Value* createGlobalFunctionConst(std::string constName, llvm::Function* initValue, CompileType* functionType);
+        llvm::Value* createGlobalFunctionConst(std::string funcName, CompileVal* func);
+        void addFuncPtr(std::string funcName, CompileVal* func);
+        void handleAssignLhs(Json::Value assignLhs, CompileVal* rhs);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
