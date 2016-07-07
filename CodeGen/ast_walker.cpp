@@ -163,12 +163,12 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
         std::string id_name  = lhs_val["name"].asString();
         Json::Value trailers = lhs_val["trailers"];
         CompileVal* result   = nullptr;
-
-        CompileVal* var_val = scopeHelper->getNamedVal(id_name, true);
+        CompileVal* var_val  = scopeHelper->getNamedVal(id_name, true);
 
         GEN_ASSERT(var_val != nullptr, "Variable " + id_name + " is undefined.");
 
         result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()), var_val->getCompileType());
+
         if( trailers.size() > 0 )
         {
             for( int i = 0; i < trailers.size(); i++ )
@@ -201,11 +201,11 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
                     else 
                     {
                         //TODO typechecking for set_*
-                        createNativeCall("set_" + result->getCompileType()->getTypeName(), {result->getRawValue(), indexVal->getRawValue(), rhs->getRawValue()});
+                        createNativeCall("set_" + result->getCompileType()->getTypeName(), 
+                                         {result->getRawValue(), indexVal->getRawValue(), rhs->getRawValue()});
                     }
                 }
             }
-            return;
         }
         else
         {
@@ -223,22 +223,22 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     std::string op = json_node["op"].asString();
     std::string op_func_prefix = "";
 
-    if( op == "=" ) {
+    if( op == "=" ) 
+    {
         Json::Value lhs_node;
-        //lhs must be variable for now
         if( json_node_has(json_node["lhs"], "AtomOp", &lhs_node) )
         {
             CompileVal* rhs_val = codeGen_initial(json_node["rhs"]);
 
-            handleAssignLhs(lhs_node, rhs_val); 
-
             GEN_ASSERT(rhs_val != nullptr, "Invalid expression on rhs of assignment.");
+
+            handleAssignLhs(lhs_node, rhs_val); 
 
             return rhs_val;
         }
         else
         {
-            GEN_ASSERT(false, "Lhs of assignment must be variable.");
+            GEN_ASSERT(false, "Invalid lhs of assignment.");
         }
     }
     else if( op == "+" )  { op_func_prefix = "add";}
