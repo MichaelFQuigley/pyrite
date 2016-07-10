@@ -629,11 +629,11 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 
         startBlock(funcBody);
         
-        codeGen_initial(json_node["stmts"]);
-
         Builder.SetInsertPoint(entry);
         Builder.CreateBr(funcBody);
         Builder.SetInsertPoint(funcBody);
+
+        CompileVal* returnVal = codeGen_initial(json_node["stmts"]);
 
         llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
         llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
@@ -642,6 +642,8 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         Builder.SetInsertPoint(&func_block);
         createNativeCall("gc_push_func_scope", {CodeGenUtil::getConstInt64(&currContext, numVarsInFunc, false)}); 
         Builder.SetInsertPoint(originalBlock);
+
+        createReturn(returnVal);
 
         popScope();
 
@@ -653,26 +655,27 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
     }
 }
 
-CompileVal* AstWalker::codeGen_ReturnOp(Json::Value json_node)
-{ 
-    pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
-
-    CompileVal* ret_val             = codeGen_initial(json_node);
+CompileVal* AstWalker::createReturn(CompileVal* val)
+{
     llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
     llvm::Function* func_block      = originalBlock->getParent();
-    //check for return param
-    popScope();
-    createNativeCall("gc_pop_scope", {}); 
-    
-    if( ret_val == nullptr )
+
+    createNativeCall("gc_pop_scope", {});
+    if( val == nullptr || val->getCompileType()->getTypeName() == "Void" )
     {
         return new CompileVal(Builder.CreateRetVoid(), "Void");
     }
     else
     {
-        return new CompileVal(Builder.CreateRet(ret_val->getRawValue()), ret_val->getCompileType()); 
+        return new CompileVal(Builder.CreateRet(val->getRawValue()), val->getCompileType()); 
     }
+}
 
+CompileVal* AstWalker::codeGen_ReturnOp(Json::Value json_node)
+{ 
+    GEN_ASSERT(false, "Omit return statement");
+    CompileVal* ret_val = codeGen_initial(json_node);
+    return createReturn(ret_val);
 }
 
 CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)

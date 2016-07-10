@@ -70,6 +70,7 @@ class AstWalker
         llvm::Value* createGlobalFunctionConst(std::string funcName, CompileVal* func);
         void addFuncPtr(std::string funcName, CompileVal* func);
         void handleAssignLhs(Json::Value assignLhs, CompileVal* rhs);
+        CompileVal* createReturn(CompileVal* val);
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
