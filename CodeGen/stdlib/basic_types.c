@@ -178,6 +178,11 @@ void * init_Bool(bool raw_value)
     return prealloc_bools[raw_value ? 1 : 0];
 }
 
+CREATE_NUM_ARITH_FN(Bool, bool, and, &)
+CREATE_NUM_ARITH_FN(Bool, bool, or, |)
+CREATE_NUM_ARITH_FN(Bool, bool, xor, ^)
+
+
 
 void* String_Bool(void* bool_val)
 {

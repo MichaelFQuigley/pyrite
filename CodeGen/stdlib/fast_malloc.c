@@ -18,10 +18,10 @@ static inline void push_slab_head(void* mem)
         free(mem_node);
         return;
     }
-    int mem_slabs_index              = size / MEM_ALIGN;
-    fast_mem_node_t* old_head        = mem_slabs[mem_slabs_index].next;
+    int mem_slabs_index             = size / MEM_ALIGN;
+    fast_mem_node_t* old_head       = mem_slabs[mem_slabs_index].next;
     mem_slabs[mem_slabs_index].next = mem_node;
-    mem_node->next                   = old_head;
+    mem_node->next                  = old_head;
 }
 
 static inline void* pop_slab_head(size_t size)

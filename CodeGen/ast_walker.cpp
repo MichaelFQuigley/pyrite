@@ -559,7 +559,9 @@ CompileVal* AstWalker::codeGen_IfOp(Json::Value json_node)
         startBlock(endIf);
         popScope();
         //phi node
-        if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr )
+        if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr 
+            && ifTrueLastStmt->getCompileType()->getTypeName() != "Void"
+            && ifFalseLastStmt->getCompileType()->getTypeName() != "Void")
         {
             llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getRawValue()->getType(), 2, "ifPhi");
             phi->addIncoming(ifTrueLastStmt->getRawValue(), ifTrue);

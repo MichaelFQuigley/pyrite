@@ -162,6 +162,11 @@ void* String_String(void* this);
 
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 
+CREATE_NUM_ARITH_FN_DECL(Bool, bool, and, &)
+CREATE_NUM_ARITH_FN_DECL(Bool, bool, or, |)
+CREATE_NUM_ARITH_FN_DECL(Bool, bool, xor, ^)
+
+
 void uninit_Bool(void* bool_val);
 
 void* String_Bool(void* bool_val);
