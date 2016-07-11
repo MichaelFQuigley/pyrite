@@ -19,16 +19,15 @@ and parse_initial =
     (*if stmt*)
     | [< 'Token.KWD "if"; 
       'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
-      'Token.LBRAC;
-      t=parse_stmts;
-      'Token.RBRAC ?? "expected '}' in if stmt"; stream >] ->
+      t=parse_simple_stmt;
+       stream >] ->
     (*else clause of if stmt*)
         (match Stream.peek stream with
             | Some (Token.KWD "else") -> 
                 begin
                     Stream.junk stream; 
                     begin parser
-                        | [< 'Token.LBRAC; e=parse_stmts; 'Token.RBRAC ?? "Expected '}' in else.">] 
+                        | [< e=parse_simple_stmt >] 
                           -> Ast.IF (test, (Array.of_list [t; e]))
                         | [< _ >] -> raise (Stream.Error "Else stmt requires '{}'.")
                     end stream
@@ -37,11 +36,8 @@ and parse_initial =
     | [< 'Token.KWD "func"; stream >] -> 
             let parse_func_proto_and_body name stream =
                  (parser
-                            | [<proto=parse_func_proto; 
-                                'Token.LBRAC; 
-                                stmts=parse_stmts; 
-                                'Token.RBRAC ?? "Expected '}' in function definition">] ->
-                                    Ast.FUNCDEF (name, proto,  stmts)) stream
+                     | [< proto=parse_func_proto; stmt=parse_simple_stmt >] ->
+                         Ast.FUNCDEF (name, proto,  stmt)) stream
                 in
             (match Stream.peek stream with
                 | Some (Token.LPAREN) ->
@@ -50,8 +46,10 @@ and parse_initial =
                         (Stream.junk stream;
                         parse_func_proto_and_body name stream)
                 | _ -> raise (Failure "Invalid function definition."))
-    | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ>] ->
+    | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
             Ast.LIST (Array.of_list (List.rev stream))
+    | [< 'Token.LBRAC; brac_stmts_list=parse_stmts_helper; 'Token.RBRAC ?? "Expected '}' in bracketed expression." >] -> 
+            Ast.BRAC_EXPR (Array.of_list brac_stmts_list)
     end
 and parse_atom =
     let check_for_dots lhs stream = 
@@ -60,13 +58,13 @@ and parse_atom =
             | _ -> lhs) in 
     parser
     | [< 'Token.LIT n; stream >] -> (check_for_dots (Ast.LIT n) stream)
-    | [< 'Token.IDENT id; stream>] -> (check_for_dots (parse_ident id stream) stream)
-    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream>] -> 
+    | [< 'Token.IDENT id; stream >] -> (check_for_dots (parse_ident id stream) stream)
+    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream >] -> 
             (check_for_dots (Ast.PAREN_EXPR e) stream)
 and parse_var_def = parser
-    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr>] -> Ast.VARDEF (v,e)
+    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr >] -> Ast.VARDEF (v,e)
 and parse_typed_arg = parser
-    | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition>] -> Ast.TYPEDARG (id, t) 
+    | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition >] -> Ast.TYPEDARG (id, t) 
 and parse_func_proto = 
        let rec typed_arg_helper curr_args stream = 
              begin 
@@ -83,10 +81,9 @@ and parse_func_proto =
                         | Some (Token.PUNCT "->") ->
                                 (Stream.junk stream; Ast.FUNC_PROTO (Array.of_list (List.rev args), 
                                                                                     (parse_type_definition stream)))
-                        | Some Token.LBRAC ->
+                        | _ ->
                                 Ast.FUNC_PROTO (Array.of_list (List.rev args), 
-                                                              (Ast.SIMPLE_TYPE "Void"))
-                        | _ -> raise (Failure "Parse Error: Invalid function prototype!")))
+                                                              (Ast.SIMPLE_TYPE "Void"))))
 and parse_type_definition = parser
     | [< stream >] -> 
           (match Stream.peek stream with
@@ -103,29 +100,24 @@ and parse_type_definition = parser
                               Ast.LIST_TYPE v
                       | [<>] -> raise (Failure "List type declaration failed to parse!")) stream
           | _ -> raise (Failure "Arg type did not parse."))
+and parse_stmts_helper =
+    parser
+        | [< simple_stmt=parse_simple_stmt; stream >] 
+             -> simple_stmt::(parse_stmts_helper stream)
+        | [< >] -> []
 and parse_stmts = parser
-    [< stream >] -> Ast.STMTS (Array.of_list (parse_stmt stream))
-and parse_stmt = parser
-    | [< 'Token.KWD "let"; e=parse_var_def; stmts>] -> e::(parse_stmt stmts)
-    | [< e=parse_expr; stmts >] -> (Ast.EXPROP e)::(parse_stmt stmts)
-    | [< 'Token.KWD "return"; 
-            'Token.LBRAC; 
-            s=parse_stmts; 
-            'Token.RBRAC ?? "Expected '}' for return stmt";
-            stmts>] -> 
-                (Ast.RETURN s)::(parse_stmt stmts)
+    [< stream >] ->
+      Ast.STMTS (Array.of_list (parse_stmts_helper stream))
+and parse_simple_stmt = parser
+    | [< 'Token.KWD "let"; e=parse_var_def>] -> e
+    | [< e=parse_expr >] -> (Ast.EXPROP e)
     (*for loop*)
-    | [< 'Token.KWD "for"; stream>] -> 
-        (parser
-         | [< 'Token.LPAREN; 'Token.IDENT loop_var; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
-              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC; stream>] ->
-                   (Ast.FOR (loop_var, itt, stmts))::(parse_stmt stream)) stream
-    | [< 'Token.KWD "while"; stream >] ->
-        (parser
-         | [< 'Token.LPAREN; header=parse_expr;  'Token.RPAREN;
-              'Token.LBRAC; stmts=parse_stmts; 'Token.RBRAC; stream>] ->
-                   (Ast.WHILE (header, stmts))::(parse_stmt stream)) stream
-    | [< >] -> []
+    | [< 'Token.KWD "for"; 
+         'Token.LPAREN; 'Token.IDENT loop_var; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN;
+              simple_stmt=parse_simple_stmt>] ->
+                   Ast.FOR (loop_var, itt, simple_stmt)
+    | [< 'Token.KWD "while"; 'Token.LPAREN; header=parse_expr;  'Token.RPAREN; stmt=parse_simple_stmt>] ->
+                   Ast.WHILE (header, stmt)
 and parse_expr = 
     begin
     Util.debug_print "in parse_expr";

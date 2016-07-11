@@ -633,7 +633,7 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         Builder.CreateBr(funcBody);
         Builder.SetInsertPoint(funcBody);
 
-        CompileVal* returnVal = codeGen_initial(json_node["stmts"]);
+        CompileVal* returnVal = codeGen_initial(json_node["simple_stmt"]);
 
         llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
         llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
@@ -705,6 +705,17 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
     return list;   
 }
 
+CompileVal* AstWalker::codeGen_BracExpr(Json::Value json_node)
+{
+    CompileVal* result = nullptr;
+    for( unsigned i = 0; i < json_node.size(); i++ )
+    {
+        result = codeGen_initial(json_node[i]);
+    }
+
+    return result;
+}
+
 CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
 {
     TRY_NODE(json_node, StmtsOp);
@@ -718,6 +729,7 @@ CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, FuncDef);
     TRY_NODE(json_node, ReturnOp);
     TRY_NODE(json_node, ListOp);
+    TRY_NODE(json_node, BracExpr);
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
     cout << json_node << endl;

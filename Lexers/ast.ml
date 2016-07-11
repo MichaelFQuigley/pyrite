@@ -10,18 +10,20 @@ and expr_stmt =
     | BINOP of string * expr_stmt * expr_stmt
     | UNOP of string * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
-    | IF of expr_stmt * stmts array
+    | IF of expr_stmt * simple_stmt array
     (*format of for loop, index_var * iterator * stmts*)
     | LIST of expr_stmt array
     | ATOMOP of atom
-    | FUNCDEF of string * func_proto * stmts
+    | FUNCDEF of string * func_proto * simple_stmt
+    (*BRAC_EXPR represents multiple expression statements inside curly braces*)
+    | BRAC_EXPR of simple_stmt array
 and simple_stmt = 
     | EXPROP of expr_stmt
     (*format of VARDEF is variable * expression assigned to variable*)
     | VARDEF of typed_arg * expr_stmt
     | RETURN of stmts
-    | FOR of string * atom * stmts
-    | WHILE of expr_stmt * stmts
+    | FOR of string * atom * simple_stmt
+    | WHILE of expr_stmt * simple_stmt
 and typed_arg = 
     (*format of typedarg is name * type*)
     | TYPEDARG of string * type_definition
@@ -80,12 +82,12 @@ and string_of_simple_stmt ast =
                                                  [string_of_typed_arg t; string_of_expr_stmt expr])
     | RETURN s -> 
             make_json_kv "ReturnOp" (string_of_stmts s)
-    | FOR (loop_var, itt, stmts) -> 
+    | FOR (loop_var, itt, stmt) -> 
             make_json_kv "ForOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
-            ["\""^loop_var^"\""; (string_of_atom itt); (string_of_stmts stmts)])
-    | WHILE (header, stmts) ->
+            ["\""^loop_var^"\""; (string_of_atom itt); (string_of_simple_stmt stmt)])
+    | WHILE (header, stmt) ->
             make_json_kv "WhileOp" (make_json_kvs ["header"; "body"]
-            [string_of_expr_stmt header; string_of_stmts stmts])
+            [string_of_expr_stmt header; string_of_simple_stmt stmt])
 and string_of_expr_stmt ast = 
     match ast with
     | UNOP (op, expr) ->
@@ -98,12 +100,13 @@ and string_of_expr_stmt ast =
             make_json_kv "AtomOp" (string_of_atom at)
     | IF (test_expr, stmts_arr) -> 
             make_json_kv "IfOp" (make_json_kvs ["test"; "bodies"]
-                                               [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_stmts])
+                                               [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_simple_stmt])
     | LIST elements ->
             make_json_kv "ListOp" (make_json_arr elements string_of_expr_stmt)
-    | FUNCDEF (name, proto, stmts) ->
-            make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "stmts"]
-                                ["\""^name^"\""; string_of_prototype proto; string_of_stmts stmts])
+    | FUNCDEF (name, proto, stmt) ->
+            make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "simple_stmt"]
+                                ["\""^name^"\""; string_of_prototype proto; string_of_simple_stmt stmt])
+    | BRAC_EXPR exprs -> (make_json_kv "BracExpr" (make_json_arr exprs string_of_simple_stmt))
 and string_of_typed_arg ast = 
     match ast with 
     | TYPEDARG (name, t) -> 
