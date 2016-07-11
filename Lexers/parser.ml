@@ -9,6 +9,10 @@ and parse_initial =
     begin 
     Util.debug_print "in parse_initial";
     parser
+        | [< 'Token.PUNCT op; expr=parse_expr>] -> 
+                (match op with
+                | ("-" | "!") -> Ast.UNOP (op, expr) 
+                | _ -> raise (Failure "Parser error: invalid punctutation."))
     | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
     | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')' to end parenthesized expression.">] -> e

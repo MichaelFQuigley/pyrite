@@ -122,7 +122,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
         argI->setName(header_node["args"][arg_index]["TypedArg"]["name"].asString());
     }
 
-    CompileVal* result          = new CompileVal(func, "Function"); 
+    CompileVal* result = new CompileVal(func, "Function"); 
     result->setArgumentsList(compileArgs);
 
     return result;

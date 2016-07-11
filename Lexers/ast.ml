@@ -8,6 +8,7 @@ and trailer =
     | INDEX of expr_stmt
 and expr_stmt = 
     | BINOP of string * expr_stmt * expr_stmt
+    | UNOP of string * expr_stmt
     (*format of if: test_expr * array(stmts_true, [stmts_false])*)
     | IF of expr_stmt * stmts array
     (*format of for loop, index_var * iterator * stmts*)
@@ -87,6 +88,9 @@ and string_of_simple_stmt ast =
             [string_of_expr_stmt header; string_of_stmts stmts])
 and string_of_expr_stmt ast = 
     match ast with
+    | UNOP (op, expr) ->
+            make_json_kv "UnOp" (make_json_kvs ["op"; "expr"]
+                                               ["\""^op^"\""; string_of_expr_stmt expr])
     | BINOP (op, expa, expb) -> 
             make_json_kv "BinOp" (make_json_kvs ["op"; "lhs"; "rhs"] 
                                                 ["\""^op^"\""; (string_of_expr_stmt expa); (string_of_expr_stmt expb)])
