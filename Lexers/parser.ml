@@ -62,7 +62,22 @@ and parse_atom =
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream >] -> 
             (check_for_dots (Ast.PAREN_EXPR e) stream)
 and parse_var_def = parser
-    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr >] -> Ast.VARDEF (v,e)
+    | [< 'Token.IDENT id; stream >] ->
+            (match Stream.next stream with
+                | (Token.PUNCT ":") ->
+                        (parser
+                            | [< t=parse_type_definition; stream >] ->
+                                    (match Stream.peek stream with
+                                        | Some (Token.PUNCT "=") ->
+                                                Stream.junk stream;
+                                                Ast.VDEFINITION (Ast.TYPEDARG (id, t), parse_expr stream)
+                                        | _ ->
+                                                Ast.VDECLARATION (Ast.TYPEDARG (id, t)))) stream
+                | (Token.PUNCT "=") ->
+                        Ast.VDEFINITION_INFER (id, (parse_expr stream))
+                | _ -> raise (Failure "Invalid variable definition."))
+     | [< >] -> raise (Failure "Invalid variable definition.")
+(*    | [< v=parse_typed_arg; 'Token.PUNCT "="; e=parse_expr >] -> Ast.VARDEF (v,e)*)
 and parse_typed_arg = parser
     | [< 'Token.IDENT id ; 'Token.PUNCT ":"; t=parse_type_definition >] -> Ast.TYPEDARG (id, t) 
 and parse_func_proto = 
@@ -109,7 +124,7 @@ and parse_stmts = parser
     [< stream >] ->
       Ast.STMTS (Array.of_list (parse_stmts_helper stream))
 and parse_simple_stmt = parser
-    | [< 'Token.KWD "let"; e=parse_var_def>] -> e
+    | [< 'Token.KWD "let"; e=parse_var_def>] -> Ast.VARDEF e
     | [< e=parse_expr >] -> (Ast.EXPROP e)
     (*for loop*)
     | [< 'Token.KWD "for"; 

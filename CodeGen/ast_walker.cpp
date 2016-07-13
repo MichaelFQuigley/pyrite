@@ -130,18 +130,39 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
 
 CompileVal* AstWalker::codeGen_ExprOp(Json::Value json_node){ return codeGen_initial(json_node); }
 
-CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){ 
-    std::string varName   = json_node["var"]["TypedArg"]["name"].asString();
-    CompileVal* rhs_expr = codeGen_initial(json_node["expr"]); 
+CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){
+    Json::Value tempNode;
 
-    GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
-
-    newVarInScope(varName, rhs_expr); 
+    if( json_node_has(json_node, "definition", &tempNode) )
+    {
+        std::string varName   = tempNode["var"]["TypedArg"]["name"].asString();
+        CompileVal* rhs_expr  = codeGen_initial(tempNode["expr"]); 
+        GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
+        newVarInScope(varName, rhs_expr); 
+    }
+    else if( json_node_has(json_node, "definition_infer", &tempNode) )
+    {
+        std::string varName   = tempNode["name"].asString();
+        CompileVal* rhs_expr  = codeGen_initial(tempNode["expr"]); 
+        GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
+        newVarInScope(varName, rhs_expr); 
+    }
+    else if( json_node_has(json_node, "declaration", &tempNode) )
+    {
+        std::string varName      = tempNode["TypedArg"]["name"].asString();
+        CompileType* compileType = makeCompileType(tempNode["TypedArg"]["type"]);
+        llvm::Value* allocaRes   = Builder.CreateAlloca(CodeGenUtil::getVoidStarType(&currContext));
+        newVarInScope(varName, new CompileVal(allocaRes, compileType), false);
+    }
+    else
+    {
+        GEN_ASSERT(false, "Invalid variable definition.");
+    }
 
     return nullptr; 
 }
 
-CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value)
+CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value, bool is_definition)
 {
     llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
     llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
@@ -150,7 +171,12 @@ CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value)
     Builder.SetInsertPoint(&func_block);
     allocaRes = Builder.CreateAlloca(CodeGenUtil::getVoidStarType(&currContext));
     Builder.SetInsertPoint(originalBlock);
-    Builder.CreateStore(value->getRawValue(), allocaRes);
+
+    if( is_definition )
+    {
+        Builder.CreateStore(value->getRawValue(), allocaRes);
+    }
+
     CompileVal* result = new CompileVal(allocaRes, value->getCompileType());
     scopeHelper->setNamedVal(varName, result, true);
    

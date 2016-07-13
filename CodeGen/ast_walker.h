@@ -61,7 +61,9 @@ class AstWalker
             bool raise_fail_exception = true, 
             std::string error_msg="Undefined function");
         std::string createConstructorName(std::string func_name, std::vector<llvm::Value*> argsV);
-        CompileVal* newVarInScope(std::string varName, CompileVal* value);
+        //newVarInScope allocates space for a new variable at the top of a function and restores the insert point
+        //back to where it was when it was called.
+        CompileVal* newVarInScope(std::string varName, CompileVal* value, bool is_definition=true);
         //createBoolCondBr takes a value of type struct.Bool (the struct type in the stdlib),
         //extracts the raw boolean value, and creates a conditional branch based on that.
         void createBoolCondBr(llvm::Value* Bool, 
