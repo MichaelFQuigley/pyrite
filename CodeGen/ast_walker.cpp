@@ -151,8 +151,7 @@ CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){
     {
         std::string varName      = tempNode["TypedArg"]["name"].asString();
         CompileType* compileType = makeCompileType(tempNode["TypedArg"]["type"]);
-        llvm::Value* allocaRes   = Builder.CreateAlloca(CodeGenUtil::getVoidStarType(&currContext));
-        newVarInScope(varName, new CompileVal(allocaRes, compileType), false);
+        newVarInScope(varName, new CompileVal(nullptr, compileType), false);
     }
     else
     {

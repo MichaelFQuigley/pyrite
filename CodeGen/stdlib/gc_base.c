@@ -11,7 +11,9 @@
 #include "fast_malloc.h"
 #define likely(x)      __builtin_expect(!!(x), 1)
 #define unlikely(x)    __builtin_expect(!!(x), 0)
-static gc_list_t gc_list;
+
+#define NUM_GENERATIONS 3
+static gc_list_t gc_list[NUM_GENERATIONS];
 
 //object stack
 //note: stack grows up
@@ -33,17 +35,18 @@ static inline gc_scope_stack_el_t* get_nearest_func_scope()
 
 
 //linked list helpers
-static inline void add_node(gc_base_t* node)
+static inline void add_node(gc_base_t* node, int generation)
 {
-    node->next         = gc_list.gc_list_head.next;
-    node->prev         = &gc_list.gc_list_head;
-    gc_list.gc_list_head.next = node;
-    gc_list.size++;
+    node->next         = gc_list[generation].gc_list_head.next;
+    node->prev         = &(gc_list[generation].gc_list_head);
+    gc_list[generation].gc_list_head.next = node;
+    gc_list[generation].size++;
 }
 
-static inline void remove_node(gc_base_t* node)
+static inline void remove_node(gc_base_t* node, int generation)
 {
-    GC_ASSERT(gc_list.size > 0 && "Trying to delete an object not in the list.");
+    GC_ASSERT(gc_list[generation].size > 0 
+            && "Trying to delete an object not in the list.");
 
     node->prev->next = node->next;
 
@@ -52,7 +55,7 @@ static inline void remove_node(gc_base_t* node)
         node->next->prev = node->prev;
     }
 
-    gc_list.size--;
+    gc_list[generation].size--;
 }
 
 static inline void* gc_get_raw_obj(gc_base_t* base)
@@ -72,9 +75,9 @@ static inline gc_base_t* get_gc_base_ptr(void* val)
  * Frees object and any references to the object as well as removing it from the global linked
  * list of allocated objects.
  */
-static inline void gc_free(gc_base_t* val)
+static inline void gc_free(gc_base_t* val, int generation)
 {
-    remove_node(val);
+    remove_node(val, generation);
     Base* raw_obj = (Base*)gc_get_raw_obj(val);
 
     if( raw_obj->uninit )
@@ -85,9 +88,9 @@ static inline void gc_free(gc_base_t* val)
     fast_free(val);
 }
 
-static inline bool should_garbage_collect()
+static inline bool should_garbage_collect(int generation)
 {
-    return gc_list.size >  ((2 * MAX_STACK_SIZE) / 3);
+    return gc_list[generation].size >  ((2 * MAX_STACK_SIZE) / 3);
 }
 
 static void mark(gc_base_t* obj)
@@ -114,11 +117,11 @@ static void mark(gc_base_t* obj)
     }
 }
 
-static inline void sweep()
+static inline void sweep(int generation)
 {
-    gc_base_t* curr_node = &(gc_list.gc_list_head); 
+    gc_base_t* curr_node = &(gc_list[generation].gc_list_head); 
     gc_base_t* next_node = curr_node->next;
-    while( likely(next_node != NULL) )
+    while( next_node != &(gc_list[generation].gc_list_tail) )
     {
         curr_node = next_node;
         next_node = curr_node->next;
@@ -129,14 +132,34 @@ static inline void sweep()
         }
         else
         {
-            gc_free(curr_node); 
+            gc_free(curr_node, generation); 
+        }
+    }
+
+    //move survivors to older generation if possible
+    if( generation + 1 < NUM_GENERATIONS )
+    {
+        gc_base_t* old_gen_head = &(gc_list[generation].gc_list_head); 
+        gc_base_t* old_gen_tail = &(gc_list[generation].gc_list_tail); 
+        gc_base_t* new_gen_head = &(gc_list[generation + 1].gc_list_head); 
+
+        if( gc_list[generation].size > 0 )
+        {
+            old_gen_tail->prev->next = new_gen_head->next;
+            new_gen_head->next       = old_gen_head->next;
+            new_gen_head->next->prev = new_gen_head;
+
+            gc_list[generation + 1].size += gc_list[generation].size;
+            gc_list[generation].size = 0;
+            old_gen_tail->prev = old_gen_head;
+            old_gen_head->next = old_gen_tail;
         }
     }
 }
 
 static void gc_mark_and_sweep(void)
 {
-    printf("collecting garbage\n");
+    static uint64_t gc_count = 0;
     //mark all anon vars
     for(int i = 0; i < gc_stack.curr_index; i++)
     {
@@ -152,13 +175,30 @@ static void gc_mark_and_sweep(void)
         }
     }
 
-    sweep();
+    sweep(0);
+    for(int i = 1; i < NUM_GENERATIONS; i++)
+    {
+        if( (gc_count % (i*2) == 0) && should_garbage_collect(i) )
+        {
+            sweep(i);
+        }
+    }
+
+    gc_count++;
 }
 
-void gc_init(void)
+int gc_init(void)
 {
     gc_stack.curr_index       = 0;
     gc_scope_stack.curr_index = 0;
+
+    for(int i = 0; i < NUM_GENERATIONS; i++)
+    {
+        gc_list[i].gc_list_head.next = &(gc_list[i].gc_list_tail);
+        gc_list[i].gc_list_tail.prev = &(gc_list[i].gc_list_head);
+    }
+
+    return 0;
 }
 
 void* gc_malloc(size_t size)
@@ -183,7 +223,7 @@ void* gc_malloc(size_t size)
     gc_scope_stack.stack[gc_scope_stack.curr_index].num_anon_vars++;
 
     //add to linked list
-    add_node(base);    
+    add_node(base, 0);    
 
     return raw_obj;
 }
@@ -227,7 +267,7 @@ void gc_pop_scope(void)
     GC_ASSERT(gc_scope_stack.curr_index > 0 &&
             "Scope stack undeflow!");
 
-    if( should_garbage_collect() )
+    if( should_garbage_collect(0) )
     {
         gc_mark_and_sweep();
     }

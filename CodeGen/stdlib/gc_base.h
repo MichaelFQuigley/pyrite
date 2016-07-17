@@ -55,8 +55,9 @@ typedef struct
 {
     //global gc linked list
     //format of list:
-    //  head -> first node -> second node -> ...
+    //  &head -> first node -> second node -> ... -> &tail
     gc_base_t gc_list_head;
+    gc_base_t gc_list_tail;
     uint64_t size;
 } gc_list_t;
 
@@ -85,7 +86,7 @@ typedef struct
 
 static inline uint64_t lang_core_get_obj_is_marked(gc_base_t* obj)
 {
-    return (obj->flags & flags_num_bits_is_marked);
+    return (obj->flags & is_marked_mask);
 }
 
 static inline void lang_core_set_obj_is_marked(gc_base_t* this, uint64_t is_marked)
@@ -99,24 +100,22 @@ static inline void lang_core_set_obj_is_marked(gc_base_t* this, uint64_t is_mark
  * Allocates sizeof(gc_base_t) gc wrapper around object and size bytes for object
  * Adds new object into global linked list, and pushes pointer on stack.
  * Sets is_marked bit in flags field to 'false'.
- * The refs and ref_size fields are zeroed out since it is the responsibility
- * of the initialization function to set these.
  *
  * On failure, null is returned and nothing is added to the linked lists or stacks.
  *
- * Returns gc_base_t with raw_obj pointing to zero alloced memory
+ * Returns gc_base_t with raw_obj pointing to alloced memory
  */
 void* gc_malloc(size_t size);
 
 //must be called externally before any other function
-void gc_init(void);
+int gc_init(void);
 
 //should be called every time a new scope is introduced
 void gc_push_func_scope(uint64_t num_named_vars);
 void gc_push_loop_scope(void);
 
 //should be called every time a scope is removed
-void gc_pop_func_scope(void);
+void gc_pop_scope(void);
 
 //sets value of var in scope
 void gc_set_named_var_in_scope(void* named_var, uint64_t index);
