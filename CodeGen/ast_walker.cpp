@@ -247,6 +247,7 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
 CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     std::string op = json_node["op"].asString();
     std::string op_func_prefix = "";
+    bool isCompare = false;
 
     if( op == "=" ) 
     {
@@ -275,11 +276,11 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     else if( op == "|" )  { op_func_prefix = "or";}
     else if( op == "^" )  { op_func_prefix = "xor";}
     else if( op == "<" )  { op_func_prefix = "cmplt";}
-    else if( op == "<=" ) { op_func_prefix = "cmple";}
-    else if( op == "==" ) { op_func_prefix = "cmpeq";}
-    else if( op == ">" )  { op_func_prefix = "cmpgt";}
-    else if( op == ">=" ) { op_func_prefix = "cmpge";}
-    else if( op == "!=" ) { op_func_prefix = "cmpne";}
+    else if( op == "<=" ) { op_func_prefix = "cmple"; isCompare = true;}
+    else if( op == "==" ) { op_func_prefix = "cmpeq"; isCompare = true;}
+    else if( op == ">" )  { op_func_prefix = "cmpgt"; isCompare = true;}
+    else if( op == ">=" ) { op_func_prefix = "cmpge"; isCompare = true;}
+    else if( op == "!=" ) { op_func_prefix = "cmpne"; isCompare = true;}
     else { 
         cout << "Unimplemented operator type" << endl;
         return nullptr;
@@ -292,7 +293,9 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     llvm::Value* result_val = createNativeCall(op_func_name, {lhs->getRawValue(), rhs->getRawValue()});
 
     //TODO change so that lhs type isn't blindly used
-    return new CompileVal(result_val, lhs->getCompileType());
+    return new CompileVal(result_val, isCompare ? 
+                                          new CompileType("Bool")
+                                        : lhs->getCompileType());
 }
 
 CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) { 

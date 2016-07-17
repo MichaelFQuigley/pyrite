@@ -22,6 +22,9 @@ static gc_stack_t gc_stack;
 //stack that holds count for number of alloced objects at each scope
 static gc_scope_stack_t gc_scope_stack;
 
+//gc_start_stack_index represents the index to resume garbage collection at
+static int64_t gc_start_stack_index = 0;
+
 static inline gc_scope_stack_el_t* get_scope_stack_top()
 {
     return &(gc_scope_stack.stack[gc_scope_stack.curr_index]);
@@ -160,11 +163,16 @@ static inline void sweep(int generation)
 static void gc_mark_and_sweep(void)
 {
     static uint64_t gc_count = 0;
+
+
     //mark all anon vars
-    for(int i = 0; i < gc_stack.curr_index; i++)
+    for(int i = gc_start_stack_index; i < gc_stack.curr_index; i++)
     {
         mark(gc_stack.stack[i]);
     }
+
+    gc_start_stack_index = gc_stack.curr_index;
+
     //mark all named vars
     for(int i = 0; i <= gc_scope_stack.curr_index; i++)
     {
@@ -276,8 +284,14 @@ void gc_pop_scope(void)
     uint64_t num_alloced_in_scope = scope_el->num_anon_vars;
 
     gc_stack.curr_index -= num_alloced_in_scope;
+
     GC_ASSERT(gc_stack.curr_index >= 0 &&
             "Object stack undeflow!");
+
+    if( gc_stack.curr_index < gc_start_stack_index )
+    {
+        gc_start_stack_index = gc_stack.curr_index;
+    }
 
     scope_el->num_anon_vars  = 0;
 
