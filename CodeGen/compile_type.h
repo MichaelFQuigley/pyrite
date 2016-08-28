@@ -20,6 +20,11 @@ class CompileType
         //insertArgumentsList: adds element to back of generics vector
         void insertArgumentsList(CompileType* compileType);
         void setArgumentsList(std::vector<CompileType*>* argsList);
+        /*
+         * isEqualoType performs recursive type assertions to determine if
+         * two types are the same.
+         */
+        bool isEqualToType(CompileType* testType);
 };
 
 class CompileFunc
@@ -46,6 +51,7 @@ class CompileVal
         void insertArgumentType(CompileType* compileType);
         void setArgumentsList(std::vector<CompileType*>* argsList);
         llvm::Value* getRawValue();
+        bool typesAreEqual(CompileVal* valB);
 };
 
 #endif

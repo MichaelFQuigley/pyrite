@@ -435,18 +435,19 @@ CompileVal* AstWalker::createLangCall(CompileVal* func,
     GEN_ASSERT(func->getCompileType()->getTypeName() == "Function", 
             "Error: Trying to call something that is not a function!");
     std::vector<llvm::Value*> nativeArgs;
-   /* GEN_ASSERT(argsV->size() == funcArgs->size() - 1, 
-            "Number of arguments in function call " +  funcName + " must match.\n"
-            + "expected " + to_string(funcArgs->size())  
-            + "arguments, but received " + to_string(argsV->size()));*/
-
-    std::vector<CompileType*>* argumentsList = (func->getCompileType()->getArgumentsList());
+    std::vector<CompileType*>* funcProtoArgs = (func->getCompileType()->getArgumentsList());
     //last argument in CompileVal is return type
-    CompileType* retType = (*argumentsList)[argumentsList->size() - 1];
+    CompileType* retType = (*funcProtoArgs)[funcProtoArgs->size() - 1];
+
+    GEN_ASSERT(argsV->size() == funcProtoArgs->size() - 1, 
+            string("Number of arguments in function call must match.\n")
+            + "Expected " + to_string(funcProtoArgs->size() - 1)  
+            + " arguments, but received " + to_string(argsV->size()) + ".");
 
     for(int i = 0; i < argsV->size(); i++)
     {
-        //TODO recursive type assertions
+        GEN_ASSERT((*funcProtoArgs)[i]->isEqualToType((*argsV)[i]->getCompileType()),
+                "Types used in call to function do not match function prototype."); 
         nativeArgs.push_back((*argsV)[i]->getRawValue());
     }
 
@@ -699,32 +700,34 @@ CompileVal* AstWalker::createReturn(CompileVal* val)
     }
 }
 
-CompileVal* AstWalker::codeGen_ReturnOp(Json::Value json_node)
-{ 
-    GEN_ASSERT(false, "Omit return statement");
-    CompileVal* ret_val = codeGen_initial(json_node);
-    return createReturn(ret_val);
-}
-
 CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
 {
 
     std::vector<llvm::Value*> argsV;
     int numListItems = json_node.size();
-    CompileVal* list = createConstObject("List", CodeGenUtil::getConstInt64(&currContext, numListItems, false));
+    CompileVal* list = createConstObject("List",
+                                         CodeGenUtil::getConstInt64(&currContext,
+                                                                    numListItems,
+                                                                    false));
+    CompileType* listType = nullptr;
     for( unsigned i = 0; i < json_node.size(); i++ )
     {
         argsV.clear();
         CompileVal* list_el = codeGen_initial(json_node[i]);
-
+        // Initialize list type.
         if( i == 0 )
         {
-            list->insertArgumentType(list_el->getCompileType());
+            listType = list_el->getCompileType();
+            list->insertArgumentType(listType);
         }
-        //TODO recursive type assertions
+        GEN_ASSERT(listType->isEqualToType(list_el->getCompileType()),
+                "Types in list are inconsistent!");
         argsV.push_back(list->getRawValue());
         // index 
-        argsV.push_back(createConstObject("Int", CodeGenUtil::getConstInt64(&currContext, i, false))->getRawValue());
+        argsV.push_back(createConstObject("Int",
+                                          CodeGenUtil::getConstInt64(&currContext,
+                                          i,
+                                          false))->getRawValue());
         // value 
         argsV.push_back(list_el->getRawValue());
         createNativeCall("set_List", argsV);
@@ -755,7 +758,6 @@ CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
     TRY_NODE(json_node, WhileOp);
     TRY_NODE(json_node, IfOp);
     TRY_NODE(json_node, FuncDef);
-    TRY_NODE(json_node, ReturnOp);
     TRY_NODE(json_node, ListOp);
     TRY_NODE(json_node, BracExpr);
 

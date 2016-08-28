@@ -34,6 +34,34 @@ void CompileType::setArgumentsList(std::vector<CompileType*>* argsList)
     genericsList = *argsList;
 }
 
+bool CompileType::isEqualToType(CompileType* testType)
+{
+    if( testType == nullptr )
+    {
+        return false;
+    }
+    // Base typename should be the same
+    if( this->typeName != testType->typeName )
+    {
+        return false;
+    }
+    std::vector<CompileType*>* argsTypeA = this->getArgumentsList();
+    std::vector<CompileType*>* argsTypeB = testType->getArgumentsList();
+    if( argsTypeA->size() != argsTypeB->size() )
+    {
+        return false;
+    }
+    for(int i = 0; i < argsTypeA->size(); i++)
+    {
+        if( !((*argsTypeA)[i])->isEqualToType((*argsTypeB)[i]) )
+        {
+            return false;
+        }
+    }
+
+    return true; 
+}
+
 
 CompileFunc::CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments) 
 {
@@ -69,6 +97,7 @@ CompileType* CompileVal::getCompileType()
     return &compileType;
 }
 
+
 void CompileVal::setCompileType(CompileType* compileType)
 {
     this->compileType = *compileType;
@@ -88,4 +117,9 @@ void CompileVal::setArgumentsList(std::vector<CompileType*>* argsList)
 llvm::Value* CompileVal::getRawValue()
 {
     return rawValue;
+}
+
+bool CompileVal::typesAreEqual(CompileVal* valB)
+{
+    return this->getCompileType()->isEqualToType(valB->getCompileType());
 }
