@@ -6,51 +6,50 @@ let rec parse_top = parser
     | [< e=parse_stmts >] -> e
     | [< >] -> raise (Stream.Error "Parse error at top level")
 and parse_initial = 
-    begin 
+    (
     Util.debug_print "in parse_initial";
     parser
-        | [< 'Token.PUNCT op; expr=parse_expr>] -> 
-                (match op with
-                | ("-" | "!") -> Ast.UNOP (op, expr) 
-                | _ -> raise (Failure "Parser error: invalid punctutation."))
-    | [< 'Token.LIT n >] -> Ast.ATOMOP (Ast.LIT n)
-    | [< 'Token.IDENT id; stream>] -> Ast.ATOMOP (parse_ident id stream)
-    | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')' to end parenthesized expression.">] -> e
-    (*if stmt*)
-    | [< 'Token.KWD "if"; 
-      'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
-      t=parse_simple_stmt;
-       stream >] ->
-    (*else clause of if stmt*)
-        (match Stream.peek stream with
-            | Some (Token.KWD "else") -> 
-                begin
-                    Stream.junk stream; 
-                    begin parser
-                        | [< e=parse_simple_stmt >] 
-                          -> Ast.IF (test, (Array.of_list [t; e]))
-                        | [< _ >] -> raise (Stream.Error "Else stmt requires '{}'.")
-                    end stream
-                end
-            | _ -> Ast.IF (test, Array.of_list [t]))
-    | [< 'Token.KWD "func"; stream >] -> 
-            let parse_func_proto_and_body name stream =
-                 (parser
-                     | [< proto=parse_func_proto; stmt=parse_simple_stmt >] ->
-                         Ast.FUNCDEF (name, proto,  stmt)) stream
-                in
-            (match Stream.peek stream with
-                | Some (Token.LPAREN) ->
-                        parse_func_proto_and_body "" stream
-                | Some (Token.IDENT name) ->
-                        (Stream.junk stream;
-                        parse_func_proto_and_body name stream)
-                | _ -> raise (Failure "Invalid function definition."))
-    | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
-            Ast.LIST (Array.of_list (List.rev stream))
-    | [< 'Token.LBRAC; brac_stmts_list=parse_stmts_helper; 'Token.RBRAC ?? "Expected '}' in bracketed expression." >] -> 
-            Ast.BRAC_EXPR (Array.of_list brac_stmts_list)
-    end
+    | [< stream >] ->
+    (match Stream.peek stream with
+        | Some Token.LIT _ | Some Token.IDENT _ | Some Token.LPAREN ->  
+                Ast.ATOMOP (parse_atom stream)
+        | _ ->
+            (parser
+            (*if stmt*)
+            | [< 'Token.KWD "if"; 
+              'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
+              t=parse_simple_stmt;
+               stream >] ->
+            (*else clause of if stmt*)
+                (match Stream.peek stream with
+                    | Some (Token.KWD "else") -> 
+                        begin
+                            Stream.junk stream; 
+                            begin parser
+                                | [< e=parse_simple_stmt >] 
+                                  -> Ast.IF (test, (Array.of_list [t; e]))
+                                | [< _ >] -> raise (Stream.Error "Else stmt requires '{}'.")
+                            end stream
+                        end
+                    | _ -> Ast.IF (test, Array.of_list [t]))
+            | [< 'Token.KWD "func"; stream >] -> 
+                    let parse_func_proto_and_body name stream =
+                         (parser
+                             | [< proto=parse_func_proto; stmt=parse_simple_stmt >] ->
+                                 Ast.FUNCDEF (name, proto,  stmt)) stream
+                        in
+                    (match Stream.peek stream with
+                        | Some (Token.LPAREN) ->
+                                parse_func_proto_and_body "" stream
+                        | Some (Token.IDENT name) ->
+                                (Stream.junk stream;
+                                parse_func_proto_and_body name stream)
+                        | _ -> raise (Failure "Invalid function definition."))
+            | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
+                    Ast.LIST (Array.of_list (List.rev stream))
+            | [< 'Token.LBRAC; brac_stmts_list=parse_stmts_helper; 'Token.RBRAC ?? "Expected '}' in bracketed expression." >] -> 
+                    Ast.BRAC_EXPR (Array.of_list brac_stmts_list)
+            ) stream))
 and parse_atom =
     let check_for_dots lhs stream = 
         (match Stream.peek stream with
