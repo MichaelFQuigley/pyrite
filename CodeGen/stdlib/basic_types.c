@@ -354,6 +354,7 @@ void* next_List(void* this)
 
 void* begin_List(void* this)
 {
+    ((List*)this)->next_itt_index = 0;
     if(((List*)this)->size > 0)
     {
         return ((List*)this)->raw_value[0];
