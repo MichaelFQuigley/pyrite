@@ -1,0 +1,8 @@
+func test(a:[[Int]]) println("here: ")
+
+func main()
+{
+    let a = 0..10
+    for(i in a)
+        println("here")
+}

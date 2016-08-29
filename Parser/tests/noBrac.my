@@ -1,0 +1,26 @@
+func main() 
+    for(i in 0..20)
+        while(i == 5)
+            println(String_Int(i))
+
+match e
+{
+    |> [1, a] -> a
+    |> [2, a] -> a
+    |> _ -> true
+}
+
+if( len(e) >= 1 & e[0] == 1 )
+{
+    let a:[Int] = []
+    for(i in 1..(len(e) - 1))
+    {
+        a.add(e[i])
+    }
+    a
+}
+    true
+else if( e == 2 )
+    false
+else
+    true

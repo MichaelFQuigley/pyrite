@@ -1,0 +1,39 @@
+class Test
+{
+    let a:Int
+    func Test()
+    {
+        a = 0
+    }
+    func testF()
+    {
+        println("here")
+    }
+}
+
+
+struct Test
+{
+    BASE_VALS
+    Int a;
+}
+
+Test_testF(void* this)
+{   
+    
+}
+
+Test_init()
+{
+}
+
+Test_uninit()
+{
+
+}
+
+let a = Test()
+
+a = init_Test()
+
+

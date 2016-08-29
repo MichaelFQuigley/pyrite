@@ -1,0 +1,10 @@
+func main()
+{
+    let a     = [11,22,33]
+    let c:Int = 2
+    let b:Int
+    a = [1]
+    b = 2
+    c = 3
+    println(String_Int(b))
+}

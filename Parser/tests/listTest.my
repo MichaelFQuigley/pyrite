@@ -1,0 +1,29 @@
+func softAssert(condition:Bool, testName:String)
+    println( testName + if( condition ) " passed!" else " failed!" )
+
+func testReturnList(list:[Int]) -> [Int] list
+
+func testSetReturnList()
+{
+    let l:[Int] = [1,2,3,4]
+
+    testReturnList( l )[0] = 1_000_000
+    softAssert( l[0] == 1_000_000, "testSetReturnList" )
+}
+
+func testSetList()
+{
+    let l:[[[Int]]] = [[ [1,2,3,4], [5,6,7,8] ],
+                       [ [9,10,11], [12,13,14]]]
+   l[0] += [ [1000,2000], [3000,4000] ]
+   l[0][0] = [2,4,6,8] + 8
+   l[0][0][4] += 2
+
+   softAssert( l[0][0][4] == 10, "testSetList" )
+}
+
+func main()
+{
+    testSetReturnList()
+    testSetList()
+}

@@ -1,0 +1,11 @@
+func main()
+{
+    let i:Int = 0
+    let j:Int = 0
+
+    i = 1
+    j = 2
+    i = 10000
+    
+    return {}
+}

@@ -1,0 +1,10 @@
+func recur()
+{
+    println("here")
+    recur()
+}
+
+func main()
+{
+    recur()
+}

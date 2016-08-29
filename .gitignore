@@ -13,3 +13,4 @@ llvm
 *.json
 *.swp
 *.a
+Parser/build

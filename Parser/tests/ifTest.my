@@ -1,0 +1,10 @@
+func test()
+    println("got here")
+
+
+func main()
+    if( true )
+    {
+        let i:Int = 0
+            println("test")
+    }
