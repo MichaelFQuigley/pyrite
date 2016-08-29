@@ -273,6 +273,7 @@ void* init_List(uint64_t initial_size)
     result->size      = initial_size;
     result->capacity  = initial_size; //(initial_size + 1) * 2;
     result->raw_value = calloc(1, result->capacity * sizeof(void*));
+    result->next_itt_index = 0;
 
     return result;
 }
@@ -340,4 +341,25 @@ void** get_refs_List(void* this)
     return refs;
 }
 
+void* hasNext_List(void* this)
+{
+    return init_Bool(((List*)this)->next_itt_index < ((List*)this)->size);
+}
 
+void* next_List(void* this)
+{
+    ((List*)this)->next_itt_index++;
+    return ((List*)this)->raw_value[((List*)this)->next_itt_index];
+}
+
+void* begin_List(void* this)
+{
+    if(((List*)this)->size > 0)
+    {
+        return ((List*)this)->raw_value[0];
+    }
+    else
+    {
+        return NULL;
+    }
+}

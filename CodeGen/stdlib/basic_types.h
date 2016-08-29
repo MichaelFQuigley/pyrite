@@ -98,6 +98,7 @@ typedef struct List {
     uint64_t size;
     //capacity represents number of elements are supported by currently allocated array
     size_t capacity;
+    uint64_t next_itt_index;
     void** raw_value;
 } List;
 
@@ -202,4 +203,11 @@ void* String_List(void* this);
 void uninit_List(void* arr);
 
 void** get_refs_List(void* this);
+
+void* hasNext_List(void* this);
+
+void* next_List(void* this);
+
+void* begin_List(void* this);
+
 #endif

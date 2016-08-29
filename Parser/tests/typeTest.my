@@ -2,7 +2,7 @@ func test(a:[[Int]]) println("here: ")
 
 func main()
 {
-    let a = 0..10
+    let a = ["c", "b", "a"]
     for(i in a)
-        println("here")
+        println("here " + i)
 }

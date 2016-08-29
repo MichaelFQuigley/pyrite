@@ -379,13 +379,21 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
                                                 llvm::ConstantInt::get(currContext, 
                                                 llvm::APInt(64, 1, true)));
         CompileVal* end   = codeGen_AtomOp(val_node["end"]);
+        
+        GEN_ASSERT(start->typesAreEqual(end),
+                "Start and end type for range must be the same.");
+        //XXX For now, RangeOp is assumed to iterate over Ints.
+        CompileType* iteratedType = start->getCompileType();
+        CompileType* rangeType = new CompileType(
+                iteratedType->getTypeName() + "Range");
+        rangeType->insertArgumentsList(iteratedType);
 
-        llvm::Value* init_IntRangeResult = createNativeCall("init_IntRange", 
-                                                            { start->getRawValue(),
-                                                              step->getRawValue(),
-                                                              end->getRawValue() });
-
-        return new CompileVal(init_IntRangeResult, "Int");
+        llvm::Value* init_RangeResult = createNativeCall(
+                "init_" + rangeType->getTypeName(), 
+                { start->getRawValue(),
+                  step->getRawValue(),
+                  end->getRawValue() });
+        return new CompileVal(init_RangeResult, rangeType);
     }
     else
     {
@@ -482,15 +490,16 @@ CompileVal* AstWalker::codeGen_ForOp(Json::Value json_node){
     pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
     CompileVal* itt                = codeGen_AtomOp(json_node["itt"]);
-    //XXX only supports int iterators for now
-    std::string itt_hasNextFuncName = "hasNext_IntRange";
-    std::string itt_nextFuncName    = "next_IntRange";
-    std::string itt_beginFuncName   = "begin_IntRange";
+    CompileType* iteratorType       = itt->getCompileType();
+    std::string iteratorTypeName    = iteratorType->getTypeName();
+    std::string itt_hasNextFuncName = "hasNext_" + iteratorTypeName;
+    std::string itt_nextFuncName    = "next_" + iteratorTypeName;
+    std::string itt_beginFuncName   = "begin_" + iteratorTypeName;
     std::string loop_var_name       = json_node["loop_var"].asString();
 
     llvm::Value* loop_var = createNativeCall(itt_beginFuncName, {itt->getRawValue()});
-    //XXX change from 'Int' when possible
-    newVarInScope(loop_var_name, new CompileVal(loop_var, "Int"));
+    CompileType* loopVarType = (*(iteratorType->getArgumentsList()))[0];
+    newVarInScope(loop_var_name, new CompileVal(loop_var, loopVarType));
 
     Builder.CreateBr(loopTop);
     Builder.SetInsertPoint(loopTop);
@@ -808,6 +817,6 @@ int main()
         getline(std::cin, json_string);
         ast->codeGen_top(json_string);
         CodeGenUtil::dumpIR(ast->getModule());
-        CodeGenUtil::writeToFile("../Lexers/test.bc", ast->getModule());
+        CodeGenUtil::writeToFile("../Parser/test.bc", ast->getModule());
     }
 }
