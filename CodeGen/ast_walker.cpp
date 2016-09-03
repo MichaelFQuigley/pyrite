@@ -135,8 +135,12 @@ CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){
 
     if( json_node_has(json_node, "definition", &tempNode) )
     {
-        std::string varName   = tempNode["var"]["TypedArg"]["name"].asString();
-        CompileVal* rhs_expr  = codeGen_initial(tempNode["expr"]); 
+        std::string varName        = tempNode["var"]["TypedArg"]["name"].asString();
+        CompileType* annotatedType = makeCompileType(tempNode["var"]["TypedArg"]["type"]);
+        CompileVal* rhs_expr       = codeGen_initial(tempNode["expr"]); 
+        GEN_ASSERT(annotatedType->isCompatibleWithType(rhs_expr->getCompileType()),
+                   "Annotated type is not compatible with type on right hand side!");
+        rhs_expr->setCompileType(annotatedType);
         GEN_ASSERT(rhs_expr != nullptr, "Invalid assignment to rhs of variable definition.");
         newVarInScope(varName, rhs_expr); 
     }
@@ -192,7 +196,8 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
 
         GEN_ASSERT(var_val != nullptr, "Variable " + id_name + " is undefined.");
 
-        result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()), var_val->getCompileType());
+        result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()),
+                                                   var_val->getCompileType());
 
         if( trailers.size() > 0 )
         {
@@ -220,14 +225,24 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
                         //The type of return value from the call to 'get_*' will always be the 
                         //first argument in the compile type's argument list.
                         CompileType* returnedType = (*(result->getCompileType()->getArgumentsList()))[0];
-                        result = new CompileVal(createNativeCall("get_" + lhsTypename, {result->getRawValue(), indexVal->getRawValue()}), 
+                        result = new CompileVal(createNativeCall("get_" + lhsTypename,
+                                                                 {result->getRawValue(),
+                                                                 indexVal->getRawValue()}), 
                                                 returnedType);
                     }
                     else 
                     {
-                        //TODO typechecking for set_*
+                        //XXX For now, assumes result type is complete.
+                        CompileType* resultGenericType = (*(result->getCompileType()
+                                                            ->getArgumentsList()))[0];
+                        GEN_ASSERT(resultGenericType->isCompatibleWithType(rhs->getCompileType()),
+                                   "Type on rhs is not compatible with lhs in assignment of "
+                                   + var_val->getCompileType()->getTypeName() + " "
+                                   + id_name + ".");
                         createNativeCall("set_" + result->getCompileType()->getTypeName(), 
-                                         {result->getRawValue(), indexVal->getRawValue(), rhs->getRawValue()});
+                                         {result->getRawValue(),
+                                          indexVal->getRawValue(),
+                                          rhs->getRawValue()});
                     }
                 }
             }
@@ -237,6 +252,10 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
             std::vector<llvm::Value*> argsV;
             uint64_t varIndex         = scopeHelper->getNamedValInd(id_name);
 
+            GEN_ASSERT(result->getCompileType()->isCompatibleWithType(rhs->getCompileType()),
+                       "Type on rhs is not compatible with lhs in assignment of "
+                       + var_val->getCompileType()->getTypeName() + " "
+                       + id_name + ".");
             Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
             argsV.push_back(Builder.CreateLoad(var_val->getRawValue()));
             argsV.push_back(CodeGenUtil::getConstInt64(&currContext, varIndex, false));
@@ -290,7 +309,9 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
     std::string op_func_name = op_func_prefix + "_" + lhs->getCompileType()->getTypeName();
     CompileVal* rhs          = codeGen_initial(json_node["rhs"]); 
 
-    llvm::Value* result_val = createNativeCall(op_func_name, {lhs->getRawValue(), rhs->getRawValue()});
+    llvm::Value* result_val = createNativeCall(op_func_name,
+                                               {lhs->getRawValue(),
+                                               rhs->getRawValue()});
 
     //TODO change so that lhs type isn't blindly used
     return new CompileVal(result_val, isCompare ? 
@@ -444,8 +465,7 @@ CompileVal* AstWalker::createLangCall(CompileVal* func,
             "Error: Trying to call something that is not a function!");
     std::vector<llvm::Value*> nativeArgs;
     std::vector<CompileType*>* funcProtoArgs = (func->getCompileType()->getArgumentsList());
-    //last argument in CompileVal is return type
-    CompileType* retType = (*funcProtoArgs)[funcProtoArgs->size() - 1];
+    CompileType* retType = func->getCompileType()->getFunctionReturnType();
 
     GEN_ASSERT(argsV->size() == funcProtoArgs->size() - 1, 
             string("Number of arguments in function call must match.\n")
@@ -454,7 +474,7 @@ CompileVal* AstWalker::createLangCall(CompileVal* func,
 
     for(int i = 0; i < argsV->size(); i++)
     {
-        GEN_ASSERT((*funcProtoArgs)[i]->isEqualToType((*argsV)[i]->getCompileType()),
+        GEN_ASSERT((*funcProtoArgs)[i]->isCompatibleWithType((*argsV)[i]->getCompileType()),
                 "Types used in call to function do not match function prototype."); 
         nativeArgs.push_back((*argsV)[i]->getRawValue());
     }
@@ -642,7 +662,6 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         llvm::BasicBlock* entry    = llvm::BasicBlock::Create(currContext, "varDecls", func);
         llvm::BasicBlock* funcBody = llvm::BasicBlock::Create(currContext, "funcBody");
         std::string funcName       = json_node["name"].asString();
-
         scopeHelper->setBlockOnCurrScope(entry);
         Builder.SetInsertPoint(entry);
         createGlobalFunctionConst(funcName, compileFunc);
@@ -670,8 +689,8 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         Builder.SetInsertPoint(entry);
         Builder.CreateBr(funcBody);
         Builder.SetInsertPoint(funcBody);
-
-        CompileVal* returnVal = codeGen_initial(json_node["simple_stmt"]);
+        CompileType* returnType = compileFunc->getCompileType()->getFunctionReturnType();
+        CompileVal* returnVal   = codeGen_initial(json_node["simple_stmt"]);
 
         llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
         llvm::BasicBlock& func_block    = originalBlock->getParent()->getEntryBlock();
@@ -681,7 +700,17 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         createNativeCall("gc_push_func_scope", {CodeGenUtil::getConstInt64(&currContext, numVarsInFunc, false)}); 
         Builder.SetInsertPoint(originalBlock);
 
-        createReturn(returnVal);
+        if( returnType->getTypeName() == "Void" )
+        {
+            createReturn(nullptr);
+        }
+        else
+        {
+            //XXX Assumes return type specified in function proto is complete.
+            GEN_ASSERT(returnType->isCompatibleWithType(returnVal->getCompileType()),
+                       "Return type for function " + funcName + " is incorrect.");
+            createReturn(returnVal);
+        }
 
         popScope();
 

@@ -62,6 +62,51 @@ bool CompileType::isEqualToType(CompileType* testType)
     return true; 
 }
 
+bool CompileType::isCompatibleWithType(CompileType* incompleteType)
+{
+    if( incompleteType == nullptr )
+    {
+        return true;
+    }
+
+    if( incompleteType->typeName == this->typeName )
+    {
+        std::vector<CompileType*>* completeTypeArgs   = this->getArgumentsList();
+        std::vector<CompileType*>* incompleteTypeArgs = incompleteType->getArgumentsList();
+        size_t completeTypeNumArgs                    = completeTypeArgs->size();
+        size_t incompleteTypeNumArgs                  = incompleteTypeArgs->size();
+
+        //Function types must have same number of arguments.
+        if( (this->typeName == "Function" && (completeTypeNumArgs != incompleteTypeNumArgs))
+            //Incomplete type should not be more complete than complete type.
+            || (incompleteTypeNumArgs > completeTypeNumArgs) )
+        {
+            return false;
+        }
+
+        bool result = true;
+        for(int i = 0; i < incompleteTypeNumArgs; i++)
+        {
+            std::cout << ((*completeTypeArgs)[i])->typeName << std::endl;
+            std::cout << ((*incompleteTypeArgs)[i])->typeName << std::endl;
+            result &= ((*completeTypeArgs)[i])->isCompatibleWithType((*incompleteTypeArgs)[i]);
+        }
+           
+        return result;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+CompileType* CompileType::getFunctionReturnType()
+{
+    std::vector<CompileType*>* arguments = this->getArgumentsList();
+
+    //last argument in CompileVal is return type
+    return (*arguments)[arguments->size() - 1];
+}
 
 CompileFunc::CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments) 
 {
@@ -123,3 +168,4 @@ bool CompileVal::typesAreEqual(CompileVal* valB)
 {
     return this->getCompileType()->isEqualToType(valB->getCompileType());
 }
+

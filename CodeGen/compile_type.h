@@ -21,10 +21,33 @@ class CompileType
         void insertArgumentsList(CompileType* compileType);
         void setArgumentsList(std::vector<CompileType*>* argsList);
         /*
-         * isEqualoType performs recursive type assertions to determine if
+         * isEqualoType:
+         * performs recursive type assertions to determine if
          * two types are the same.
          */
         bool isEqualToType(CompileType* testType);
+
+        /*
+         * isCompatibleWithType:
+         * Checks whether the incompleteType can be treated as the completeType (this).
+         * For example, if a complete type is List of Ints and the incomplete
+         * type is List, then this function will return true.
+         *
+         * If both types are complete and the same,
+         * then this function returns true.
+         *
+         * If the incomplete type itself is null, then this
+         * function returns true.
+         *
+         * If complete type is less complete than the incomplete type,
+         * this function returns false.
+         */
+        bool isCompatibleWithType(CompileType* incompleteType);
+        /*
+         * getFunctionReturnType:
+         * Gets return type of this function type assuming this type is a function type.
+         */
+        CompileType* getFunctionReturnType();
 };
 
 class CompileFunc

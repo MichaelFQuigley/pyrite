@@ -10,9 +10,9 @@ func fib(n:Int, cache:[Int]) -> Int
 func main()
 {
     let maxN  = 85
-    let cache = [1, 1]
+    let cache:[Int] = []
 
-    for( i in 2..(maxN+1) )
+    for( i in 0..(maxN+1) )
         cache += 0
 
     fib(maxN, cache)
