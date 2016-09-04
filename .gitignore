@@ -1,6 +1,5 @@
 *.cmi
 *.cmo
-llvm
 *.pyc
 *.bak
 *.o
@@ -14,3 +13,5 @@ llvm
 *.swp
 *.a
 Parser/build
+Prototype
+jsoncpp

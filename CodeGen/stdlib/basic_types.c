@@ -5,6 +5,7 @@
 
 #include "basic_funcs.h"
 #include "gc_base.h"
+#include "fast_malloc.h"
 #include "basic_types.h"
 
 #define NUM_PREALLOC_INTS  256
@@ -272,7 +273,7 @@ void* init_List(uint64_t initial_size)
     result->get_refs  = get_refs_List;
     result->size      = initial_size;
     result->capacity  = initial_size; //(initial_size + 1) * 2;
-    result->raw_value = calloc(1, result->capacity * sizeof(void*));
+    result->raw_value = fast_zalloc(result->capacity * sizeof(void*));
     result->next_itt_index = 0;
 
     return result;
@@ -322,7 +323,8 @@ void* String_List(void* this)
 
 void uninit_List(void* this)
 {
-    free(((List*)this)->raw_value);
+    //free(((List*)this)->raw_value);
+    fast_free(((List*)this)->raw_value);
 }
 
 void** get_refs_List(void* this)

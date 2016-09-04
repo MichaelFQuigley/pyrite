@@ -1,10 +1,9 @@
 CPP_FILES=$(wildcard *.cpp)
-INCLUDEJSON=jsoncpp/include
-LIBJSON=jsoncpp/src/build/debug/lib_json/libjsoncpp.a
-INCLUDELLVM=`llvm-config-3.6 --includedir`
-
 CPP_FLAGS+=-Wall -g -O3
 LD_FLAGS= -lpthread -lm -ltinfo -ldl
+INCLUDEJSON=jsoncpp/include
+LIBJSON=libs/libjsoncpp.a
+INCLUDELLVM=`llvm-config-3.6 --includedir`
 LLVM_FLAGS=`llvm-config-3.6 --cppflags --libs all`
 LLVM_FLAGS+=`llvm-config-3.6 --ldflags`
 

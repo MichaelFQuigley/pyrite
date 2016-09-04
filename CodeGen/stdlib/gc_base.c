@@ -93,7 +93,7 @@ static inline void gc_free(gc_base_t* val, int generation)
 
 static inline bool should_garbage_collect(int generation)
 {
-    return gc_list[generation].size >  ((2 * MAX_STACK_SIZE) / 3);
+    return gc_list[generation].size >  (MAX_STACK_SIZE >> 1);
 }
 
 static void mark(gc_base_t* obj)
@@ -164,7 +164,6 @@ static void gc_mark_and_sweep(void)
 {
     static uint64_t gc_count = 0;
 
-
     //mark all anon vars
     for(int i = gc_start_stack_index; i < gc_stack.curr_index; i++)
     {
@@ -222,8 +221,9 @@ void* gc_malloc(size_t size)
 
     //add to stack
     GC_ASSERT(gc_stack.curr_index < MAX_STACK_SIZE &&
-            gc_stack.curr_index >= 0 &&
             "Out of memory in virtual stack.");
+    GC_ASSERT(gc_stack.curr_index >= 0 &&
+            "Virtual stack underflow.");
     gc_stack.stack[gc_stack.curr_index] = base;
     gc_stack.curr_index++;
 
@@ -256,6 +256,16 @@ void gc_push_func_scope(uint64_t num_named_vars_in_scope)
    }
 }
 
+
+void gc_check(void)
+{
+    if( should_garbage_collect(0) )
+    {
+        gc_mark_and_sweep();
+    }
+}
+
+
 void gc_push_loop_scope(void)
 {
     GC_ASSERT(gc_scope_stack.curr_index < MAX_SCOPE_DEPTH - 1 &&
@@ -275,10 +285,7 @@ void gc_pop_scope(void)
     GC_ASSERT(gc_scope_stack.curr_index > 0 &&
             "Scope stack undeflow!");
 
-    if( should_garbage_collect(0) )
-    {
-        gc_mark_and_sweep();
-    }
+    gc_check();
 
     gc_scope_stack_el_t* scope_el = get_scope_stack_top();
     uint64_t num_alloced_in_scope = scope_el->num_anon_vars;

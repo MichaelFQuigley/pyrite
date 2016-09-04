@@ -4,7 +4,7 @@
 #include "fast_malloc.h"
 
 #define MEM_ALIGN 8
-#define MAX_MEM_SIZE (32 * MEM_ALIGN)
+#define MAX_MEM_SIZE (16 * MEM_ALIGN)
 
 static fast_mem_node_t mem_slabs[(MAX_MEM_SIZE / MEM_ALIGN) + 1];
 

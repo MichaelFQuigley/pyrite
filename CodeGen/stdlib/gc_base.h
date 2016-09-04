@@ -15,10 +15,10 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MAX_STACK_SIZE (1 << 23) //8 M objects
+#define MAX_STACK_SIZE (1 << 22) //4M objects
 #define MAX_SCOPE_DEPTH (1 << 10) //1024
 
-//#define GC_DEBUG
+#define GC_DEBUG
 
 #ifdef GC_DEBUG
     #define GC_ASSERT(COND) \
@@ -119,4 +119,8 @@ void gc_pop_scope(void);
 
 //sets value of var in scope
 void gc_set_named_var_in_scope(void* named_var, uint64_t index);
+
+//Checks the newest generation to see if a garbage collection job should happen.
+//If so, then a job is initiated.
+void gc_check(void);
 #endif

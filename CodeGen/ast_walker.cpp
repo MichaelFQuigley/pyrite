@@ -50,9 +50,10 @@ bool AstWalker::json_node_has(Json::Value json_node, std::string name, Json::Val
 CompileVal* AstWalker::codeGen_StmtsOp(Json::Value json_node)
 {
     CompileVal* result = nullptr;
-    for( unsigned i = 0; i < json_node.size(); i++ )
+//    for( unsigned i = 0; i < json_node.size(); i++ )
+    for(const auto& stmt_node : json_node)
     {
-        result = codeGen_initial(json_node[i]);
+        result = codeGen_initial(stmt_node);
     }
 
     return result;
@@ -362,22 +363,22 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
 
         result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()), var_val->getCompileType());
 
-        for( int i = 0; i < trailers.size(); i++ )
+        for(const auto& trailer : trailers)
         {
-            if( trailers[i]["FCall"] != Json::nullValue )
+            if( trailer["FCall"] != Json::nullValue )
             {
                 std::vector<CompileVal*>* fcallArgs = new std::vector<CompileVal*>();
-                for(const Json::Value& val : trailers[i]["FCall"]["args"])
+                for(const Json::Value& val : trailer["FCall"]["args"])
                 {
                     fcallArgs->push_back(codeGen_initial(val));
                 }
                 
                 result = createLangCall(result, fcallArgs);               
             }
-            else if( trailers[i]["Index"] != Json::nullValue )
+            else if( trailer["Index"] != Json::nullValue )
             {
                 std::vector<llvm::Value*> argsV;
-                CompileVal* indexVal    = codeGen_initial(trailers[i]["Index"]);
+                CompileVal* indexVal    = codeGen_initial(trailer["Index"]);
                 argsV.push_back(result->getRawValue());
                 argsV.push_back(indexVal->getRawValue());
                 std::string lhsTypename = result->getCompileType()->getTypeName();
@@ -436,7 +437,7 @@ std::string AstWalker::createConstructorName(std::string func_name,
 {
     std::string full_func_name = func_name;
 
-    for(auto &argI : argsV)
+    for(const auto &argI : argsV)
     {
         full_func_name += "_" + CodeGenUtil::getTypeStr(argI, false);
     }
@@ -778,9 +779,10 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
 CompileVal* AstWalker::codeGen_BracExpr(Json::Value json_node)
 {
     CompileVal* result = nullptr;
-    for( unsigned i = 0; i < json_node.size(); i++ )
+    //for( unsigned i = 0; i < json_node.size(); i++ )
+    for(const auto& currNode : json_node)
     {
-        result = codeGen_initial(json_node[i]);
+        result = codeGen_initial(currNode);
     }
 
     return result;
