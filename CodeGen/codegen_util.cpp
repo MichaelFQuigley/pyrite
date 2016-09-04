@@ -73,19 +73,6 @@ llvm::Value* CodeGenUtil::generateString(llvm::Module* module, std::string str)
     return result;
 }
 
-std::string CodeGenUtil::typeStrFromStr(std::string type_name)
-{
-    return "\%struct." + type_name + "*";
-}
-
-uint64_t CodeGenUtil::getPointedToStructSize(llvm::Module * module, llvm::Value* val)
-{
-        llvm::DataLayout* dl       = new llvm::DataLayout(module);
-        llvm::PointerType* ptrType = static_cast<llvm::PointerType*>(val->getType());
-
-        return dl->getTypeAllocSize(ptrType->getElementType());
-}
-
 llvm::Type* CodeGenUtil::getVoidStarType(llvm::LLVMContext* currContext)
 {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(*currContext), 0);

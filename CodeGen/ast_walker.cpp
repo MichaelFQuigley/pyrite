@@ -15,12 +15,18 @@ AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builde
     }
 
     //TODO automate this process...
-    CompileVal* printlnVal = new CompileVal(tryGetFunction("println"), new CompileType("Function"));
-    printlnVal->setArgumentsList(new std::vector<CompileType*>({new CompileType("String"), new CompileType("Void")}));
+    CompileVal* printlnVal = new CompileVal(tryGetFunction("println"),
+                                  new CompileType(CompileType::CommonType::FUNCTION));
+    printlnVal->setArgumentsList(new std::vector<CompileType*>({
+                                    new CompileType(CompileType::CommonType::STRING),
+                                    new CompileType(CompileType::CommonType::VOID)}));
     addFuncPtr("println", printlnVal);
 
-    CompileVal* String_IntVal = new CompileVal(tryGetFunction("String_Int"), new CompileType("Function"));
-    String_IntVal->setArgumentsList(new std::vector<CompileType*>({new CompileType("Int"), new CompileType("String")}));
+    CompileVal* String_IntVal = new CompileVal(tryGetFunction("String_Int"),
+                                    new CompileType(CompileType::CommonType::FUNCTION));
+    String_IntVal->setArgumentsList(new std::vector<CompileType*>({
+                                        new CompileType(CompileType::CommonType::INT),
+                                        new CompileType(CompileType::CommonType::STRING)}));
     addFuncPtr("String_Int", String_IntVal);
 }
 
@@ -50,7 +56,6 @@ bool AstWalker::json_node_has(Json::Value json_node, std::string name, Json::Val
 CompileVal* AstWalker::codeGen_StmtsOp(Json::Value json_node)
 {
     CompileVal* result = nullptr;
-//    for( unsigned i = 0; i < json_node.size(); i++ )
     for(const auto& stmt_node : json_node)
     {
         result = codeGen_initial(stmt_node);
@@ -78,7 +83,7 @@ CompileType* AstWalker::makeCompileType(Json::Value json_node)
     }
     else if( json_node["list_type"] != Json::nullValue )
     {
-        result =  new CompileType("List"); 
+        result =  new CompileType(CompileType::CommonType::LIST); 
         result->insertArgumentsList(makeCompileType(json_node["list_type"]));
     }
     else
@@ -104,10 +109,11 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
     }
     CompileType* compileRetType = makeCompileType(header_node["ret_type"]);
     compileArgs->push_back(compileRetType); 
-    std::string funcName          = json_node["name"].asString();
-    llvm::Type* ret_type          = compileRetType->getTypeName() == "Void" ?  
-                                        llvm::Type::getVoidTy(currContext)
-                                        : CodeGenUtil::getVoidStarType(&currContext);
+    std::string funcName = json_node["name"].asString();
+    llvm::Type* ret_type = compileRetType->getTypeName()
+                           == CompileType::getCommonTypeName(CompileType::CommonType::VOID) ?
+                               llvm::Type::getVoidTy(currContext)
+                               : CodeGenUtil::getVoidStarType(&currContext);
     llvm::FunctionType* funcProto = llvm::FunctionType::get(ret_type, 
                                                                 argsV, 
                                                                 false);    
@@ -123,7 +129,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
         argI->setName(header_node["args"][arg_index]["TypedArg"]["name"].asString());
     }
 
-    CompileVal* result = new CompileVal(func, "Function"); 
+    CompileVal* result = new CompileVal(func, CompileType::CommonType::FUNCTION); 
     result->setArgumentsList(compileArgs);
 
     return result;
@@ -317,7 +323,7 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
 
     //TODO change so that lhs type isn't blindly used
     return new CompileVal(result_val, isCompare ? 
-                                          new CompileType("Bool")
+                                          new CompileType(CompileType::CommonType::BOOL)
                                         : lhs->getCompileType());
 }
 
@@ -332,20 +338,24 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
 
         double double_val;
         long int_val;
+        // Literal types have a prefix specifying their kind.
         switch( lit_type )
         {
             case 'f':
                 double_val = stod(lit_val);
-                return createConstObject("Float", llvm::ConstantFP::get(currContext, llvm::APFloat(double_val)));
+                return createConstObject(CompileType::CommonType::FLOAT,
+                            llvm::ConstantFP::get(currContext, llvm::APFloat(double_val)));
             case 'i':
                 int_val = stol(lit_val);
-                return createConstObject("Int", CodeGenUtil::getConstInt64(&currContext, int_val));
+                return createConstObject(CompileType::CommonType::INT,
+                            CodeGenUtil::getConstInt64(&currContext, int_val));
             case 's':
-                 return createConstObject("String", 
+                 return createConstObject(CompileType::CommonType::STRING, 
                                     CodeGenUtil::generateString(currModule.get(), lit_val));
             case 'b':
                 int_val = (lit_val == "true") ? 1 : 0;
-                return createConstObject("Bool", llvm::ConstantInt::get(currContext, llvm::APInt(1, int_val, false)));
+                return createConstObject(CompileType::CommonType::BOOL,
+                        llvm::ConstantInt::get(currContext, llvm::APInt(1, int_val, false)));
             default:
                  cout << "Unimplemented literal type" << endl;
                 break;
@@ -398,7 +408,7 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
     else if( json_node_has(json_node, "RangeOp", &val_node) )
     {
         CompileVal* start = codeGen_AtomOp(val_node["start"]);
-        CompileVal* step  = createConstObject("Int", 
+        CompileVal* step  = createConstObject(CompileType::CommonType::INT, 
                                                 llvm::ConstantInt::get(currContext, 
                                                 llvm::APInt(64, 1, true)));
         CompileVal* end   = codeGen_AtomOp(val_node["end"]);
@@ -607,8 +617,8 @@ CompileVal* AstWalker::codeGen_IfOp(Json::Value json_node)
         popScope();
         //phi node
         if( ifTrueLastStmt != nullptr && ifFalseLastStmt != nullptr 
-            && ifTrueLastStmt->getCompileType()->getTypeName() != "Void"
-            && ifFalseLastStmt->getCompileType()->getTypeName() != "Void")
+            && !( CompileType::isVoidType(ifTrueLastStmt->getCompileType()) )
+            && !( CompileType::isVoidType(ifFalseLastStmt->getCompileType())) )
         {
             llvm::PHINode * phi = Builder.CreatePHI(ifTrueLastStmt->getRawValue()->getType(), 2, "ifPhi");
             phi->addIncoming(ifTrueLastStmt->getRawValue(), ifTrue);
@@ -689,7 +699,7 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
         createNativeCall("gc_push_func_scope", {CodeGenUtil::getConstInt64(&currContext, numVarsInFunc, false)}); 
         Builder.SetInsertPoint(originalBlock);
 
-        if( returnType->getTypeName() == "Void" )
+        if( CompileType::isVoidType(returnType) )
         {
             createReturn(nullptr);
         }
@@ -713,13 +723,10 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 
 CompileVal* AstWalker::createReturn(CompileVal* val)
 {
-    llvm::BasicBlock* originalBlock = Builder.GetInsertBlock();
-    llvm::Function* func_block      = originalBlock->getParent();
-
     createNativeCall("gc_pop_scope", {});
-    if( val == nullptr || val->getCompileType()->getTypeName() == "Void" )
+    if( val == nullptr || CompileType::isVoidType(val->getCompileType()) )
     {
-        return new CompileVal(Builder.CreateRetVoid(), "Void");
+        return new CompileVal(Builder.CreateRetVoid(), CompileType::CommonType::VOID);
     }
     else
     {
@@ -732,7 +739,7 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
 
     std::vector<llvm::Value*> argsV;
     int numListItems = json_node.size();
-    CompileVal* list = createConstObject("List",
+    CompileVal* list = createConstObject(CompileType::CommonType::LIST,
                                          CodeGenUtil::getConstInt64(&currContext,
                                                                     numListItems,
                                                                     false));
@@ -751,7 +758,7 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
                 "Types in list are inconsistent!");
         argsV.push_back(list->getRawValue());
         // index 
-        argsV.push_back(createConstObject("Int",
+        argsV.push_back(createConstObject(CompileType::CommonType::INT,
                                           CodeGenUtil::getConstInt64(&currContext,
                                           i,
                                           false))->getRawValue());
@@ -766,7 +773,6 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
 CompileVal* AstWalker::codeGen_BracExpr(Json::Value json_node)
 {
     CompileVal* result = nullptr;
-    //for( unsigned i = 0; i < json_node.size(); i++ )
     for(const auto& currNode : json_node)
     {
         result = codeGen_initial(currNode);
@@ -808,6 +814,11 @@ Json::Value AstWalker::generateFromJson(std::string json_string)
     Json::Value  json_root;
     reader.parse(json_string, json_root);
     return json_root;
+}
+
+CompileVal* AstWalker::createConstObject(CompileType::CommonType commonType,llvm::Value* raw_value)
+{
+    return createConstObject(CompileType::getCommonTypeName(commonType), raw_value);
 }
 
 CompileVal* AstWalker::createConstObject(std::string type_name, llvm::Value* raw_value)

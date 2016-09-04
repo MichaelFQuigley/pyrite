@@ -13,7 +13,7 @@ func collatz(min:Int, max:Int) -> [Int]
 
 func main()
 {
-    let result = collatz(1, 10_000_000)
+    let result = collatz(1, 1_000_000)
     let neg = 0
     println("Resulting number is " + String_Int(result[0]) 
             + ", max count is " + String_Int(result[1]))

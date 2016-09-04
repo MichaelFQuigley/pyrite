@@ -1,17 +1,57 @@
 #include <iostream>
+#include <stdexcept>
 #include "compile_type.h"
 
 CompileType::CompileType(std::string typeName)
 {
     this->typeName = typeName;
 }
-/*
-CompileType::CompileType(CompileType* compileType)
+
+CompileType::CompileType(CommonType commonType)
 {
-    this->typeName = compileType->getTypeName();
-    this->genericsList = compileType;
+    this->typeName = CompileType::getCommonTypeName(commonType);
 }
-*/
+
+std::string CompileType::getCommonTypeName(CommonType commonType)
+{
+    switch( commonType )
+    {
+        case CompileType::CommonType::BOOL:
+            return "Bool";
+        case CompileType::CommonType::FLOAT:
+            return "Float";
+        case CompileType::CommonType::FUNCTION:
+            return "Function";
+        case CompileType::CommonType::INT:
+            return "Int";
+        case CompileType::CommonType::LIST:
+            return "List";
+        case CompileType::CommonType::STRING:
+            return "String";
+        case CompileType::CommonType::VOID:
+            return "Void";
+        default:
+            throw std::runtime_error("Unknown common type!");
+    }
+}
+
+bool CompileType::isVoidType(std::string typeName)
+{
+    return CompileType::getCommonTypeName(CompileType::CommonType::VOID)
+           == typeName;
+}
+
+bool CompileType::isVoidType(CompileType* compileType)
+{
+    return CompileType::getCommonTypeName(CompileType::CommonType::VOID)
+           == compileType->getTypeName();
+}
+
+bool CompileType::isVoidType(CommonType commonType)
+{
+    return CompileType::CommonType::VOID == commonType;
+}
+
 std::string CompileType::getTypeName() { return typeName; }
 
 bool CompileType::isArgument()
@@ -76,9 +116,10 @@ bool CompileType::isCompatibleWithType(CompileType* incompleteType)
         size_t completeTypeNumArgs                    = completeTypeArgs->size();
         size_t incompleteTypeNumArgs                  = incompleteTypeArgs->size();
 
-        //Function types must have same number of arguments.
-        if( (this->typeName == "Function" && (completeTypeNumArgs != incompleteTypeNumArgs))
-            //Incomplete type should not be more complete than complete type.
+        // Function types must have same number of arguments.
+        if( (this->typeName == CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION)
+             && (completeTypeNumArgs != incompleteTypeNumArgs))
+            // Incomplete type should not be more complete than complete type.
             || (incompleteTypeNumArgs > completeTypeNumArgs) )
         {
             return false;
@@ -104,27 +145,9 @@ CompileType* CompileType::getFunctionReturnType()
 {
     std::vector<CompileType*>* arguments = this->getArgumentsList();
 
-    //last argument in CompileVal is return type
+    //last argument in CompileType is return type
     return (*arguments)[arguments->size() - 1];
 }
-
-CompileFunc::CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments) 
-{
-    std::cout << arguments->size() << std::endl;
-    this->arguments = arguments;
-    this->retType   = retType;
-}
-
-CompileType* CompileFunc::getRetType()
-{
-    return retType;
-}
-
-std::vector<CompileType*>* CompileFunc::getArguments()
-{
-    return arguments;
-}
-
 
 
 CompileVal::CompileVal(llvm::Value* rawValue, std::string typeName) : compileType(typeName)
@@ -133,6 +156,12 @@ CompileVal::CompileVal(llvm::Value* rawValue, std::string typeName) : compileTyp
 }
 
 CompileVal::CompileVal(llvm::Value* rawValue, CompileType* compileType) : compileType(*compileType)
+{
+    this->rawValue = rawValue;
+}
+
+CompileVal::CompileVal(llvm::Value* rawValue,
+                       CompileType::CommonType commonType) : compileType(commonType)
 {
     this->rawValue = rawValue;
 }

@@ -44,6 +44,7 @@ class AstWalker
         std::unique_ptr<llvm::Module> currModule;
         llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
         CompileVal* createConstObject(std::string type_name, llvm::Value* value);
+        CompileVal* createConstObject(CompileType::CommonType commonType, llvm::Value* value);
         bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
         bool load_stdlib(std::string stdlib_filename);
         llvm::BasicBlock* makeBasicBlock(std::string name = "");

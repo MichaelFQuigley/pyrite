@@ -35,8 +35,6 @@ class CodeGenUtil
         static std::string getTypeStr(llvm::Value* val, 
                 bool with_struct_prefix=true);
         static llvm::Value* generateString(llvm::Module* module, std::string str);
-        static std::string typeStrFromStr(std::string type_name);
-        static uint64_t getPointedToStructSize(llvm::Module * module, llvm::Value* val);
         static llvm::Type* getVoidStarType(llvm::LLVMContext* currContext);
 };
 

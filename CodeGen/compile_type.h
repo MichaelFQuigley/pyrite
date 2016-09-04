@@ -18,8 +18,30 @@ class CompileType
         std::string typeName;
         std::vector<CompileType*> genericsList;
     public:
+        enum class CommonType
+        {
+            BOOL,
+            FLOAT,
+            FUNCTION,
+            INT,
+            LIST,
+            STRING,
+            VOID,
+        };
+
         CompileType(std::string typeName);
+        CompileType(CommonType commonType);
+
+        /*
+         * getCommonTypeName:
+         * Returns string value of type name for common types.
+         */
+        static std::string getCommonTypeName(CommonType commonType);
         std::string getTypeName();
+
+        static bool isVoidType(std::string typeName);
+        static bool isVoidType(CommonType commonType);
+        static bool isVoidType(CompileType* compileType);
         //isArgument: returns true if this type has generic types within it
         bool isArgument();
         std::vector<CompileType*>* getArgumentsList();
@@ -54,17 +76,7 @@ class CompileType
          * Gets return type of this function type assuming this type is a function type.
          */
         CompileType* getFunctionReturnType();
-};
-
-class CompileFunc
-{
-    private:
-        CompileType* retType;
-        std::vector<CompileType*>* arguments;
-    public:
-        CompileFunc(CompileType* retType, std::vector<CompileType*>* arguments);
-        CompileType* getRetType();
-        std::vector<CompileType*>* getArguments();
+        
 };
 
 class CompileVal
@@ -75,6 +87,7 @@ class CompileVal
     public:
         CompileVal(llvm::Value* rawValue, std::string typeName);
         CompileVal(llvm::Value* rawValue, CompileType* compileType);
+        CompileVal(llvm::Value* rawValue, CompileType::CommonType commonType);
         CompileType* getCompileType();
         void setCompileType(CompileType* compileType);
         void insertArgumentType(CompileType* compileType);
