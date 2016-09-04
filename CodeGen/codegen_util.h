@@ -36,12 +36,6 @@ class CodeGenUtil
                 bool with_struct_prefix=true);
         static llvm::Value* generateString(llvm::Module* module, std::string str);
         static std::string typeStrFromStr(std::string type_name);
-        static void assertType(std::string type_name, 
-                llvm::Value* val, 
-                std::string error_msg="Types are not matching.");
-        static void assertType(llvm::Value* valA, 
-                llvm::Value* valB, 
-                std::string error_msg="Types are not matching.");
         static uint64_t getPointedToStructSize(llvm::Module * module, llvm::Value* val);
         static llvm::Type* getVoidStarType(llvm::LLVMContext* currContext);
 };

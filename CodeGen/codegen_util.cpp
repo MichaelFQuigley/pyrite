@@ -49,27 +49,6 @@ bool CodeGenUtil::load_stdlib(std::string stdlib_filename,
     return true;
 }
 
-std::string CodeGenUtil::getTypeStr(llvm::Value* val, bool with_struct_prefix)
-{
-
-    std::string type_str = "";
-    llvm::raw_string_ostream rso(type_str);
-    auto val_type = val->getType();
-    val_type->print(rso);
-    std::string result = rso.str();
-
-    if( with_struct_prefix )
-    {
-        return result;
-    }
-    else
-    {
-        //TODO Perhaps find a better way to do this besides substr...
-        //This should work assuming all types are pointers to structs
-        return result.substr(8, result.length() - 9);
-    }
-}
-
 llvm::Value* CodeGenUtil::generateString(llvm::Module* module, std::string str)
 {
     llvm::ArrayType* ArrayTy = llvm::ArrayType::get(llvm::IntegerType::get(module->getContext(), 8), 
@@ -97,16 +76,6 @@ llvm::Value* CodeGenUtil::generateString(llvm::Module* module, std::string str)
 std::string CodeGenUtil::typeStrFromStr(std::string type_name)
 {
     return "\%struct." + type_name + "*";
-}
-
-void CodeGenUtil::assertType(std::string type_name, llvm::Value* val, std::string error_msg)
-{
-    GEN_ASSERT(CodeGenUtil::typeStrFromStr(type_name) == CodeGenUtil::getTypeStr(val), error_msg);
-}
-
-void CodeGenUtil::assertType(llvm::Value* valA, llvm::Value* valB, std::string error_msg)
-{
-    GEN_ASSERT(CodeGenUtil::getTypeStr(valA, true) == CodeGenUtil::getTypeStr(valB, true), error_msg);
 }
 
 uint64_t CodeGenUtil::getPointedToStructSize(llvm::Module * module, llvm::Value* val)

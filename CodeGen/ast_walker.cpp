@@ -432,19 +432,6 @@ llvm::BasicBlock* AstWalker::makeBasicBlock(std::string name)
                                     Builder.GetInsertBlock()->getParent());
 }
 
-std::string AstWalker::createConstructorName(std::string func_name, 
-        std::vector<llvm::Value*> argsV)
-{
-    std::string full_func_name = func_name;
-
-    for(const auto &argI : argsV)
-    {
-        full_func_name += "_" + CodeGenUtil::getTypeStr(argI, false);
-    }
-
-    return full_func_name;
-}
-
 llvm::Function* AstWalker::tryGetFunction(std::string func_name,
         bool raise_fail_exception, 
         std::string error_msg)
