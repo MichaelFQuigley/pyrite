@@ -1,4 +1,4 @@
-Todo:
+Todo:  
     -Implement dot operator  
     -Type checking for operators  
     -Type checking for index on lists.  
