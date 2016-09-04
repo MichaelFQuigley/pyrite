@@ -1,6 +1,10 @@
 #ifndef AST_WALKER_H
 #define AST_WALKER_H
 
+/*
+ * ast_walker manages most of the code generation. It takes the JSON output provided by the parser, and generates LLVM code.
+ */
+
 #include <json/json.h>
 
 #include "llvm/ADT/APFloat.h"

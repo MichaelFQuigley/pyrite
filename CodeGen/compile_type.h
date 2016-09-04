@@ -1,6 +1,12 @@
 #ifndef COMPILE_TYPE_H
 #define COMPILE_TYPE_H
 
+/*
+ * compile_type manages type information. The CompileType class deals with storing
+ * and enforcing objects at compile time. The CompileVal class deals with specific
+ * instances of a type.
+ */
+
 #include <vector>
 #include <string>
 

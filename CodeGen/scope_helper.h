@@ -1,8 +1,11 @@
 #ifndef SCOPE_HELPER_H
 #define SCOPE_HELPER_H
 
-#include <map>
+/*
+ * scope_helper manages scope of variables. The scope is a lexical scope.
+ */
 
+#include <map>
 #include "llvm/IR/Value.h"
 #include "compile_type.h"
 
@@ -47,23 +50,31 @@ class ScopeNode
 class ScopeHelper
 {
     public:
-       ScopeHelper(); 
-       ~ScopeHelper(); 
-       void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
-       void popScope();
-       void setNamedVal(std::string name, CompileVal* value, bool isDecl);
-       CompileVal* getNamedVal(std::string name, bool walkScopes);
-       uint64_t getNamedValInd(std::string name);
-       void setBlockOnCurrScope(llvm::BasicBlock* block);
-       //getNearestScopeOfType returns nullptr if no scope of appropriate type is found
-       ScopeNode* getNearestScopeOfType(ScopeNode::ScopeType scopeType);
-       bool parentFuncReturnsVoid();
-       void setParentFuncReturnsVoid(bool isVoid);
-       //getNumNamedVarsSince: 
-       //returns number of named variables that have been declared starting
-       //from the nearest scope of 'scopeType'
-       uint64_t getNumNamedVarsSinceFunc();
-       void incFuncNamedVars();
+        ScopeHelper(); 
+        ~ScopeHelper(); 
+        void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
+        void popScope();
+        void setNamedVal(std::string name, CompileVal* value, bool isDecl);
+        CompileVal* getNamedVal(std::string name, bool walkScopes);
+        uint64_t getNamedValInd(std::string name);
+        void setBlockOnCurrScope(llvm::BasicBlock* block);
+        /*getNearestScopeOfType:
+         * returns nullptr if no scope of appropriate type is found
+         */
+        ScopeNode* getNearestScopeOfType(ScopeNode::ScopeType scopeType);
+        bool parentFuncReturnsVoid();
+        void setParentFuncReturnsVoid(bool isVoid);
+        /*getNumNamedVarsSinceFunc: 
+         * returns number of named variables that have been declared starting
+         * from the nearest scope of type FUNC_SCOPE
+         */
+        uint64_t getNumNamedVarsSinceFunc();
+        /*
+         * incFuncNamedVars:
+         * Increments the number of named variables that occur in
+         * the current function scope.
+         */
+        void incFuncNamedVars();
         ScopeNode::ScopeType getCurrScopeType();
     private:
         ScopeNode* parentScope;
