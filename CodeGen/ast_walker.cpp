@@ -217,6 +217,7 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
                 }
                 else if( trailers[i]["Index"] != Json::nullValue )
                 {
+                    // TODO typecheking on indexVal
                     CompileVal* indexVal    = codeGen_initial(trailers[i]["Index"]);
 
                     if( i < trailers.size() - 1 )
