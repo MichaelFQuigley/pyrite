@@ -839,7 +839,7 @@ llvm::LLVMContext* AstWalker::getContext() { return &currContext; }
 
 int main()
 {
-    AstWalker* ast = new AstWalker("teeeest", "../CodeGen/stdlib/stdlib.ll");
+    AstWalker* ast = new AstWalker("teeeest", "../stdlib/stdlib.ll");
     std::string json_string;
 
     if( std::cin ) 
