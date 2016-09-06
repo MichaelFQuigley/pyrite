@@ -29,19 +29,13 @@ More examples are in the Parser/tests directory.
 
 ###Building/Running
 This has just been tested on Ubuntu 14.04.  
-The whole build and run process is awkward, but it will be improved soon.    
 ####Prerequisites
  0. llvm-config-3.6 and lli-3.6
  0. OCaml
  0. clang/++ version 3.6.x
  
 ####To Build
- 0. Go into the Parser directory and run: ```sh build_lex.sh```.  
-    This builds the parser and lexer.
- 0. Go into the Codegen directory and run: ```make```.
-    This builds the code generation utilities.
- 0. Go into the stdlib directory and run ```make```
-    This builds the C run-time.
+ Run ```make```.
   
 ####To Run
  Create a Pyrite file, and go into the Parser directory and run:  
