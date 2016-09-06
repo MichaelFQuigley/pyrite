@@ -45,11 +45,41 @@ and parse_initial =
                                 (Stream.junk stream;
                                 parse_func_proto_and_body name stream)
                         | _ -> raise (Failure "Invalid function definition."))
-            | [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
-                    Ast.LIST (Array.of_list (List.rev stream))
-            | [< 'Token.LBRAC; brac_stmts_list=parse_stmts_helper; 'Token.RBRAC ?? "Expected '}' in bracketed expression." >] -> 
+            (*| [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
+                    Ast.LIST (Array.of_list (List.rev stream))*)
+              | [<'Token.LSQ; stream>] ->
+                      (if Stream.peek stream = Some (Token.RSQ) then
+                          (*empty list*)
+                          (Stream.junk stream; Ast.LIST [||])
+                       else (parser
+                           | [< expr=parse_expr; stream >] ->
+                                        (match Stream.peek stream with
+                                            (*non-empty list*)
+                                            | Some (Token.PUNCT ",") ->
+                                                    (Stream.junk stream;
+                                                     let result = Ast.LIST
+                                                      (Array.of_list
+                                                       (expr::(List.rev (parse_args [] stream)))) in(
+                                                      Stream.junk stream;
+                                                      result))
+                                             | Some (Token.RSQ) ->
+                                                    (Stream.junk stream;
+                                                      Ast.LIST (Array.of_list
+                                                       (expr::(List.rev (parse_args [] stream)))))
+                                             (*list generator*)
+                                             | Some (Token.KWD "for") ->
+                                                     (parse_list_generator expr stream)
+                                             | _ -> raise (Failure "Invalid list syntax."))) stream)
+            (*Block statement*)
+            | [< 'Token.LBRAC; brac_stmts_list=parse_stmts_helper; 'Token.RBRAC
+                 ?? "Expected '}' in bracketed expression." >] -> 
                     Ast.BRAC_EXPR (Array.of_list brac_stmts_list)
             ) stream))
+and parse_list_generator element_expr = 
+    parser
+        | [<'Token.KWD "for"; 'Token.LPAREN; 'Token.IDENT gen_var; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN; 'Token.RSQ>] ->
+            (Ast.LIST_GEN (element_expr, gen_var, itt))
+        | [<>] -> (raise (Failure "Invalid list generator syntax."))
 and parse_atom =
     let check_for_dots lhs stream = 
         (match Stream.peek stream with

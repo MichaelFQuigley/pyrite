@@ -1,15 +1,16 @@
 #include <iostream>
 #include <cstdlib>
 #include "ast_walker.h"
-#include "codegen_util.h"
 
 using namespace std;
 
 AstWalker::AstWalker(std::string filename, std::string stdlib_filename) : Builder(currContext)
 {
-    currModule  = llvm::make_unique<llvm::Module>(filename, currContext);
-    scopeHelper = new ScopeHelper();
-    if( !CodeGenUtil::load_stdlib(stdlib_filename, currModule.get(), &currContext) )
+    currModule    = llvm::make_unique<llvm::Module>(filename, currContext);
+    scopeHelper   = new ScopeHelper();
+    codeGenHelper = new CodeGenUtil(currModule.get(), &currContext);
+
+    if( !codeGenHelper->load_stdlib(stdlib_filename) )
     {
         return;
     }
@@ -38,7 +39,7 @@ void AstWalker::addFuncPtr(std::string funcName, CompileVal* func)
     }
     else
     {
-        GEN_ASSERT(false, "Nested functions not implemented yet.");
+        GEN_FAIL("Nested functions not implemented yet.");
     }
 }
 
@@ -89,7 +90,7 @@ CompileType* AstWalker::makeCompileType(Json::Value json_node)
     else
     {
         cout << json_node << endl;
-        GEN_ASSERT(false, "Unimplemented compile type for makeCompileType");
+        GEN_FAIL("Unimplemented compile type for makeCompileType");
     }
 
     return result;
@@ -104,7 +105,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
 
     for( const Json::Value& val : args_node )
     {
-        argsV.push_back(CodeGenUtil::getVoidStarType(&currContext));
+        argsV.push_back(codeGenHelper->getVoidStarType());
         compileArgs->push_back(makeCompileType(val["TypedArg"]["type"]));
     }
     CompileType* compileRetType = makeCompileType(header_node["ret_type"]);
@@ -113,7 +114,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value json_node)
     llvm::Type* ret_type = compileRetType->getTypeName()
                            == CompileType::getCommonTypeName(CompileType::CommonType::VOID) ?
                                llvm::Type::getVoidTy(currContext)
-                               : CodeGenUtil::getVoidStarType(&currContext);
+                               : codeGenHelper->getVoidStarType();
     llvm::FunctionType* funcProto = llvm::FunctionType::get(ret_type, 
                                                                 argsV, 
                                                                 false);    
@@ -166,7 +167,7 @@ CompileVal* AstWalker::codeGen_VarDef(Json::Value json_node){
     }
     else
     {
-        GEN_ASSERT(false, "Invalid variable definition.");
+        GEN_FAIL("Invalid variable definition.");
     }
 
     return nullptr; 
@@ -179,7 +180,7 @@ CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value, boo
     llvm::Value* allocaRes;
     
     Builder.SetInsertPoint(&func_block);
-    allocaRes = Builder.CreateAlloca(CodeGenUtil::getVoidStarType(&currContext));
+    allocaRes = Builder.CreateAlloca(codeGenHelper->getVoidStarType());
     Builder.SetInsertPoint(originalBlock);
 
     if( is_definition )
@@ -266,7 +267,7 @@ void AstWalker::handleAssignLhs(Json::Value assignLhs, CompileVal* rhs)
                        + id_name + ".");
             Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
             argsV.push_back(Builder.CreateLoad(var_val->getRawValue()));
-            argsV.push_back(CodeGenUtil::getConstInt64(&currContext, varIndex, false));
+            argsV.push_back(codeGenHelper->getConstInt64(varIndex, false));
             createNativeCall("gc_set_named_var_in_scope", argsV);
         }
 }
@@ -291,7 +292,7 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value json_node){
         }
         else
         {
-            GEN_ASSERT(false, "Invalid lhs of assignment.");
+            GEN_FAIL("Invalid lhs of assignment.");
         }
     }
     else if( op == "+" )  { op_func_prefix = "add";}
@@ -348,10 +349,10 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
             case 'i':
                 int_val = stol(lit_val);
                 return createConstObject(CompileType::CommonType::INT,
-                            CodeGenUtil::getConstInt64(&currContext, int_val));
+                            codeGenHelper->getConstInt64(int_val));
             case 's':
                  return createConstObject(CompileType::CommonType::STRING, 
-                                    CodeGenUtil::generateString(currModule.get(), lit_val));
+                                    codeGenHelper->generateString(lit_val));
             case 'b':
                 int_val = (lit_val == "true") ? 1 : 0;
                 return createConstObject(CompileType::CommonType::BOOL,
@@ -430,7 +431,7 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value json_node) {
     }
     else
     {
-        GEN_ASSERT(false, "Unimplemented atom value.");
+        GEN_FAIL("Unimplemented atom value.");
     }
     return nullptr;
 }
@@ -696,7 +697,7 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
 
         uint64_t numVarsInFunc = scopeHelper->getNumNamedVarsSinceFunc();
         Builder.SetInsertPoint(&func_block);
-        createNativeCall("gc_push_func_scope", {CodeGenUtil::getConstInt64(&currContext, numVarsInFunc, false)}); 
+        createNativeCall("gc_push_func_scope", {codeGenHelper->getConstInt64(numVarsInFunc, false)}); 
         Builder.SetInsertPoint(originalBlock);
 
         if( CompileType::isVoidType(returnType) )
@@ -717,7 +718,7 @@ CompileVal* AstWalker::codeGen_FuncDef(Json::Value json_node)
     }
     else
     {
-        GEN_ASSERT(false, "Nested functions are not yet implemented");
+        GEN_FAIL("Nested functions are not yet implemented");
     }
 }
 
@@ -740,9 +741,8 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
     std::vector<llvm::Value*> argsV;
     int numListItems = json_node.size();
     CompileVal* list = createConstObject(CompileType::CommonType::LIST,
-                                         CodeGenUtil::getConstInt64(&currContext,
-                                                                    numListItems,
-                                                                    false));
+                                         codeGenHelper->getConstInt64(numListItems,
+                                                                      false));
     CompileType* listType = nullptr;
     for( unsigned i = 0; i < json_node.size(); i++ )
     {
@@ -759,9 +759,8 @@ CompileVal* AstWalker::codeGen_ListOp(Json::Value json_node)
         argsV.push_back(list->getRawValue());
         // index 
         argsV.push_back(createConstObject(CompileType::CommonType::INT,
-                                          CodeGenUtil::getConstInt64(&currContext,
-                                          i,
-                                          false))->getRawValue());
+                                          codeGenHelper->getConstInt64(i,
+                                                                       false))->getRawValue());
         // value 
         argsV.push_back(list_el->getRawValue());
         createNativeCall("set_List", argsV);
@@ -797,7 +796,7 @@ CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value json_node)
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
     cout << json_node << endl;
-    GEN_ASSERT(false, "Unimplemented node type in code generator");
+    GEN_FAIL("Unimplemented node type in code generator");
 
     return nullptr;
 }

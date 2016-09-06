@@ -24,6 +24,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "codegen_util.h"
 #include "scope_helper.h"
 
 #define TRY_NODE(JSON_NODE, NODE_NAME)                                \
@@ -41,6 +42,7 @@ class AstWalker
         ScopeHelper* scopeHelper;
         llvm::LLVMContext currContext;
         llvm::IRBuilder<> Builder;
+        CodeGenUtil* codeGenHelper;
         std::unique_ptr<llvm::Module> currModule;
         llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
         CompileVal* createConstObject(std::string type_name, llvm::Value* value);

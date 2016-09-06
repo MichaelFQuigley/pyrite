@@ -13,6 +13,7 @@ and expr_stmt =
     | IF of expr_stmt * simple_stmt array
     (*format of for loop, index_var * iterator * stmts*)
     | LIST of expr_stmt array
+    | LIST_GEN of expr_stmt * string * atom
     | ATOMOP of atom
     | FUNCDEF of string * func_proto * simple_stmt
     (*BRAC_EXPR represents multiple expression statements inside curly braces*)
@@ -105,6 +106,9 @@ and string_of_expr_stmt ast =
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_simple_stmt])
     | LIST elements ->
             make_json_kv "ListOp" (make_json_arr elements string_of_expr_stmt)
+    | LIST_GEN (expr, loop_var, itt) ->
+            make_json_kv "ListGen" (make_json_kvs ["element_expr"; "loop_var"; "itt"]
+                                                  [string_of_expr_stmt expr; "\""^loop_var^"\""; string_of_atom itt])
     | FUNCDEF (name, proto, stmt) ->
             make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "simple_stmt"]
                                 ["\""^name^"\""; string_of_prototype proto; string_of_simple_stmt stmt])

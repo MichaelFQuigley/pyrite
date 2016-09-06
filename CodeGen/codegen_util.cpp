@@ -1,5 +1,17 @@
 #include "codegen_util.h"
 
+CodeGenUtil::CodeGenUtil(llvm::Module* currModule, llvm::LLVMContext* currContext)
+{
+    this->currModule  = currModule;
+    this->currContext = currContext;
+    hidden_var_count  = 0;
+}
+
+std::string CodeGenUtil::getNewHiddenVarName()
+{
+    return "$temp_" + std::to_string(hidden_var_count++);
+}
+
 void CodeGenUtil::writeToFile(std::string filename, llvm::Module* currModule)
 {
     std::error_code errs;
@@ -14,14 +26,12 @@ void CodeGenUtil::dumpIR(llvm::Module* currModule)
     currModule->dump();
 }
 
-llvm::Value* CodeGenUtil::getConstInt64(llvm::LLVMContext* currContext, int64_t val, bool is_signed)
+llvm::Value* CodeGenUtil::getConstInt64(int64_t val, bool is_signed)
 {
     return llvm::ConstantInt::get(*currContext, llvm::APInt(64, val, is_signed));
 }
 
-bool CodeGenUtil::load_stdlib(std::string stdlib_filename, 
-        llvm::Module* currModule, 
-        llvm::LLVMContext* currContext)
+bool CodeGenUtil::load_stdlib(std::string stdlib_filename)
 {
     llvm::LLVMContext &stdlib_context = *currContext;
     llvm::SMDiagnostic Err;
@@ -49,20 +59,20 @@ bool CodeGenUtil::load_stdlib(std::string stdlib_filename,
     return true;
 }
 
-llvm::Value* CodeGenUtil::generateString(llvm::Module* module, std::string str)
+llvm::Value* CodeGenUtil::generateString(std::string str)
 {
-    llvm::ArrayType* ArrayTy = llvm::ArrayType::get(llvm::IntegerType::get(module->getContext(), 8), 
+    llvm::ArrayType* ArrayTy = llvm::ArrayType::get(llvm::IntegerType::get(*currContext, 8), 
                                                      str.length() + 1);
     llvm::GlobalVariable* str_gvar = new llvm::GlobalVariable(
-            *module,
+            *currModule,
             ArrayTy,
             true,
             llvm::GlobalValue::PrivateLinkage,
             nullptr,
             ".str");
 
-    llvm::Constant* str_arr  = llvm::ConstantDataArray::getString(module->getContext(), str);
-    llvm::ConstantInt* const_int64 = llvm::ConstantInt::get(module->getContext(), 
+    llvm::Constant* str_arr  = llvm::ConstantDataArray::getString(*currContext, str);
+    llvm::ConstantInt* const_int64 = llvm::ConstantInt::get(*currContext, 
                                                       llvm::APInt(64, 0, true));
     std::vector<llvm::Constant*> indices;
     indices.push_back(const_int64);
@@ -73,7 +83,7 @@ llvm::Value* CodeGenUtil::generateString(llvm::Module* module, std::string str)
     return result;
 }
 
-llvm::Type* CodeGenUtil::getVoidStarType(llvm::LLVMContext* currContext)
+llvm::Type* CodeGenUtil::getVoidStarType()
 {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(*currContext), 0);
 }

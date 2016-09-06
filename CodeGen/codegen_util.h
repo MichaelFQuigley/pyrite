@@ -1,5 +1,8 @@
 #ifndef CODEGEN_UTIL_H
 #define CODEGEN_UTIL_H
+/*
+ * Utility functions for code generation.
+ */
 
 #include <iostream>
 #include "llvm/IR/Constants.h"
@@ -23,19 +26,31 @@
 #define _GEN_ASSERT(__cond) \
     GEN_ASSERT(__cond, "")
 
+#define GEN_FAIL(__msg) \
+    GEN_ASSERT(false, (__msg))
+
+/* CodeGenUtil:
+ * Keeps track of some compile-time information and provides utility functions
+ * for code generation.
+ */
 class CodeGenUtil
 {
     public:
+        CodeGenUtil(llvm::Module* currModule, llvm::LLVMContext* currContext);
         static void writeToFile(std::string filename, llvm::Module* currModule);
         static void dumpIR(llvm::Module* currModule);
-        static llvm::Value* getConstInt64(llvm::LLVMContext* currContext, int64_t val, bool is_signed=true);
-        static bool load_stdlib(std::string stdlib_filename, 
-                llvm::Module* currModule, 
-                llvm::LLVMContext* currContext);
-        static std::string getTypeStr(llvm::Value* val, 
-                bool with_struct_prefix=true);
-        static llvm::Value* generateString(llvm::Module* module, std::string str);
-        static llvm::Type* getVoidStarType(llvm::LLVMContext* currContext);
+        llvm::Value* getConstInt64(int64_t val, bool is_signed=true);
+        bool load_stdlib(std::string stdlib_filename);
+        llvm::Value* generateString(std::string str);
+        llvm::Type* getVoidStarType();
+        /* getNewHiddenVarName:
+         * Returns a new unique name that could be used as a temporary variable.
+         */
+        std::string getNewHiddenVarName();
+    private:
+        llvm::LLVMContext* currContext;
+        llvm::Module* currModule;
+        int64_t hidden_var_count;
 };
 
 #endif
