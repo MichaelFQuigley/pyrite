@@ -47,10 +47,10 @@ class AstWalker
         llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
         CompileVal* createConstObject(std::string type_name, llvm::Value* value);
         CompileVal* createConstObject(CompileType::CommonType commonType, llvm::Value* value);
-        bool json_node_has(Json::Value json_node, std::string name, Json::Value* out_node);
+        bool jsonNode_has(Json::Value jsonNode, std::string name, Json::Value* out_node);
         bool load_stdlib(std::string stdlib_filename);
         llvm::BasicBlock* makeBasicBlock(std::string name = "");
-        CompileType* makeCompileType(Json::Value json_node);
+        CompileType* makeCompileType(Json::Value jsonNode);
         //createNativeCall will create a native function call
         llvm::Value* createNativeCall(std::string func_name, 
                                 std::vector<llvm::Value*> argsV);
@@ -60,7 +60,7 @@ class AstWalker
                 std::vector<CompileVal*>* argsV);
         void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
         void popScope();
-        CompileVal* makeFuncProto(Json::Value json_node);
+        CompileVal* makeFuncProto(Json::Value jsonNode);
         //startBlock adds block to back of function and starts insert point there.
         void startBlock(llvm::BasicBlock* block);
         //tryGetFunction tries to get the function based on func_name from the current module
@@ -83,26 +83,27 @@ class AstWalker
     public:
         void writeToFile(std::string filename);
         AstWalker(std::string filename, std::string stdlib_filename);
-        void codeGen_top(std::string json_string);
-        CompileVal* codeGen_initial(Json::Value json_node);
+        void codeGen_top(std::string jsonString);
+        CompileVal* codeGen_initial(Json::Value jsonNode);
         /*
          * codeGen_StmtsOp:
          * returns last llvm::Value from the array of simple statements.
          */
-        CompileVal* codeGen_StmtsOp(Json::Value json_node);
-        CompileVal* codeGen_ExprOp(Json::Value json_node);
-        CompileVal* codeGen_VarDef(Json::Value json_node);
-        CompileVal* codeGen_BinOp(Json::Value json_node);
-        CompileVal* codeGen_AtomOp(Json::Value json_node);
-        CompileVal* codeGen_ForOp(Json::Value json_node);
-        CompileVal* codeGen_WhileOp(Json::Value json_node);
-        CompileVal* codeGen_IfOp(Json::Value json_node);
-        CompileVal* codeGen_FuncDef(Json::Value json_node);
-        CompileVal* codeGen_TypedArg(Json::Value json_node);
-        CompileVal* codeGen_ListOp(Json::Value json_node);
-        CompileVal* codeGen_BracExpr(Json::Value json_node);
+        CompileVal* codeGen_StmtsOp(Json::Value jsonNode);
+        CompileVal* codeGen_ExprOp(Json::Value jsonNode);
+        CompileVal* codeGen_VarDef(Json::Value jsonNode);
+        CompileVal* codeGen_BinOp(Json::Value jsonNode);
+        CompileVal* codeGen_AtomOp(Json::Value jsonNode);
+        CompileVal* codeGen_ForOp(Json::Value jsonNode);
+        CompileVal* codeGen_WhileOp(Json::Value jsonNode);
+        CompileVal* codeGen_IfOp(Json::Value jsonNode);
+        CompileVal* codeGen_FuncDef(Json::Value jsonNode);
+        CompileVal* codeGen_TypedArg(Json::Value jsonNode);
+        CompileVal* codeGen_ListOp(Json::Value jsonNode);
+        CompileVal* codeGen_BracExpr(Json::Value jsonNode);
+        CompileVal* codeGen_UnOp(Json::Value jsonNode);
 
-        Json::Value generateFromJson(std::string json_string);
+        Json::Value generateFromJson(std::string jsonString);
         void dumpIR();
         llvm::Module* getModule();
         llvm::LLVMContext* getContext();

@@ -46,7 +46,7 @@ int uninitialize_types(void)
 //Int
 void * init_Int(int64_t raw_value)
 {
-    if( raw_value >= NUM_PREALLOC_INTS )
+    if( raw_value >= NUM_PREALLOC_INTS || raw_value < 0 )
     {
         CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
         return obj;
@@ -73,6 +73,11 @@ void* String_Int(void* int_val)
     result->raw_is_on_heap = true;
 
     return result;
+}
+
+void* neg_Int(void* this)
+{
+    return init_Int(-((Int*)this)->raw_value);
 }
 
 CREATE_NUM_ARITH_FN(Int, int64_t, add, +)
@@ -117,6 +122,11 @@ void* String_Float(void* float_val)
     result->raw_is_on_heap = true;
 
     return result;
+}
+
+void* neg_Float(void* this)
+{
+    return init_Float(-((Float*)this)->raw_value);
 }
 
 CREATE_NUM_ARITH_FN(Float, double, add, +)

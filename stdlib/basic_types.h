@@ -116,6 +116,9 @@ void* String_Int(void* int_val);
 
 void uninit_Int(void* int_val);
 
+/* neg_Int: unary negation function. */
+void* neg_Int(void* this);
+
 CREATE_NUM_ARITH_FN_DECL(Int, int64_t, add, +)
 CREATE_NUM_ARITH_FN_DECL(Int, int64_t, sub, -)
 CREATE_NUM_ARITH_FN_DECL(Int, int64_t, mul, *)
@@ -138,6 +141,8 @@ CREATE_PRIMITIVE_INIT_FN_DECL(Float, double)
 void uninit_Float(void* int_val);
 
 void* String_Float(void* float_val);
+
+void* neg_Float(void* this);
 
 CREATE_NUM_ARITH_FN_DECL(Float, double, add, +)
 CREATE_NUM_ARITH_FN_DECL(Float, double, sub, -)

@@ -15,6 +15,9 @@ and parse_initial =
                 Ast.ATOMOP (parse_atom stream)
         | _ ->
             (parser
+            (*unary ops*)
+            | [< 'Token.PUNCT "-"; atom >] ->
+                Ast.UNOP ("-", (parse_atom atom))
             (*if stmt*)
             | [< 'Token.KWD "if"; 
               'Token.LPAREN;  test=parse_expr; 'Token.RPAREN ?? "Expected ')' in if stmt.";
@@ -45,16 +48,15 @@ and parse_initial =
                                 (Stream.junk stream;
                                 parse_func_proto_and_body name stream)
                         | _ -> raise (Failure "Invalid function definition."))
-            (*| [<'Token.LSQ; stream=parse_args []; 'Token.RSQ >] ->
-                    Ast.LIST (Array.of_list (List.rev stream))*)
               | [<'Token.LSQ; stream>] ->
+                       (*empty list*)
                       (if Stream.peek stream = Some (Token.RSQ) then
-                          (*empty list*)
                           (Stream.junk stream; Ast.LIST [||])
+                       (*non-empty list*)
                        else (parser
                            | [< expr=parse_expr; stream >] ->
                                         (match Stream.peek stream with
-                                            (*non-empty list*)
+                                            (*list with multiple elements*)
                                             | Some (Token.PUNCT ",") ->
                                                     (Stream.junk stream;
                                                      let result = Ast.LIST
@@ -62,10 +64,10 @@ and parse_initial =
                                                        (expr::(List.rev (parse_args [] stream)))) in(
                                                       Stream.junk stream;
                                                       result))
+                                             (*list with single element*)
                                              | Some (Token.RSQ) ->
                                                     (Stream.junk stream;
-                                                      Ast.LIST (Array.of_list
-                                                       (expr::(List.rev (parse_args [] stream)))))
+                                                      Ast.LIST [|expr|])
                                              (*list generator*)
                                              | Some (Token.KWD "for") ->
                                                      (parse_list_generator expr stream)
