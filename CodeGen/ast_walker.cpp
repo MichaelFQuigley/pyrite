@@ -343,7 +343,7 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value jsonNode){
 
     return new CompileVal(result_val, isCompare ? 
                                           new CompileType(CompileType::CommonType::BOOL)
-                                        : lhs->getCompileType());
+                                        : argsCompleteType);
 }
 
 CompileVal* AstWalker::codeGen_AtomOp(Json::Value jsonNode) { 
