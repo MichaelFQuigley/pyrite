@@ -105,7 +105,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value jsonNode)
 
     for( const Json::Value& val : args_node )
     {
-        argsV.push_back(codeGenHelper->getVoidStarType());
+        argsV.push_back(Builder.getInt8PtrTy());
         compileArgs->push_back(makeCompileType(val["TypedArg"]["type"]));
     }
     CompileType* compileRetType = makeCompileType(header_node["ret_type"]);
@@ -114,7 +114,7 @@ CompileVal* AstWalker::makeFuncProto(Json::Value jsonNode)
     llvm::Type* ret_type = compileRetType->getTypeName()
                            == CompileType::getCommonTypeName(CompileType::CommonType::VOID) ?
                                llvm::Type::getVoidTy(currContext)
-                               : codeGenHelper->getVoidStarType();
+                               : Builder.getInt8PtrTy();
     llvm::FunctionType* funcProto = llvm::FunctionType::get(ret_type, 
                                                                 argsV, 
                                                                 false);    
@@ -180,7 +180,7 @@ CompileVal* AstWalker::newVarInScope(std::string varName, CompileVal* value, boo
     llvm::Value* allocaRes;
     
     Builder.SetInsertPoint(&func_block);
-    allocaRes = Builder.CreateAlloca(codeGenHelper->getVoidStarType());
+    allocaRes = Builder.CreateAlloca(Builder.getInt8PtrTy());
     Builder.SetInsertPoint(originalBlock);
 
     if( is_definition )
@@ -321,7 +321,26 @@ CompileVal* AstWalker::codeGen_BinOp(Json::Value jsonNode){
                                                {lhs->getRawValue(),
                                                rhs->getRawValue()});
 
-    //TODO change so that lhs type isn't blindly used
+    CompileType* rhsType = rhs->getCompileType();
+    CompileType* lhsType = lhs->getCompileType();
+    // Complete type for lhs and rhs.
+    CompileType* argsCompleteType;
+    if( lhsType->isCompatibleWithType(rhsType) )
+    {
+        argsCompleteType = lhsType;
+    }
+    else if( rhsType->isCompatibleWithType(lhsType) )
+    {
+        argsCompleteType = rhsType;
+    }
+    else
+    {
+        GEN_FAIL(lhsType->getTypeName()
+                + " is not compatible with "
+                + rhsType->getTypeName()
+                + " in binary expression.");
+    }
+
     return new CompileVal(result_val, isCompare ? 
                                           new CompileType(CompileType::CommonType::BOOL)
                                         : lhs->getCompileType());
@@ -341,24 +360,25 @@ CompileVal* AstWalker::codeGen_AtomOp(Json::Value jsonNode) {
         // Literal types have a prefix specifying their kind.
         switch( lit_type )
         {
+            // Float
             case 'f':
                 double_val = stod(lit_val);
                 return createConstObject(CompileType::CommonType::FLOAT,
                             llvm::ConstantFP::get(currContext, llvm::APFloat(double_val)));
+            // Int
             case 'i':
                 int_val = stol(lit_val);
-                return createConstObject(CompileType::CommonType::INT,
-                            codeGenHelper->getConstInt64(int_val));
+                return createConstObject(CompileType::CommonType::INT, Builder.getInt64(int_val));
+            // String
             case 's':
                  return createConstObject(CompileType::CommonType::STRING, 
                                     codeGenHelper->generateString(lit_val));
+            // Bool
             case 'b':
-                int_val = (lit_val == "true") ? 1 : 0;
                 return createConstObject(CompileType::CommonType::BOOL,
-                        llvm::ConstantInt::get(currContext, llvm::APInt(1, int_val, false)));
+                                         Builder.getInt1(lit_val == "true"));
             default:
-                 cout << "Unimplemented literal type" << endl;
-                break;
+                GEN_FAIL("Unimplemented literal type");
         }
     }
     else if( jsonNode_has(jsonNode, "Id", &val_node) )
@@ -799,7 +819,21 @@ CompileVal* AstWalker::codeGen_UnOp(Json::Value jsonNode)
     return new CompileVal(result_val, atomExpr->getCompileType());
 }
 
-CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value jsonNode)
+CompileVal* AstWalker::codeGen_ListGen(Json::Value jsonNode)
+{
+    CompileVal* itt                     = codeGen_AtomOp(jsonNode["itt"]);
+    std::vector<CompileType*>* typeArgs = itt->getCompileType()->getArgumentsList();
+    // TODO Improve checking for iterable values.
+    GEN_ASSERT(typeArgs->size() >= 1, "Not a valid iterable value.");
+
+    CompileType* elementType = (*typeArgs)[0];
+
+    GEN_FAIL("List gen not implemented.");
+
+
+}
+
+CompileVal* AstWalker::codeGen_initial(Json::Value jsonNode)
 {
     TRY_NODE(jsonNode, StmtsOp);
     TRY_NODE(jsonNode, ExprOp);
@@ -813,6 +847,7 @@ CompileVal* AstWalker::AstWalker::codeGen_initial(Json::Value jsonNode)
     TRY_NODE(jsonNode, ListOp);
     TRY_NODE(jsonNode, BracExpr);
     TRY_NODE(jsonNode, UnOp);
+    TRY_NODE(jsonNode, ListGen);
 
     //If none of the TRY_NODE blocks returned anything, then we have an unimplemented ast node.
     cout << jsonNode << endl;

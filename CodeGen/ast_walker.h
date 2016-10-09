@@ -102,6 +102,7 @@ class AstWalker
         CompileVal* codeGen_ListOp(Json::Value jsonNode);
         CompileVal* codeGen_BracExpr(Json::Value jsonNode);
         CompileVal* codeGen_UnOp(Json::Value jsonNode);
+        CompileVal* codeGen_ListGen(Json::Value jsonNode);
 
         Json::Value generateFromJson(std::string jsonString);
         void dumpIR();

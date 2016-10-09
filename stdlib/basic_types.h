@@ -201,7 +201,7 @@ void set_List(void* this_obj, void* index_obj, void* value);
 
 void* get_List(void* this_obj, void* index_obj);
 
-void* add_List(void* this_obj, void* el);
+void* add_List(void* this_obj, void* other_list);
 
 void* String_List(void* this);
 

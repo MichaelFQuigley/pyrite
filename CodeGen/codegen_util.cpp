@@ -82,9 +82,3 @@ llvm::Value* CodeGenUtil::generateString(std::string str)
 
     return result;
 }
-
-llvm::Type* CodeGenUtil::getVoidStarType()
-{
-    return llvm::PointerType::get(llvm::Type::getInt8Ty(*currContext), 0);
-}
-

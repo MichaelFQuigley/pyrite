@@ -279,11 +279,11 @@ void uninit_IntRange(void* this)
 void* init_List(uint64_t initial_size)
 {
     List* result      = (List*) gc_malloc(sizeof(List));
-    result->uninit    = NULL;
+    result->uninit    = uninit_List;
     result->get_refs  = get_refs_List;
     result->size      = initial_size;
     result->capacity  = initial_size; //(initial_size + 1) * 2;
-    result->raw_value = fast_zalloc(result->capacity * sizeof(void*));
+    result->raw_value = fast_malloc(result->capacity * sizeof(void*));
     result->next_itt_index = 0;
 
     return result;
@@ -311,18 +311,16 @@ void* get_List(void* this_obj, void* index_obj)
     return this->raw_value[raw_ind];
 }
 
-void* add_List(void* this_obj, void* el)
+void* add_List(void* this_obj, void* other_list)
 {
-    List* this = (List*)this_obj;
-    List* new_list = init_List(this->size + 1);
-
-    for(uint64_t i = 0; i < this->size; i++)
-    {
-        new_list->raw_value[i] = this->raw_value[i];
-    }
-
-    new_list->raw_value[this->size] = el;
-
+    List* this     = (List*)this_obj;
+    List* other    = (List*)other_list;
+    List* new_list = init_List(this->size + other->size);
+     
+    memcpy(new_list->raw_value, this->raw_value, this->size * sizeof(void*));
+    memcpy(new_list->raw_value + this->size,
+           other->raw_value,
+           other->size * sizeof(void*));
     return new_list;
 }
 
@@ -333,7 +331,6 @@ void* String_List(void* this)
 
 void uninit_List(void* this)
 {
-    //free(((List*)this)->raw_value);
     fast_free(((List*)this)->raw_value);
 }
 
@@ -344,10 +341,7 @@ void** get_refs_List(void* this)
 
     assert(refs && "Allocation failed in get_refs_List");
 
-    for(uint32_t i = 0; i < list->size; i++)
-    {
-        refs[i] = list->raw_value[i];
-    }
+    memcpy(refs, list->raw_value, list->size*sizeof(void*));
     refs[list->size] = NULL;
 
     return refs;

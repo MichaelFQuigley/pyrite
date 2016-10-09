@@ -42,7 +42,6 @@ class CodeGenUtil
         llvm::Value* getConstInt64(int64_t val, bool is_signed=true);
         bool load_stdlib(std::string stdlib_filename);
         llvm::Value* generateString(std::string str);
-        llvm::Type* getVoidStarType();
         /* getNewHiddenVarName:
          * Returns a new unique name that could be used as a temporary variable.
          */
