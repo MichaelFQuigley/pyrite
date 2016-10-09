@@ -126,4 +126,7 @@ let e = [1]
 ```swift
 +=, -=, *=, /=, %=, |=, &=, ^=
 ```
-There are currently no unary operators. This will change soon.
+#####Unary
+```swift
+-
+```
