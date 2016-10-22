@@ -2,7 +2,8 @@
 #define AST_WALKER_H
 
 /*
- * ast_walker manages most of the code generation. It takes the JSON output provided by the parser, and generates LLVM code.
+ * ast_walker manages most of the code generation.
+ * It takes the JSON output provided by the parser, and generates LLVM code.
  */
 
 #include <json/json.h>
@@ -27,87 +28,93 @@
 #include "codegen_util.h"
 #include "scope_helper.h"
 
-#define TRY_NODE(JSON_NODE, NODE_NAME)                                \
-    do {                                                              \
-        if( JSON_NODE [ #NODE_NAME ] != Json::nullValue )             \
-        {                                                             \
-            return codeGen_ ## NODE_NAME (JSON_NODE [ #NODE_NAME ] ); \
-        }                                                             \
-    } while(0)
+#define TRY_NODE(JSON_NODE, NODE_NAME)                   \
+  do {                                                   \
+    if (JSON_NODE[#NODE_NAME] != Json::nullValue) {      \
+      return codeGen_##NODE_NAME(JSON_NODE[#NODE_NAME]); \
+    }                                                    \
+  } while (0)
 
-class AstWalker
-{
-    private:
-        llvm::Type* getVoidStarType();
-        ScopeHelper* scopeHelper;
-        llvm::LLVMContext currContext;
-        llvm::IRBuilder<> Builder;
-        CodeGenUtil* codeGenHelper;
-        std::unique_ptr<llvm::Module> currModule;
-        llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
-        CompileVal* createConstObject(std::string type_name, llvm::Value* value);
-        CompileVal* createConstObject(CompileType::CommonType commonType, llvm::Value* value);
-        bool jsonNode_has(Json::Value jsonNode, std::string name, Json::Value* out_node);
-        bool load_stdlib(std::string stdlib_filename);
-        llvm::BasicBlock* makeBasicBlock(std::string name = "");
-        CompileType* makeCompileType(Json::Value jsonNode);
-        //createNativeCall will create a native function call
-        llvm::Value* createNativeCall(std::string func_name, 
+class AstWalker {
+ private:
+  llvm::Type* getVoidStarType();
+  ScopeHelper* scopeHelper;
+  llvm::LLVMContext& currContext;
+  llvm::IRBuilder<> Builder;
+  CodeGenUtil* codeGenHelper;
+  llvm::Module* currModule;
+  llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
+  CompileVal* createConstObject(std::string type_name, llvm::Value* value);
+  CompileVal* createConstObject(CompileType::CommonType commonType,
+                                llvm::Value* value);
+  bool jsonNode_has(Json::Value jsonNode, std::string name,
+                    Json::Value* out_node);
+  bool load_stdlib(std::string stdlib_filename);
+  llvm::BasicBlock* makeBasicBlock(std::string name = "");
+  CompileType* makeCompileType(Json::Value jsonNode);
+  // createNativeCall will create a native function call
+  llvm::Value* createNativeCall(std::string func_name,
                                 std::vector<llvm::Value*> argsV);
-        //createLangCall will create a function call that was 
-        //existent in the file being compiled
-        CompileVal* createLangCall(CompileVal* func,
-                std::vector<CompileVal*>* argsV);
-        void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid=false);
-        void popScope();
-        CompileVal* makeFuncProto(Json::Value jsonNode);
-        //startBlock adds block to back of function and starts insert point there.
-        void startBlock(llvm::BasicBlock* block);
-        //tryGetFunction tries to get the function based on func_name from the current module
-        llvm::Function* tryGetFunction(std::string func_name,
-            bool raise_fail_exception = true, 
-            std::string error_msg="Undefined function");
-        std::string createConstructorName(std::string func_name, std::vector<llvm::Value*> argsV);
-        //newVarInScope allocates space for a new variable at the top of a function and restores the insert point
-        //back to where it was when it was called.
-        CompileVal* newVarInScope(std::string varName, CompileVal* value, bool is_definition=true);
-        //createBoolCondBr takes a value of type struct.Bool (the struct type in the stdlib),
-        //extracts the raw boolean value, and creates a conditional branch based on that.
-        void createBoolCondBr(llvm::Value* Bool, 
-                llvm::BasicBlock* trueBlock,
-                llvm::BasicBlock* falseBlock);
-        llvm::Value* createGlobalFunctionConst(std::string funcName, CompileVal* func);
-        void addFuncPtr(std::string funcName, CompileVal* func);
-        void handleAssignLhs(Json::Value assignLhs, CompileVal* rhs);
-        CompileVal* createReturn(CompileVal* val);
-    public:
-        void writeToFile(std::string filename);
-        AstWalker(std::string filename, std::string stdlib_filename);
-        void codeGen_top(std::string jsonString);
-        CompileVal* codeGen_initial(Json::Value jsonNode);
-        /*
-         * codeGen_StmtsOp:
-         * returns last llvm::Value from the array of simple statements.
-         */
-        CompileVal* codeGen_StmtsOp(Json::Value jsonNode);
-        CompileVal* codeGen_ExprOp(Json::Value jsonNode);
-        CompileVal* codeGen_VarDef(Json::Value jsonNode);
-        CompileVal* codeGen_BinOp(Json::Value jsonNode);
-        CompileVal* codeGen_AtomOp(Json::Value jsonNode);
-        CompileVal* codeGen_ForOp(Json::Value jsonNode);
-        CompileVal* codeGen_WhileOp(Json::Value jsonNode);
-        CompileVal* codeGen_IfOp(Json::Value jsonNode);
-        CompileVal* codeGen_FuncDef(Json::Value jsonNode);
-        CompileVal* codeGen_TypedArg(Json::Value jsonNode);
-        CompileVal* codeGen_ListOp(Json::Value jsonNode);
-        CompileVal* codeGen_BracExpr(Json::Value jsonNode);
-        CompileVal* codeGen_UnOp(Json::Value jsonNode);
-        CompileVal* codeGen_ListGen(Json::Value jsonNode);
+  // createLangCall will create a function call that was
+  // existent in the file being compiled
+  CompileVal* createLangCall(CompileVal* func, std::vector<CompileVal*>* argsV);
+  void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid = false);
+  void popScope();
+  CompileVal* makeFuncProto(Json::Value jsonNode);
+  // startBlock adds block to back of function and starts insert point there.
+  void startBlock(llvm::BasicBlock* block);
+  // tryGetFunction tries to get the function based on func_name from the
+  // current module
+  llvm::Function* tryGetFunction(std::string func_name,
+                                 bool raise_fail_exception = true,
+                                 std::string error_msg = "Undefined function");
+  std::string createConstructorName(std::string func_name,
+                                    std::vector<llvm::Value*> argsV);
+  // newVarInScope allocates space for a new variable at the top of a function
+  // and restores the insert point
+  // back to where it was when it was called.
+  CompileVal* newVarInScope(std::string varName, CompileVal* value,
+                            bool is_definition = true);
+  // createBoolCondBr takes a value of type struct.Bool (the struct type in the
+  // stdlib),
+  // extracts the raw boolean value, and creates a conditional branch based on
+  // that.
+  void createBoolCondBr(llvm::Value* Bool, llvm::BasicBlock* trueBlock,
+                        llvm::BasicBlock* falseBlock);
+  llvm::Value* createGlobalFunctionConst(std::string funcName,
+                                         CompileVal* func);
+  void addFuncPtr(std::string funcName, CompileVal* func);
+  void handleAssignLhs(Json::Value assignLhs, CompileVal* rhs);
+  CompileVal* createReturn(CompileVal* val);
 
-        Json::Value generateFromJson(std::string jsonString);
-        void dumpIR();
-        llvm::Module* getModule();
-        llvm::LLVMContext* getContext();
+ public:
+  void writeToFile(std::string filename);
+  AstWalker(llvm::Module* output_module);
+  void codeGen_top(std::string jsonString);
+  CompileVal* codeGen_initial(Json::Value jsonNode);
+  /*
+   * codeGen_StmtsOp:
+   * returns last llvm::Value from the array of simple statements.
+   */
+  CompileVal* codeGen_StmtsOp(Json::Value jsonNode);
+  CompileVal* codeGen_ExprOp(Json::Value jsonNode);
+  CompileVal* codeGen_VarDef(Json::Value jsonNode);
+  CompileVal* codeGen_BinOp(Json::Value jsonNode);
+  CompileVal* codeGen_AtomOp(Json::Value jsonNode);
+  CompileVal* codeGen_ForOp(Json::Value jsonNode);
+  CompileVal* codeGen_WhileOp(Json::Value jsonNode);
+  CompileVal* codeGen_IfOp(Json::Value jsonNode);
+  CompileVal* codeGen_FuncDef(Json::Value jsonNode);
+  CompileVal* codeGen_TypedArg(Json::Value jsonNode);
+  CompileVal* codeGen_ListOp(Json::Value jsonNode);
+  CompileVal* codeGen_BracExpr(Json::Value jsonNode);
+  CompileVal* codeGen_UnOp(Json::Value jsonNode);
+  CompileVal* codeGen_ListGen(Json::Value jsonNode);
+
+  Json::Value generateFromJson(std::string jsonString);
+  void dumpIR();
+  llvm::Module* getModule();
+  llvm::LLVMContext* getContext();
 };
 
 #endif

@@ -3,16 +3,12 @@
 
 #include "basic_funcs.h"
 
-
-void println(void* str_obj)
-{
-    String* str = (String*) str_obj;
-    printf("%s\n", str->raw_value);
+void println(void* str_obj) {
+  String* str = (String*)str_obj;
+  printf("%s\n", str->raw_value);
 }
 
-void print(void* str_obj)
-{
-    String* str = (String*) str_obj;
-    printf("%s", str->raw_value);
+void print(void* str_obj) {
+  String* str = (String*)str_obj;
+  printf("%s", str->raw_value);
 }
-

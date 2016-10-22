@@ -2,7 +2,8 @@
  *
  * Michael Quigley
  *
- * Fast memory allocator for small chunks fof memory. Uses pools of previously freed memory.
+ * Fast memory allocator for small chunks fof memory. Uses pools of previously
+ *freed memory.
  * Memory that is malloced is also memset to zeros.
  */
 
@@ -13,14 +14,14 @@
 
 /* fast_mem_node_t:
  *
- * struct that sits at beginning of alloced memory to keep track of it in linked list
+ * struct that sits at beginning of alloced memory to keep track of it in linked
+ *list
  *
  */
-typedef struct fast_mem_node 
-{
-    uint64_t size;
-    struct fast_mem_node* prev;
-    struct fast_mem_node* next;
+typedef struct fast_mem_node {
+  uint64_t size;
+  struct fast_mem_node* prev;
+  struct fast_mem_node* next;
 } fast_mem_node_t;
 
 /*fast_zalloc:
