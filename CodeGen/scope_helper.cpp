@@ -5,14 +5,14 @@
 
 // ScopeNode
 ScopeNode::ScopeNode(
-    ScopeNode::ScopeType scopeType, ScopeNode* parent,
-    std::map<std::string, std::tuple<uint64_t, CompileVal*>*>* namedVals) {
+    ScopeNode::ScopeType scopeType, ScopeNode *parent,
+    std::map<std::string, std::tuple<uint64_t, CompileVal *> *> *namedVals) {
   this->parent = parent;
   numNamedVarsInScope = 0;
 
   if (namedVals == nullptr) {
     this->namedVals =
-        new std::map<std::string, std::tuple<uint64_t, CompileVal*>*>();
+        new std::map<std::string, std::tuple<uint64_t, CompileVal *> *>();
   } else {
     this->namedVals = namedVals;
   }
@@ -23,16 +23,16 @@ ScopeNode::ScopeNode(
 ScopeNode::~ScopeNode() { delete namedVals; }
 
 // ScopeNode getters/setters
-ScopeNode* ScopeNode::getParent() { return parent; }
+ScopeNode *ScopeNode::getParent() { return parent; }
 
-void ScopeNode::setParent(ScopeNode* parent) { this->parent = parent; }
+void ScopeNode::setParent(ScopeNode *parent) { this->parent = parent; }
 
-void ScopeNode::setNamedVal(std::string name, CompileVal* value,
+void ScopeNode::setNamedVal(std::string name, CompileVal *value,
                             uint64_t index) {
-  (*namedVals)[name] = new std::tuple<uint64_t, CompileVal*>(index, value);
+  (*namedVals)[name] = new std::tuple<uint64_t, CompileVal *>(index, value);
 }
 
-CompileVal* ScopeNode::getNamedVal(std::string name) {
+CompileVal *ScopeNode::getNamedVal(std::string name) {
   if ((*namedVals)[name] == nullptr) {
     return nullptr;
   } else {
@@ -45,7 +45,7 @@ uint64_t ScopeNode::getNamedValInd(std::string name) {
   return std::get<0>(*(*namedVals)[name]);
 }
 
-void ScopeNode::setBlock(llvm::BasicBlock* block) { this->block = block; }
+void ScopeNode::setBlock(llvm::BasicBlock *block) { this->block = block; }
 
 ScopeNode::ScopeType ScopeNode::getScopeType() { return scopeType; }
 
@@ -75,19 +75,19 @@ ScopeHelper::~ScopeHelper() {}
 
 void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType,
                             bool funcScopeRetVoid) {
-  ScopeNode* scopeNode = new ScopeNode(scopeType);
+  ScopeNode *scopeNode = new ScopeNode(scopeType);
   scopeNode->setParent(currScope);
   scopeNode->setFuncScopeRetVoid(funcScopeRetVoid);
   currScope = scopeNode;
 }
 
 void ScopeHelper::popScope() {
-  ScopeNode* oldScope = currScope;
+  ScopeNode *oldScope = currScope;
   currScope = currScope->getParent();
   delete oldScope;
 }
 
-void ScopeHelper::setNamedVal(std::string name, CompileVal* value,
+void ScopeHelper::setNamedVal(std::string name, CompileVal *value,
                               bool isDecl) {
   if (isDecl) {
     GEN_ASSERT(currScope->getNamedVal(name) == nullptr,
@@ -96,7 +96,7 @@ void ScopeHelper::setNamedVal(std::string name, CompileVal* value,
     currScope->setNamedVal(name, value, numNamedVarsSinceFunc);
     incFuncNamedVars();
   } else {
-    ScopeNode* tempScope = currScope;
+    ScopeNode *tempScope = currScope;
 
     while (tempScope != nullptr) {
       if (tempScope->getNamedVal(name) != nullptr) {
@@ -112,12 +112,12 @@ void ScopeHelper::setNamedVal(std::string name, CompileVal* value,
   }
 }
 
-CompileVal* ScopeHelper::getNamedVal(std::string name, bool walkScopes) {
+CompileVal *ScopeHelper::getNamedVal(std::string name, bool walkScopes) {
   if (walkScopes) {
-    ScopeNode* tempScope = currScope;
+    ScopeNode *tempScope = currScope;
 
     while (tempScope != nullptr) {
-      CompileVal* tempNamedVal = tempScope->getNamedVal(name);
+      CompileVal *tempNamedVal = tempScope->getNamedVal(name);
 
       if (tempNamedVal != nullptr) {
         return tempNamedVal;
@@ -132,10 +132,10 @@ CompileVal* ScopeHelper::getNamedVal(std::string name, bool walkScopes) {
 }
 
 uint64_t ScopeHelper::getNamedValInd(std::string name) {
-  ScopeNode* tempScope = currScope;
+  ScopeNode *tempScope = currScope;
 
   while (tempScope != nullptr) {
-    CompileVal* tempNamedVal = tempScope->getNamedVal(name);
+    CompileVal *tempNamedVal = tempScope->getNamedVal(name);
 
     if (tempNamedVal != nullptr) {
       return tempScope->getNamedValInd(name);
@@ -147,12 +147,12 @@ uint64_t ScopeHelper::getNamedValInd(std::string name) {
   return 0;
 }
 
-void ScopeHelper::setBlockOnCurrScope(llvm::BasicBlock* block) {
+void ScopeHelper::setBlockOnCurrScope(llvm::BasicBlock *block) {
   currScope->setBlock(block);
 }
 
-ScopeNode* ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType) {
-  ScopeNode* tempScope = currScope;
+ScopeNode *ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType) {
+  ScopeNode *tempScope = currScope;
 
   while (tempScope != nullptr && tempScope->getScopeType() != scopeType) {
     tempScope = tempScope->getParent();
@@ -162,19 +162,19 @@ ScopeNode* ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType) {
 }
 
 bool ScopeHelper::parentFuncReturnsVoid() {
-  ScopeNode* scopeNode =
+  ScopeNode *scopeNode =
       getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
   return scopeNode->isVoidReturn();
 }
 
 void ScopeHelper::setParentFuncReturnsVoid(bool isVoid) {
-  ScopeNode* scopeNode =
+  ScopeNode *scopeNode =
       getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
   scopeNode->setFuncScopeRetVoid(isVoid);
 }
 
 uint64_t ScopeHelper::getNumNamedVarsSinceFunc() {
-  ScopeNode* tempScope =
+  ScopeNode *tempScope =
       getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
   // if not null, the we are at provided scope type
   if (tempScope != nullptr) {
@@ -185,7 +185,7 @@ uint64_t ScopeHelper::getNumNamedVarsSinceFunc() {
 }
 
 void ScopeHelper::incFuncNamedVars() {
-  ScopeNode* tempScope =
+  ScopeNode *tempScope =
       getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
 
   if (tempScope != nullptr) {

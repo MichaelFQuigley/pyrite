@@ -36,18 +36,7 @@ and parse_initial =
                         end
                     | _ -> Ast.IF (test, Array.of_list [t]))
             | [< 'Token.KWD "func"; stream >] -> 
-                    let parse_func_proto_and_body name stream =
-                         (parser
-                             | [< proto=parse_func_proto; stmt=parse_simple_stmt >] ->
-                                 Ast.FUNCDEF (name, proto,  stmt)) stream
-                        in
-                    (match Stream.peek stream with
-                        | Some (Token.LPAREN) ->
-                                parse_func_proto_and_body "" stream
-                        | Some (Token.IDENT name) ->
-                                (Stream.junk stream;
-                                parse_func_proto_and_body name stream)
-                        | _ -> raise (Failure "Invalid function definition."))
+                Ast.FUNCDEF (parse_plain_func_def stream)
               | [<'Token.LSQ; stream>] ->
                        (*empty list*)
                       (if Stream.peek stream = Some (Token.RSQ) then
@@ -77,6 +66,23 @@ and parse_initial =
                  ?? "Expected '}' in bracketed expression." >] -> 
                     Ast.BRAC_EXPR (Array.of_list brac_stmts_list)
             ) stream))
+and parse_plain_class_def = 
+    parser
+      | [<'Token.IDENT class_name; 'Token.LBRAC; members=parse_class_members; 'Token.RBRAC>] ->
+            Ast.PLAIN_CLASSDEF (class_name, (Array.of_list members))
+and parse_plain_func_def stream = 
+    let parse_func_proto_and_body name stream =
+         (parser
+             | [< proto=parse_func_proto; stmt=parse_simple_stmt >] ->
+                 Ast.PLAIN_FUNC (name, proto,  stmt)) stream
+        in
+    (match Stream.peek stream with
+        | Some (Token.LPAREN) ->
+                parse_func_proto_and_body "" stream
+        | Some (Token.IDENT name) ->
+                (Stream.junk stream;
+                parse_func_proto_and_body name stream)
+        | _ -> raise (Failure "Invalid function definition."))
 and parse_list_generator element_expr = 
     parser
         | [<'Token.KWD "for"; 'Token.LPAREN; 'Token.IDENT gen_var; 'Token.KWD "in"; itt=parse_atom; 'Token.RPAREN; 'Token.RSQ>] ->
@@ -146,6 +152,16 @@ and parse_type_definition = parser
                               Ast.LIST_TYPE v
                       | [<>] -> raise (Failure "List type declaration failed to parse!")) stream
           | _ -> raise (Failure "Arg type did not parse."))
+and parse_class_members =
+  parser
+    | [< 'Token.KWD "let";  e=parse_var_def; stream>] ->
+        (Ast.CLASS_FIELD e)::(parse_class_members stream)
+    | [< 'Token.KWD "func";  e=parse_plain_func_def; stream>] ->
+        (Ast.CLASS_FUNC e)::(parse_class_members stream)
+    | [< 'Token.KWD "class";  e=parse_plain_class_def; stream>] ->
+        (Ast.CLASS_CLASS e)::(parse_class_members stream)
+    | [<>] -> []
+
 and parse_stmts_helper =
     parser
         | [< simple_stmt=parse_simple_stmt; stream >] 
@@ -164,6 +180,8 @@ and parse_simple_stmt = parser
                    Ast.FOR (loop_var, itt, simple_stmt)
     | [< 'Token.KWD "while"; 'Token.LPAREN; header=parse_expr;  'Token.RPAREN; stmt=parse_simple_stmt>] ->
                    Ast.WHILE (header, stmt)
+    | [< 'Token.KWD "class"; stream >] ->
+        Ast.CLASSDEF (parse_plain_class_def stream)
 and parse_expr = 
     begin
     Util.debug_print "in parse_expr";

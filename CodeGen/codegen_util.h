@@ -30,10 +30,14 @@
  * Keeps track of some compile-time information and provides utility functions
  * for code generation.
  */
+
+namespace codegen {
+
 class CodeGenUtil {
  public:
   CodeGenUtil(llvm::Module* currModule, llvm::LLVMContext* currContext);
-  static void writeToFile(std::string filename, llvm::Module* currModule);
+  static void writeToFile(const std::string& filename,
+                          llvm::Module* currModule);
   static void dumpIR(llvm::Module* currModule);
   llvm::Value* getConstInt64(int64_t val, bool is_signed = true);
   llvm::Value* generateString(std::string str);
@@ -46,7 +50,7 @@ class CodeGenUtil {
    * Creates new module and links it with the module referenced by
    * stdlibFilename.
    */
-  static llvm::Module* createNewModule(std::string moduleName,
+  static llvm::Module* createNewModule(const std::string& moduleName,
                                        std::string stdlibFilename,
                                        llvm::LLVMContext& context);
 
@@ -55,5 +59,5 @@ class CodeGenUtil {
   llvm::Module* currModule;
   int64_t hidden_var_count;
 };
-
+}
 #endif

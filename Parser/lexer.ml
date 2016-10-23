@@ -122,6 +122,7 @@ and lex_ident buffer = parser
             |"or"
             |"return"
             |"xor"
+            |"class"
             ) -> [<'Token.KWD (Buffer.contents buffer); stream>]
           | ("true" | "false") -> [<'Token.LIT (bool_lit (Buffer.contents buffer)); stream>]
           | ident -> [<'Token.IDENT (Buffer.contents buffer); stream>];

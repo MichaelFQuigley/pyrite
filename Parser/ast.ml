@@ -15,15 +15,23 @@ and expr_stmt =
     | LIST of expr_stmt array
     | LIST_GEN of expr_stmt * string * atom
     | ATOMOP of atom
-    | FUNCDEF of string * func_proto * simple_stmt
+    | FUNCDEF of func_def
     (*BRAC_EXPR represents multiple expression statements inside curly braces*)
     | BRAC_EXPR of simple_stmt array
+and func_def = 
+    | PLAIN_FUNC of string * func_proto * simple_stmt
+and class_def =
+    | PLAIN_CLASSDEF of string * class_member array
+and class_member =
+    | CLASS_FUNC of func_def
+    | CLASS_FIELD of var_def
+    | CLASS_CLASS of class_def
 and simple_stmt = 
     | EXPROP of expr_stmt
     | VARDEF of var_def
-    | RETURN of stmts
     | FOR of string * atom * simple_stmt
     | WHILE of expr_stmt * simple_stmt
+    | CLASSDEF of class_def
 and var_def =
     | VDEFINITION of typed_arg * expr_stmt
     | VDEFINITION_INFER of string * expr_stmt
@@ -83,14 +91,14 @@ and string_of_simple_stmt ast =
             make_json_kv "ExprOp" (string_of_expr_stmt op)
     | VARDEF vdef ->
             make_json_kv "VarDef" (string_of_var_def vdef)
-    | RETURN s -> 
-            make_json_kv "ReturnOp" (string_of_stmts s)
     | FOR (loop_var, itt, stmt) -> 
             make_json_kv "ForOp" (make_json_kvs ["loop_var"; "itt" ; "body"] 
             ["\""^loop_var^"\""; (string_of_atom itt); (string_of_simple_stmt stmt)])
     | WHILE (header, stmt) ->
             make_json_kv "WhileOp" (make_json_kvs ["header"; "body"]
             [string_of_expr_stmt header; string_of_simple_stmt stmt])
+    | CLASSDEF def ->
+        make_json_kv "ClassDef" (string_of_class_def def)
 and string_of_expr_stmt ast = 
     match ast with
     | UNOP (op, expr) ->
@@ -106,13 +114,17 @@ and string_of_expr_stmt ast =
                                                [(string_of_expr_stmt test_expr); make_json_arr stmts_arr string_of_simple_stmt])
     | LIST elements ->
             make_json_kv "ListOp" (make_json_arr elements string_of_expr_stmt)
+    | FUNCDEF def ->
+        make_json_kv "FuncDef" (string_of_func_def def)
     | LIST_GEN (expr, loop_var, itt) ->
             make_json_kv "ListGen" (make_json_kvs ["element_expr"; "loop_var"; "itt"]
                                                   [string_of_expr_stmt expr; "\""^loop_var^"\""; string_of_atom itt])
-    | FUNCDEF (name, proto, stmt) ->
-            make_json_kv "FuncDef" (make_json_kvs ["name"; "header"; "simple_stmt"]
-                                ["\""^name^"\""; string_of_prototype proto; string_of_simple_stmt stmt])
     | BRAC_EXPR exprs -> (make_json_kv "BracExpr" (make_json_arr exprs string_of_simple_stmt))
+and string_of_func_def ast =
+    match ast with
+    | PLAIN_FUNC (name, proto, stmt) ->
+            make_json_kv "PlainFunc" (make_json_kvs ["name"; "header"; "simple_stmt"]
+                                ["\""^name^"\""; string_of_prototype proto; string_of_simple_stmt stmt])
 and string_of_typed_arg ast = 
     match ast with 
     | TYPEDARG (name, t) -> 
@@ -134,6 +146,20 @@ and string_of_var_def ast =
                                                  ["\""^name^"\""; string_of_expr_stmt expr])
     | VDECLARATION t ->
             make_json_kv "declaration" (string_of_typed_arg t)
+and string_of_class_def ast =
+    match ast with
+    | PLAIN_CLASSDEF (name, members) ->
+        make_json_kv "PlainClassDef"
+          (make_json_kvs ["name"; "members"]
+                         ["\""^name^"\""; (make_json_arr members string_of_class_members)])
+and string_of_class_members ast =
+    match ast with
+    | CLASS_FUNC func ->
+        make_json_kv "ClassFunc" (string_of_func_def func) 
+    | CLASS_FIELD field ->
+        make_json_kv "ClassField" (string_of_var_def field)
+    | CLASS_CLASS classs ->
+        make_json_kv "ClassClass" (string_of_class_def classs)
 
 and string_of_atom ast = 
     match ast with
