@@ -7,7 +7,8 @@ namespace codegen {
 using namespace std;
 
 AstWalker::AstWalker(llvm::Module *outputModule)
-    : currContext(outputModule->getContext()), Builder(currContext) {
+    : currContext(outputModule->getContext()), Builder(currContext)
+{
   currModule = outputModule;
   scopeHelper = new ScopeHelper();
   codeGenHelper = new CodeGenUtil(currModule, &currContext);

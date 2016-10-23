@@ -1,0 +1,7 @@
+class Test {
+  let i:Int
+  class Teeest {
+    let b:Int
+  }
+  func teeeest() -> Int { 0 }
+}
