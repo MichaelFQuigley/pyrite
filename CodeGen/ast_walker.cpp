@@ -7,8 +7,7 @@ namespace codegen {
 using namespace std;
 
 AstWalker::AstWalker(llvm::Module *outputModule)
-    : currContext(outputModule->getContext()), Builder(currContext)
-{
+    : currContext(outputModule->getContext()), Builder(currContext) {
   currModule = outputModule;
   scopeHelper = new ScopeHelper();
   codeGenHelper = new CodeGenUtil(currModule, &currContext);
@@ -39,7 +38,7 @@ void AstWalker::addFuncPtr(std::string funcName, CompileVal *func) {
   }
 }
 
-bool AstWalker::jsonNode_has(Json::Value &jsonNode, const std::string& name,
+bool AstWalker::jsonNode_has(Json::Value &jsonNode, const std::string &name,
                              Json::Value *out_node) {
   if (jsonNode[name] != Json::nullValue) {
     *out_node = jsonNode[name];
@@ -49,7 +48,7 @@ bool AstWalker::jsonNode_has(Json::Value &jsonNode, const std::string& name,
   return false;
 }
 
-Json::Value AstWalker::jsonNodeGet(Json::Value& node, const std::string& name) {
+Json::Value AstWalker::jsonNodeGet(Json::Value &node, const std::string &name) {
   if (node[name] == Json::nullValue) {
     std::cout << node << std::endl;
     GEN_FAIL("No node element with name: " + name);
@@ -668,7 +667,7 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
         argI->getName(),
         new CompileVal(
             argI, makeCompileType(funcDefNode["header"]["FuncProto"]["args"]
-                                          [arg_index]["TypedArg"]["type"])));
+                                             [arg_index]["TypedArg"]["type"])));
   }
 
   startBlock(funcBody);
@@ -804,7 +803,7 @@ CompileVal *AstWalker::codeGen_initial(Json::Value &jsonNode) {
   // If none of the TRY_NODE blocks returned anything, then we have an
   // unimplemented ast node.
   cout << jsonNode << endl;
-//  GEN_FAIL("Unimplemented node type in code generator");
+  //  GEN_FAIL("Unimplemented node type in code generator");
 
   return nullptr;
 }
