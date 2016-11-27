@@ -38,7 +38,10 @@
     (OBJ_OUT)->raw_value = raw_value;                               \
     (OBJ_OUT)->uninit = NULL;                                       \
     (OBJ_OUT)->get_refs = NULL;                                     \
+    (OBJ_OUT)->vtable = vtable_##STRUCT_TYPE;                       \
   } while (0);
+
+#define TO_STRING_VTABLE_INDEX 1
 
 #define BASE_VALS                                                       \
   void (*uninit)(void*);                                                \
@@ -46,7 +49,8 @@
    * The end of the array is determined by the                          \
    * last element being a NULL value. It is the caller's responsibility \
    * to free the memory that is allocated by get_refs.*/                \
-  void** (*get_refs)(void*);
+  void** (*get_refs)(void*);                                            \
+  void** vtable;
 
 typedef struct Base { BASE_VALS } Base;
 
@@ -106,6 +110,14 @@ int initialize_types(void);
 
 int uninitialize_types(void);
 
+// Returns function pointer at vtableIndex
+void* indexIntoVtable(void* obj, int64_t vtableIndex);
+
+// Base
+void* init_Base(void);
+void* String_Base(void);
+
+// Int
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
 
 void* String_Int(void* int_val);
@@ -131,6 +143,7 @@ CREATE_NUM_CMP_FN_DECL(Int, int64_t, cmpgt, > )
 CREATE_NUM_CMP_FN_DECL(Int, int64_t, cmpge, >= )
 CREATE_NUM_CMP_FN_DECL(Int, int64_t, cmpeq, == )
 
+// Float
 CREATE_PRIMITIVE_INIT_FN_DECL(Float, double)
 
 void uninit_Float(void* int_val);
@@ -151,6 +164,7 @@ CREATE_NUM_CMP_FN_DECL(Float, double, cmpgt, > )
 CREATE_NUM_CMP_FN_DECL(Float, double, cmpge, >= )
 CREATE_NUM_CMP_FN_DECL(Float, double, cmpeq, == )
 
+// String
 CREATE_PRIMITIVE_INIT_FN_DECL(String, char*)
 
 void uninit_String(void* int_val);
@@ -159,6 +173,7 @@ void* add_String(void* this, void* rhs_obj);
 
 void* String_String(void* this);
 
+// Bool
 CREATE_PRIMITIVE_INIT_FN_DECL(Bool, bool)
 
 CREATE_NUM_ARITH_FN_DECL(Bool, bool, and, &)
@@ -173,6 +188,8 @@ bool rawVal_Bool(void* this);
 
 // IntRange
 void* init_IntRange(void* start_obj, void* step_obj, void* end_obj);
+
+void* String_IntRange(void* this);
 
 void uninit_IntRange(void* this);
 

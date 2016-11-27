@@ -16,10 +16,9 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 
-#define GEN_ASSERT(__cond, __msg)      \
-  if (!(__cond)) {                     \
-    std::cout << (__msg) << std::endl; \
-    throw;                             \
+#define GEN_ASSERT(__cond, __msg)    \
+  if (!(__cond)) {                   \
+    throw std::runtime_error(__msg); \
   }
 
 #define _GEN_ASSERT(__cond) GEN_ASSERT(__cond, "")

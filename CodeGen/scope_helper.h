@@ -9,6 +9,8 @@
 #include "llvm/IR/Value.h"
 #include "compile_type.h"
 
+namespace codegen {
+
 class ScopeNode {
  public:
   enum class ScopeType {
@@ -78,4 +80,5 @@ class ScopeHelper {
   ScopeNode* currScope;
 };
 
+}  // namespace codegen
 #endif

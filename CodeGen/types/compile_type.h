@@ -9,18 +9,31 @@
  * instances of a type.
  */
 
+#include <map>
 #include <vector>
 #include <string>
 
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
+
+namespace codegen {
 
 class CompileType {
  private:
   std::string typeName;
-  std::vector<CompileType*> genericsList;
+  CompileType* parent;
+  // genericMappings contains mappings from a generic name
+  // to a resolved type if one is present. Generic names
+  // all must begin with a dollar sign ($).
+  std::map<std::string, CompileType*> genericMappings;
+  std::vector<CompileType*> typeArgumentsList;
+  std::vector<std::tuple<std::string, CompileType*>> fields;
+  std::vector<std::tuple<std::string, CompileType*>> methods;
 
  public:
   enum class CommonType {
+    BASE,
     BOOL,
     FLOAT,
     FUNCTION,
@@ -30,8 +43,21 @@ class CompileType {
     VOID,
   };
 
-  CompileType(std::string typeName);
+  CompileType();
+  CompileType(const std::string& typeName);
   CompileType(CommonType commonType);
+
+  CompileType* getParent();
+  void setParent(CompileType* parent);
+
+  void addMethod(const std::string& name, CompileType* funcType);
+  void addField(const std::string& name, CompileType* fieldType);
+  // getMethodIndex: Returns index into struct's vtable where a method lies.
+  // Returns -1 if method is not found.
+  int getMethodIndex(const std::string& name, CompileType* methodType);
+  // getFieldIndex: Returns index into struct where a field lies
+  // Returns -1 if field is not found.
+  int getFieldIndex(const std::string& name, CompileType* fieldType);
 
   /*
    * getCommonTypeName:
@@ -40,15 +66,17 @@ class CompileType {
   static std::string getCommonTypeName(CommonType commonType);
   std::string getTypeName();
 
-  static bool isVoidType(std::string typeName);
+  static bool isVoidType(const std::string& typeName);
   static bool isVoidType(CommonType commonType);
   static bool isVoidType(CompileType* compileType);
-  // isArgument: returns true if this type has generic types within it
-  bool isArgument();
   std::vector<CompileType*>* getArgumentsList();
-  // insertArgumentsList: adds element to back of generics vector
+  // getVtableLength: returns size of virtual method table in
+  // number of methods.
+  size_t getVtableLength();
+  // insertArgumentsList: adds element to back of type arguments vector.
   void insertArgumentsList(CompileType* compileType);
   void setArgumentsList(std::vector<CompileType*>* argsList);
+  bool isFunctionType();
   /*
    * isEqualoType:
    * performs recursive type assertions to determine if
@@ -79,6 +107,19 @@ class CompileType {
    * type.
    */
   CompileType* getFunctionReturnType();
+  static CompileType* getFunctionReturnType(CompileType* functionType);
+  static int VTABLE_OBJECT_INIT_INDEX;
+  static int VTABLE_STRUCT_LOCATION;  // Used to get vtable in Base struct.
+  static std::string BASE_TYPE_STRUCT_NAME;
+  /*
+   * asRawFunctionType:
+   * Converts compileType into an LLVM function type. If includeThisPointer is
+   * true, an extra argument for the this pointer will be created at the
+   * beginning of the resulting FunctionType.
+   */
+  static llvm::FunctionType* asRawFunctionType(CompileType* compileType,
+                                               llvm::Type* voidStarTy,
+                                               bool includeThisPointer = false);
 };
 
 class CompileVal {
@@ -97,5 +138,5 @@ class CompileVal {
   llvm::Value* getRawValue();
   bool typesAreEqual(CompileVal* valB);
 };
-
+}  // namespace codegen
 #endif

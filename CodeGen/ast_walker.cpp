@@ -445,9 +445,40 @@ llvm::Function *AstWalker::tryGetFunction(std::string func_name,
   return func;
 }
 
+CompileVal *AstWalker::createVtableCall(CompileVal *obj,
+                                        const std::string &functionName,
+                                        const std::vector<CompileVal *> &argsV,
+                                        CompileType *returnType) {
+  CompileType functionType(CompileType::CommonType::FUNCTION);
+  std::vector<llvm::Value *> nativeArgs;
+
+  for (auto arg : argsV) {
+    functionType.insertArgumentsList(arg->getCompileType());
+    nativeArgs.push_back(arg->getRawValue());
+  }
+  // XXX handle null return type.
+  functionType.insertArgumentsList(returnType);
+
+  int methodVtableIndex =
+      obj->getCompileType()->getMethodIndex(functionName, &functionType);
+  GEN_ASSERT(methodVtableIndex != -1,
+             "Method " + obj->getCompileType()->getTypeName() + "." +
+                 functionName + " is not found!");
+  llvm::Value *irMethodIndex = codeGenHelper->getConstInt64(methodVtableIndex);
+  llvm::Value *methodHandle =
+      createNativeCall("indexIntoVtable", {obj->getRawValue(), irMethodIndex});
+  // TODO typecheck args vs method contract.
+  llvm::Value *castedValue = Builder.CreatePointerCast(
+      methodHandle, llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
+                        &functionType, Builder.getInt8PtrTy())));
+  // XXX handle null return type.
+  return new CompileVal(Builder.CreateCall(castedValue, nativeArgs),
+                        returnType);
+}
+
 CompileVal *AstWalker::createLangCall(CompileVal *func,
                                       const std::vector<CompileVal *> &argsV) {
-  GEN_ASSERT(func->getCompileType()->getTypeName() == "Function",
+  GEN_ASSERT(func->getCompileType()->isFunctionType(),
              "Error: Trying to call something that is not a function!");
   std::vector<llvm::Value *> nativeArgs;
   const std::vector<CompileType *> &funcProtoArgs =
@@ -798,7 +829,7 @@ CompileVal *AstWalker::codeGen_initial(Json::Value &jsonNode) {
   TRY_NODE(jsonNode, BracExpr);
   TRY_NODE(jsonNode, UnOp);
   TRY_NODE(jsonNode, ListGen);
-  TRY_NODE(jsonNode, ClassDef);
+  //  TRY_NODE(jsonNode, ClassDef);
 
   // If none of the TRY_NODE blocks returned anything, then we have an
   // unimplemented ast node.

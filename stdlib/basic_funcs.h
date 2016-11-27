@@ -4,3 +4,4 @@
 
 void println(void* str);
 void print(void* str);
+void* str(Base* obj);

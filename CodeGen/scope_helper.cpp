@@ -3,6 +3,8 @@
 #include "scope_helper.h"
 #include "codegen_util.h"
 
+namespace codegen {
+
 // ScopeNode
 ScopeNode::ScopeNode(
     ScopeNode::ScopeType scopeType, ScopeNode *parent,
@@ -196,3 +198,5 @@ void ScopeHelper::incFuncNamedVars() {
 ScopeNode::ScopeType ScopeHelper::getCurrScopeType() {
   return currScope->getScopeType();
 }
+
+}  // namespace codegen

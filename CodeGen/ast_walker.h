@@ -39,7 +39,6 @@ namespace codegen {
 
 class AstWalker {
  private:
-  llvm::Type* getVoidStarType();
   ScopeHelper* scopeHelper;
   llvm::LLVMContext& currContext;
   llvm::IRBuilder<> Builder;
@@ -92,6 +91,14 @@ class AstWalker {
   void addFuncPtr(std::string funcName, CompileVal* func);
   void handleAssignLhs(Json::Value& assignLhs, CompileVal* rhs);
   CompileVal* createReturn(CompileVal* val);
+  /*
+   * createVtableCall:
+   * Creates function call from an objects vtable.
+   * returnType may be null if it is not known.
+   */
+  CompileVal* createVtableCall(CompileVal* obj, const std::string& functionName,
+                               const std::vector<CompileVal*>& argsV,
+                               CompileType* returnType);
 
  public:
   void writeToFile(std::string filename);
@@ -116,7 +123,7 @@ class AstWalker {
   CompileVal* codeGen_BracExpr(Json::Value& jsonNode);
   CompileVal* codeGen_UnOp(Json::Value& jsonNode);
   CompileVal* codeGen_ListGen(Json::Value& jsonNode);
-  CompileVal* codeGen_ClassDef(Json::Value& jsonNode);
+  //  CompileVal* codeGen_ClassDef(Json::Value& jsonNode);
 
   Json::Value generateFromJson(std::string jsonString);
   void dumpIR();

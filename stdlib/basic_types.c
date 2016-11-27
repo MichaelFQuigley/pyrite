@@ -14,13 +14,45 @@
 static void* prealloc_ints[NUM_PREALLOC_INTS];
 static void* prealloc_bools[NUM_PREALLOC_BOOLS];
 
+#define VTABLE_BASE(TYPENAME) init_##TYPENAME, String_##TYPENAME
+
+void* vtable_Base[] = {VTABLE_BASE(Base)};
+
+void* vtable_Int[] = {
+    VTABLE_BASE(Int), neg_Int,   add_Int,   sub_Int,   mul_Int,   div_Int,
+    mod_Int,          and_Int,   or_Int,    xor_Int,   cmplt_Int, cmple_Int,
+    cmpne_Int,        cmpgt_Int, cmpge_Int, cmpeq_Int,
+};
+
+void* vtable_Float[] = {
+    VTABLE_BASE(Float), neg_Float,   add_Float,   sub_Float,
+    mul_Float,          div_Float,   cmplt_Float, cmple_Float,
+    cmpne_Float,        cmpgt_Float, cmpge_Float, cmpeq_Float,
+};
+
+void* vtable_String[] = {
+    VTABLE_BASE(String), add_String,
+};
+
+void* vtable_Bool[] = {VTABLE_BASE(Bool), and_Bool, or_Bool, xor_Bool};
+
+void* vtable_IntRange[] = {
+    VTABLE_BASE(IntRange), hasNext_IntRange, next_IntRange, begin_IntRange,
+};
+
+void* vtable_List[] = {
+    VTABLE_BASE(List), hasNext_List, next_List, begin_List,
+    set_List,          get_List,     add_List,
+};
+
+void* indexIntoVtable(void* obj, int64_t vtableIndex) {
+  return (((Base*)obj)->vtable)[vtableIndex];
+}
+
 int initialize_types(void) {
-  for (int64_t i = 0; i < NUM_PREALLOC_INTS; i++) {
-    Int* prealloced_int = gc_malloc(sizeof(Int));
-    prealloced_int->uninit = NULL;
-    prealloced_int->get_refs = NULL;
-    prealloced_int->raw_value = i;
-    prealloc_ints[i] = prealloced_int;
+  for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_INTS; raw_value++) {
+    CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, prealloced_int)
+    prealloc_ints[raw_value] = prealloced_int;
   }
 
   for (int64_t i = 0; i < NUM_PREALLOC_BOOLS; i++) {
@@ -35,6 +67,18 @@ int initialize_types(void) {
 }
 
 int uninitialize_types(void) { return 0; }
+
+// Base
+void* init_Base(void) {
+  Base* obj;
+  obj = (Base*)gc_malloc(sizeof(Base));
+  obj->uninit = NULL;
+  obj->get_refs = NULL;
+  obj->vtable = vtable_Base;
+  return obj;
+}
+
+void* String_Base(void) { return init_String(""); }
 
 // Int
 void* init_Int(int64_t raw_value) {
@@ -185,6 +229,21 @@ void* init_IntRange(void* start_obj, void* step_obj, void* end_obj) {
             || (start->raw_value == end->raw_value))
           && "Cannot get to end of iterator from start with current step
      value.");*/
+
+  return result;
+}
+
+void* String_IntRange(void* this) {
+  size_t buffer_size = 64;
+  char* buffer = (char*)malloc(buffer_size);
+  // TODO error checking for sprintf, maybe
+  snprintf(buffer, buffer_size, "%ld..%ld..%ld",
+           ((Int*)(((IntRange*)this)->start))->raw_value,
+           ((Int*)(((IntRange*)this)->step))->raw_value,
+           ((Int*)(((IntRange*)this)->end))->raw_value);
+
+  String* result = init_String(buffer);
+  result->raw_is_on_heap = true;
 
   return result;
 }

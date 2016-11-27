@@ -2,14 +2,61 @@
 #include <stdexcept>
 #include "compile_type.h"
 
-CompileType::CompileType(std::string typeName) { this->typeName = typeName; }
+namespace codegen {
 
-CompileType::CompileType(CommonType commonType) {
+int CompileType::VTABLE_OBJECT_INIT_INDEX = 0;
+int CompileType::VTABLE_STRUCT_LOCATION = 3;
+std::string CompileType::BASE_TYPE_STRUCT_NAME = "Base";
+
+CompileType::CompileType() {}
+
+CompileType::CompileType(const std::string &typeName) : CompileType() {
+  this->typeName = typeName;
+}
+
+CompileType::CompileType(CommonType commonType) : CompileType() {
   this->typeName = CompileType::getCommonTypeName(commonType);
+}
+
+void CompileType::addMethod(const std::string &name, CompileType *funcType) {
+  this->methods.push_back(std::make_tuple(name, funcType));
+}
+
+void CompileType::addField(const std::string &name, CompileType *fieldType) {
+  this->fields.push_back(std::make_tuple(name, fieldType));
+}
+
+int CompileType::getMethodIndex(const std::string &name,
+                                CompileType *methodType) {
+  int i = 0;
+  for (auto method : this->methods) {
+    // TODO allow for overloading.
+    // TODO Check method type for compatibility.
+    if (std::get<0>(method) == name) {
+      return i;
+    }
+    i++;
+  }
+  return -1;
+}
+
+int CompileType::getFieldIndex(const std::string &name,
+                               CompileType *fieldType) {
+  int i = 0;
+  for (auto field : this->fields) {
+    // TODO Check field type for compatibility.
+    if (std::get<0>(field) == name) {
+      return i;
+    }
+    i++;
+  }
+  return -1;
 }
 
 std::string CompileType::getCommonTypeName(CommonType commonType) {
   switch (commonType) {
+    case CompileType::CommonType::BASE:
+      return "Base";
     case CompileType::CommonType::BOOL:
       return "Bool";
     case CompileType::CommonType::FLOAT:
@@ -29,7 +76,7 @@ std::string CompileType::getCommonTypeName(CommonType commonType) {
   }
 }
 
-bool CompileType::isVoidType(std::string typeName) {
+bool CompileType::isVoidType(const std::string &typeName) {
   return CompileType::getCommonTypeName(CompileType::CommonType::VOID) ==
          typeName;
 }
@@ -45,18 +92,18 @@ bool CompileType::isVoidType(CommonType commonType) {
 
 std::string CompileType::getTypeName() { return typeName; }
 
-bool CompileType::isArgument() { return genericsList.size() != 0; }
-
 std::vector<CompileType *> *CompileType::getArgumentsList() {
-  return &genericsList;
+  return &typeArgumentsList;
 }
 
+size_t CompileType::getVtableLength() { return methods.size(); }
+
 void CompileType::insertArgumentsList(CompileType *compileType) {
-  genericsList.push_back(compileType);
+  typeArgumentsList.push_back(compileType);
 }
 
 void CompileType::setArgumentsList(std::vector<CompileType *> *argsList) {
-  genericsList = *argsList;
+  typeArgumentsList = *argsList;
 }
 
 bool CompileType::isEqualToType(CompileType *testType) {
@@ -124,6 +171,44 @@ CompileType *CompileType::getFunctionReturnType() {
   return (*arguments)[arguments->size() - 1];
 }
 
+CompileType *CompileType::getFunctionReturnType(CompileType *functionType) {
+  std::vector<CompileType *> *arguments = functionType->getArgumentsList();
+
+  // last argument in CompileType is return type
+  return (*arguments)[arguments->size() - 1];
+}
+
+bool CompileType::isFunctionType() {
+  return this->typeName ==
+         CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION);
+}
+
+CompileType *CompileType::getParent() { return this->parent; }
+
+void CompileType::setParent(CompileType *parent) { this->parent = parent; }
+
+llvm::FunctionType *CompileType::asRawFunctionType(CompileType *compileType,
+                                                   llvm::Type *voidStarTy,
+                                                   bool includeThisPointer) {
+  int argListSize = compileType->getArgumentsList()->size();
+  int paramCount = argListSize;
+  // subtract one to avoid counting return type as a parameter.
+  paramCount--;
+  // Add extra argument for 'this' pointer if desired.
+  paramCount += (includeThisPointer ? 1 : 0);
+  std::vector<llvm::Type *> argTypes;
+  for (int i = 0; i < paramCount; i++) {
+    argTypes.push_back(voidStarTy);
+  }
+  if (!CompileType::isVoidType(
+          CompileType::getFunctionReturnType(compileType))) {
+    return llvm::FunctionType::get(voidStarTy, argTypes, false);
+  }
+  return llvm::FunctionType::get(nullptr /* indicates void return */, argTypes,
+                                 false);
+}
+
+// CompileVal
 CompileVal::CompileVal(llvm::Value *rawValue, std::string typeName)
     : compileType(typeName) {
   this->rawValue = rawValue;
@@ -159,3 +244,5 @@ llvm::Value *CompileVal::getRawValue() { return rawValue; }
 bool CompileVal::typesAreEqual(CompileVal *valB) {
   return this->getCompileType()->isEqualToType(valB->getCompileType());
 }
+
+}  // namespace codegen
