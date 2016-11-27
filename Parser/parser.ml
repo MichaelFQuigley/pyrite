@@ -217,6 +217,8 @@ and parse_trailers trailers_list =
              'Token.RSQ ?? "Expected ']' for index.";
              stream >]
             -> (Ast.INDEX expr)::(parse_trailers trailers_list stream)
+        | [< 'Token.PUNCT "."; 'Token.IDENT id; stream >]
+            -> (Ast.DOT id)::(parse_trailers trailers_list stream)
         | [< >] -> trailers_list
 (*parse_bin_rhs parses binary operations*)
 and parse_bin_rhs prec lhs stream =

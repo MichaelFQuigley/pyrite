@@ -6,6 +6,8 @@ type atom =
 and trailer = 
     | FCALL of expr_stmt array
     | INDEX of expr_stmt
+    (* format of DOT: '.' identifier *)
+    | DOT of string
 and expr_stmt = 
     | BINOP of string * expr_stmt * expr_stmt
     | UNOP of string * atom
@@ -136,6 +138,8 @@ and string_of_trailers ast =
             make_json_kv "Index" (string_of_expr_stmt expr)
     | FCALL exprs_arr -> 
             make_json_kv "FCall" (make_json_kv "args" (make_json_arr exprs_arr string_of_expr_stmt))
+    | DOT ident ->
+            make_json_kv "Dot" ("\""^ident^"\"")
 and string_of_var_def ast =
     match ast with
     | VDEFINITION (t, expr) ->
