@@ -16,6 +16,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 
+#include "compile_type.h"
+
 #define GEN_ASSERT(__cond, __msg)    \
   if (!(__cond)) {                   \
     throw std::runtime_error(__msg); \
@@ -49,9 +51,10 @@ class CodeGenUtil {
    * Creates new module and links it with the module referenced by
    * stdlibFilename.
    */
-  static llvm::Module* createNewModule(const std::string& moduleName,
-                                       std::string stdlibFilename,
-                                       llvm::LLVMContext& context);
+  static llvm::Module* createNewModule(
+      const std::string& moduleName, const std::string& stdlibFilename,
+      const std::string& stdlibTypesFilename, llvm::LLVMContext& context,
+      std::map<std::string, CompileType*>* typesMapOut);
 
  private:
   llvm::LLVMContext* currContext;

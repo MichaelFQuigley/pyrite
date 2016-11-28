@@ -54,10 +54,11 @@ class CompileType {
   void addField(const std::string& name, CompileType* fieldType);
   // getMethodIndex: Returns index into struct's vtable where a method lies.
   // Returns -1 if method is not found.
-  int getMethodIndex(const std::string& name, CompileType* methodType);
+  int getMethodIndex(const std::string& name, CompileType* methodType) const;
+  CompileType* getMethodType(const std::string& name) const;
   // getFieldIndex: Returns index into struct where a field lies
   // Returns -1 if field is not found.
-  int getFieldIndex(const std::string& name, CompileType* fieldType);
+  int getFieldIndex(const std::string& name, CompileType* fieldType) const;
 
   /*
    * getCommonTypeName:

@@ -35,7 +35,7 @@
   STRUCT_TYPE* OBJ_OUT;                                             \
   do {                                                              \
     (OBJ_OUT) = (STRUCT_TYPE*)gc_malloc(sizeof(STRUCT_TYPE));       \
-    (OBJ_OUT)->raw_value = raw_value;                               \
+    (OBJ_OUT)->raw_value = (RAW_TYPE)raw_value;                     \
     (OBJ_OUT)->uninit = NULL;                                       \
     (OBJ_OUT)->get_refs = NULL;                                     \
     (OBJ_OUT)->vtable = vtable_##STRUCT_TYPE;                       \

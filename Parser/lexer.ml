@@ -110,18 +110,14 @@ and lex_ident buffer = parser
           begin 
           match Buffer.contents buffer with
           | (
-            "and"
-            |"else"
+            "else"
             |"func"
             |"if"
             |"in"
             |"let"
             |"for"
             |"while"
-            |"not"
-            |"or"
             |"return"
-            |"xor"
             |"class"
             ) -> [<'Token.KWD (Buffer.contents buffer); stream>]
           | ("true" | "false") -> [<'Token.LIT (bool_lit (Buffer.contents buffer)); stream>]

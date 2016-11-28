@@ -20,8 +20,8 @@ void* vtable_Base[] = {VTABLE_BASE(Base)};
 
 void* vtable_Int[] = {
     VTABLE_BASE(Int), neg_Int,   add_Int,   sub_Int,   mul_Int,   div_Int,
-    mod_Int,          and_Int,   or_Int,    xor_Int,   cmplt_Int, cmple_Int,
-    cmpne_Int,        cmpgt_Int, cmpge_Int, cmpeq_Int,
+    cmplt_Int,        cmple_Int, cmpne_Int, cmpgt_Int, cmpge_Int, cmpeq_Int,
+    mod_Int,          and_Int,   or_Int,    xor_Int,
 };
 
 void* vtable_Float[] = {
@@ -55,12 +55,9 @@ int initialize_types(void) {
     prealloc_ints[raw_value] = prealloced_int;
   }
 
-  for (int64_t i = 0; i < NUM_PREALLOC_BOOLS; i++) {
-    Bool* prealloced_bool = gc_malloc(sizeof(Bool));
-    prealloced_bool->uninit = NULL;
-    prealloced_bool->get_refs = NULL;
-    prealloced_bool->raw_value = (bool)i;
-    prealloc_bools[i] = prealloced_bool;
+  for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_BOOLS; raw_value++) {
+    CREATE_PRIMITIVE_INIT_BLOCK(Bool, bool, prealloced_bool);
+    prealloc_bools[raw_value] = prealloced_bool;
   }
 
   return 0;

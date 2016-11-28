@@ -59,6 +59,7 @@ class TypeReader {
   std::vector<std::string> methodLines;
   std::vector<std::string> fieldLines;
   void compileTypesFromFile(std::ifstream& inFile);
+  std::map<std::string, CompileType*> getCompileTypesMap() const;
   static const char CLASS_START;
   static const char FIELD_START;
   static const char METHOD_START;
@@ -67,6 +68,7 @@ class TypeReader {
   static const char SUPERCLASS_START;
   static const char CONTAINING_CLASS_END;
   static const char MEMBER_TYPE_START;
+  static const char COMMENT_START;
 };
 
 }  // namespace codegen

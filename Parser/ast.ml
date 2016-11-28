@@ -1,7 +1,7 @@
 type atom = 
     | LIT of string
     | RANGE of atom * atom
-    | PAREN_EXPR of expr_stmt
+    | PAREN_EXPR of expr_stmt * trailer array
     | ID of string * trailer array
 and trailer = 
     | FCALL of expr_stmt array
@@ -172,8 +172,9 @@ and string_of_atom ast =
     | ID (name, trailers) -> 
             make_json_kv "Id" (make_json_kvs ["name"; "trailers"]
                                              ["\""^name^"\""; (make_json_arr trailers string_of_trailers)])
-    | PAREN_EXPR e ->
-            make_json_kv "ParenExpr" (string_of_expr_stmt e)
+    | PAREN_EXPR (e, trailers) ->
+        make_json_kv "ParenExpr" (make_json_kvs ["expr"; "trailers"]
+                                                [(string_of_expr_stmt e); (make_json_arr trailers string_of_trailers)])
     | RANGE (a, b) ->
             make_json_kv "RangeOp" (make_json_kvs ["start";"end"]
                                                   [string_of_atom a; string_of_atom b]);;

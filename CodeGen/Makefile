@@ -10,7 +10,7 @@ LLVM_FLAGS=`llvm-config-3.6 --cppflags --libs all`
 LLVM_FLAGS+=`llvm-config-3.6 --ldflags`
 
 all:
-	clang++ -std=c++11 $(CPP_FILES) $(LIBTYPES) $(LIBJSON) -I$(INCLUDETYPES) -I$(INCLUDEJSON) -I$(INCLUDELLVM) $(CPP_FLAGS) -o codeGen.o $(LD_FLAGS) $(LLVM_FLAGS) 
+	make -C types/ && clang++ -std=c++11 $(CPP_FILES) $(LIBTYPES) $(LIBJSON) -I$(INCLUDETYPES) -I$(INCLUDEJSON) -I$(INCLUDELLVM) $(CPP_FLAGS) -o codeGen.o $(LD_FLAGS) $(LLVM_FLAGS) 
 
 clean:
 	rm *.o *.out

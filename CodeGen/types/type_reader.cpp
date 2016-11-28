@@ -22,6 +22,7 @@ const char TypeReader::GENERIC_START = '<';
 const char TypeReader::GENERIC_END = '>';
 const char TypeReader::CONTAINING_CLASS_END = '.';
 const char TypeReader::MEMBER_TYPE_START = '$';
+const char TypeReader::COMMENT_START = '#';
 
 void TypeReader::compileTypesFromFile(std::ifstream& inFile) {
   // TODO Error handling for file param.
@@ -31,6 +32,9 @@ void TypeReader::compileTypesFromFile(std::ifstream& inFile) {
     std::string sanitizedStr = std::regex_replace(line, std::regex("\\s+"), "");
     if (sanitizedStr.empty()) continue;
     char metadataType = sanitizedStr[0];
+
+    if (metadataType == TypeReader::COMMENT_START) continue;
+
     sanitizedStr = sanitizedStr.substr(1);
     switch (metadataType) {
       case TypeReader::CLASS_START:
@@ -227,4 +231,7 @@ std::string TypeReader::getClassName(const std::string& classString,
   return derivedClassName;
 }
 
+std::map<std::string, CompileType*> TypeReader::getCompileTypesMap() const {
+  return compileTypes;
+}
 }  // namespace codegen

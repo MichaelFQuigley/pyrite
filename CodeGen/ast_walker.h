@@ -44,6 +44,7 @@ class AstWalker {
   llvm::IRBuilder<> Builder;
   CodeGenUtil* codeGenHelper;
   llvm::Module* currModule;
+  std::map<std::string, CompileType*> moduleTypes;
   llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
   CompileVal* createConstObject(const std::string& type_name,
                                 llvm::Value* value);
@@ -92,17 +93,24 @@ class AstWalker {
   void handleAssignLhs(Json::Value& assignLhs, CompileVal* rhs);
   CompileVal* createReturn(CompileVal* val);
   /*
-   * createVtableCall:
-   * Creates function call from an objects vtable.
-   * returnType may be null if it is not known.
+   * createVtableAccess:
+   * Creates function access from provided object.
    */
-  CompileVal* createVtableCall(CompileVal* obj, const std::string& functionName,
-                               const std::vector<CompileVal*>& argsV,
-                               CompileType* returnType);
+  CompileVal* createVtableAccess(CompileVal* obj,
+                                 const std::string& functionName);
+  CompileType* getCompileType(const std::string& typeName);
+  /*
+   * handleTrailers:
+   * Takes json list of possible trailer values and returns a result value
+   * derived
+   * from the currVal with the additional trailers.
+   */
+  CompileVal* handleTrailers(Json::Value& trailers, CompileVal* currVal);
 
  public:
   void writeToFile(std::string filename);
-  AstWalker(llvm::Module* output_module);
+  AstWalker(llvm::Module* output_module,
+            std::map<std::string, CompileType*> const* moduleTypes);
   void codeGen_top(std::string jsonString);
   CompileVal* codeGen_initial(Json::Value& jsonNode);
   /*

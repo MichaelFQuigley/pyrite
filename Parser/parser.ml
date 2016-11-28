@@ -97,7 +97,7 @@ and parse_atom =
     | [< 'Token.LIT n; stream >] -> (check_for_dots (Ast.LIT n) stream)
     | [< 'Token.IDENT id; stream >] -> (check_for_dots (parse_ident id stream) stream)
     | [< 'Token.LPAREN; e=parse_expr ; 'Token.RPAREN ?? "Expected ')'."; stream >] -> 
-            (check_for_dots (Ast.PAREN_EXPR e) stream)
+            (check_for_dots (Ast.PAREN_EXPR (e, Array.of_list (parse_trailers stream))) stream)
 and parse_var_def = parser
     | [< 'Token.IDENT id; stream >] ->
             (match Stream.next stream with
@@ -203,23 +203,23 @@ and parse_ident id =
     begin
         Util.debug_print "in parse_ident";
         parser
-            | [< stream >] -> Ast.ID (id, Array.of_list (parse_trailers [] stream))
+            | [< stream >] -> Ast.ID (id, Array.of_list (parse_trailers stream))
     end
-and parse_trailers trailers_list = 
+and parse_trailers = 
     parser
         | [< 'Token.LPAREN ; 
             args=parse_args []; 
             'Token.RPAREN ?? "Expected ')' for fcall.";
             stream>] 
-            -> (Ast.FCALL (Array.of_list (List.rev args)))::(parse_trailers trailers_list stream)
+            -> (Ast.FCALL (Array.of_list (List.rev args)))::(parse_trailers stream)
         | [< 'Token.LSQ;
              expr=parse_expr;
              'Token.RSQ ?? "Expected ']' for index.";
              stream >]
-            -> (Ast.INDEX expr)::(parse_trailers trailers_list stream)
+            -> (Ast.INDEX expr)::(parse_trailers stream)
         | [< 'Token.PUNCT "."; 'Token.IDENT id; stream >]
-            -> (Ast.DOT id)::(parse_trailers trailers_list stream)
-        | [< >] -> trailers_list
+            -> (Ast.DOT id)::(parse_trailers stream)
+        | [< >] -> []
 (*parse_bin_rhs parses binary operations*)
 and parse_bin_rhs prec lhs stream =
     let make_augassign op lhs stream =

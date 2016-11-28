@@ -27,7 +27,7 @@ void CompileType::addField(const std::string &name, CompileType *fieldType) {
 }
 
 int CompileType::getMethodIndex(const std::string &name,
-                                CompileType *methodType) {
+                                CompileType *methodType) const {
   int i = 0;
   for (auto method : this->methods) {
     // TODO allow for overloading.
@@ -40,8 +40,16 @@ int CompileType::getMethodIndex(const std::string &name,
   return -1;
 }
 
+CompileType *CompileType::getMethodType(const std::string &name) const {
+  int methodIndex = getMethodIndex(name, nullptr);
+  if (methodIndex == -1) {
+    return nullptr;
+  }
+  return std::get<1>(methods[methodIndex]);
+}
+
 int CompileType::getFieldIndex(const std::string &name,
-                               CompileType *fieldType) {
+                               CompileType *fieldType) const {
   int i = 0;
   for (auto field : this->fields) {
     // TODO Check field type for compatibility.

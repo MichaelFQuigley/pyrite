@@ -1,3 +1,4 @@
+#include "type_reader.h"
 #include "codegen_util.h"
 
 namespace codegen {
@@ -50,9 +51,10 @@ llvm::Value *CodeGenUtil::generateString(std::string str) {
   return result;
 }
 
-llvm::Module *CodeGenUtil::createNewModule(const std::string &moduleName,
-                                           std::string stdlibFilename,
-                                           llvm::LLVMContext &context) {
+llvm::Module *CodeGenUtil::createNewModule(
+    const std::string &moduleName, const std::string &stdlibFilename,
+    const std::string &stdlibTypesFilename, llvm::LLVMContext &context,
+    std::map<std::string, CompileType *> *typesMapOut) {
   llvm::SMDiagnostic Err;
   llvm::Module *resultModule = new llvm::Module(moduleName, context);
   std::unique_ptr<llvm::Module> stdlibMod =
@@ -61,8 +63,16 @@ llvm::Module *CodeGenUtil::createNewModule(const std::string &moduleName,
   if (stdlibMod == nullptr) {
     GEN_FAIL("Standard library does not exist at location " + stdlibFilename);
   }
-
   llvm::Linker::LinkModules(resultModule, stdlibMod.get());
+
+  TypeReader typeReader;
+  std::ifstream inFile;
+  inFile.open(stdlibTypesFilename);
+  GEN_ASSERT(inFile.is_open(),
+             "Could not open Pyrite type info file: " + stdlibTypesFilename);
+  typeReader.compileTypesFromFile(inFile);
+  auto typesMap = typeReader.getCompileTypesMap();
+  typesMapOut->insert(typesMap.begin(), typesMap.end());
 
   return resultModule;
 }

@@ -1,0 +1,68 @@
+# Type info for stdlib. Not complete yet.
+
+# Base class declarations
+CBase:
+CFunction<>:Base
+CVoid:
+
+CBool:Base
+CFloat:Base
+CInt:Base
+CString:Base
+
+# Base methods
+MBase.init$Int
+MBase.str$Base$String
+
+# Int methods
+MInt.init$Int
+MInt.str$Int$String
+MInt.neg$Int$Int
+MInt.add$Int$Int$Int
+MInt.sub$Int$Int$Int
+MInt.mul$Int$Int$Int
+MInt.div$Int$Int$Int
+MInt.cmplt$Int$Int$Bool
+MInt.cmple$Int$Int$Bool
+MInt.cmpne$Int$Int$Bool
+MInt.cmpgt$Int$Int$Bool
+MInt.cmpge$Int$Int$Bool
+MInt.cmpeq$Int$Int$Bool
+MInt.mod$Int$Int$Int
+MInt.and$Int$Int$Int
+MInt.or$Int$Int$Int
+MInt.xor$Int$Int$Int
+
+# Float methods
+MFloat.init$Float
+MFloat.str$Float$String
+MFloat.neg$Float$Float
+MFloat.add$Float$Float$Float
+MFloat.sub$Float$Float$Float
+MFloat.mul$Float$Float$Float
+MFloat.div$Float$Float$Float
+MFloat.cmplt$Float$Float$Bool
+MFloat.cmple$Float$Float$Bool
+MFloat.cmpne$Float$Float$Bool
+MFloat.cmpgt$Float$Float$Bool
+MFloat.cmpge$Float$Float$Bool
+MFloat.cmpeq$Float$Float$Bool
+
+# String methods
+MString.init$String
+MString.str$String$String
+MString.add$String$String$String
+
+# Bool methods
+MBool.init$Bool
+MBool.str$Bool$String
+MBool.and$Bool$Bool$Bool
+MBool.or$Bool$Bool$Bool
+MBool.xor$Bool$Bool$Bool
+
+# Example field declaration
+FInt.fieldName$Int
+FInt.fieldName$Int
+
+# TODO: Lists, IntRange
+
