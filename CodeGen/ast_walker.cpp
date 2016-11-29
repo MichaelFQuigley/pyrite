@@ -305,29 +305,11 @@ CompileVal *AstWalker::codeGen_BinOp(Json::Value &jsonNode) {
   }
 
   CompileVal *lhs = codeGen_initial(jsonNode["lhs"]);
-  std::string op_func_name =
-      opFuncPrefix + "_" + lhs->getCompileType()->getTypeName();
   CompileVal *rhs = codeGen_initial(jsonNode["rhs"]);
 
-  llvm::Value *result_val =
-      createNativeCall(op_func_name, {lhs->getRawValue(), rhs->getRawValue()});
-
-  CompileType *rhsType = rhs->getCompileType();
-  CompileType *lhsType = lhs->getCompileType();
-  // Complete type for lhs and rhs.
-  CompileType *argsCompleteType;
-  if (lhsType->isCompatibleWithType(rhsType)) {
-    argsCompleteType = lhsType;
-  } else if (rhsType->isCompatibleWithType(lhsType)) {
-    argsCompleteType = rhsType;
-  } else {
-    GEN_FAIL(lhsType->getTypeName() + " is not compatible with " +
-             rhsType->getTypeName() + " in binary expression.");
-  }
-
-  return new CompileVal(
-      result_val, isCompare ? new CompileType(CompileType::CommonType::BOOL)
-                            : argsCompleteType);
+  CompileVal *vtableFunc = createVtableAccess(lhs, opFuncPrefix);
+  return createLangCall(vtableFunc, {lhs, rhs});
+  // TODO update for generics and inheritance.
 }
 
 CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {

@@ -21,7 +21,7 @@ int main() {
   if (std::cin) {
     getline(std::cin, jsonString);
     ast->codeGen_top(jsonString);
-    // codegen::CodeGenUtil::dumpIR(module);
+    codegen::CodeGenUtil::dumpIR(module);
     codegen::CodeGenUtil::writeToFile(outputFilename, module);
   }
 }
