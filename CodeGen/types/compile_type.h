@@ -102,6 +102,11 @@ class CompileType {
    * this function returns false.
    */
   bool isCompatibleWithType(CompileType* incompleteType);
+
+  /*
+   * Returns true if typeA equals typeB, or if it is a subtype of typeB.
+   */
+  static bool isTypeOrSubtype(CompileType* typeA, CompileType* typeB);
   /*
    * getFunctionReturnType:
    * Gets return type of this function type assuming this type is a function

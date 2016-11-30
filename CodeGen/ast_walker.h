@@ -46,10 +46,9 @@ class AstWalker {
   llvm::Module* currModule;
   std::map<std::string, CompileType*> moduleTypes;
   llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
-  CompileVal* createConstObject(const std::string& type_name,
-                                llvm::Value* value);
-  CompileVal* createConstObject(CompileType::CommonType commonType,
-                                llvm::Value* value);
+  CompileVal* createLiteral(const std::string& type_name, llvm::Value* value);
+  CompileVal* createLiteral(CompileType::CommonType commonType,
+                            llvm::Value* value);
   bool jsonNode_has(Json::Value& jsonNode, const std::string& name,
                     Json::Value* out_node);
   // jsonNodeMustHave fails if there is not a node for the provided name.

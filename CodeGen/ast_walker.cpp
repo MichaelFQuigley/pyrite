@@ -134,7 +134,7 @@ CompileVal *AstWalker::codeGen_VarDef(Json::Value &jsonNode) {
         makeCompileType(tempNode["var"]["TypedArg"]["type"]);
     CompileVal *rhs_expr = codeGen_initial(tempNode["expr"]);
     GEN_ASSERT(
-        annotatedType->isCompatibleWithType(rhs_expr->getCompileType()),
+        CompileType::isTypeOrSubtype(rhs_expr->getCompileType(), annotatedType),
         "Annotated type is not compatible with type on right hand side!");
     rhs_expr->setCompileType(annotatedType);
     GEN_ASSERT(rhs_expr != nullptr,
@@ -327,22 +327,22 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
       // Float
       case 'f':
         double_val = stod(lit_val);
-        return createConstObject(
+        return createLiteral(
             CompileType::CommonType::FLOAT,
             llvm::ConstantFP::get(currContext, llvm::APFloat(double_val)));
       // Int
       case 'i':
         int_val = stol(lit_val);
-        return createConstObject(CompileType::CommonType::INT,
-                                 Builder.getInt64(int_val));
+        return createLiteral(CompileType::CommonType::INT,
+                             Builder.getInt64(int_val));
       // String
       case 's':
-        return createConstObject(CompileType::CommonType::STRING,
-                                 codeGenHelper->generateString(lit_val));
+        return createLiteral(CompileType::CommonType::STRING,
+                             codeGenHelper->generateString(lit_val));
       // Bool
       case 'b':
-        return createConstObject(CompileType::CommonType::BOOL,
-                                 Builder.getInt1(lit_val == "true"));
+        return createLiteral(CompileType::CommonType::BOOL,
+                             Builder.getInt1(lit_val == "true"));
       default:
         GEN_FAIL("Unimplemented literal type");
     }
@@ -362,7 +362,7 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
                           codeGen_ExprOp(val_node["expr"]));
   } else if (jsonNode_has(jsonNode, "RangeOp", &val_node)) {
     CompileVal *start = codeGen_AtomOp(val_node["start"]);
-    CompileVal *step = createConstObject(
+    CompileVal *step = createLiteral(
         CompileType::CommonType::INT,
         llvm::ConstantInt::get(currContext, llvm::APInt(64, 1, true)));
     CompileVal *end = codeGen_AtomOp(val_node["end"]);
@@ -487,11 +487,13 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
                  " arguments, but received " + to_string(argsV.size()) + ".");
 
   for (int i = 0; i < argsV.size(); i++) {
+    // TODO handle generics here
     GEN_ASSERT(
-        funcProtoArgs[i]->isCompatibleWithType(argsV[i]->getCompileType()),
+        CompileType::isTypeOrSubtype(argsV[i]->getCompileType(), funcProtoArgs[i]),
         (std::string)"Types used in call to function do not match function prototype."
         + "\nExpected " + funcProtoArgs[i]->getTypeName()
         + "\nGot " + argsV[i]->getCompileType()->getTypeName());
+
     nativeArgs.push_back(argsV[i]->getRawValue());
   }
 
@@ -721,8 +723,9 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
     createReturn(nullptr);
   } else {
     // XXX Assumes return type specified in function proto is complete.
-    GEN_ASSERT(returnType->isCompatibleWithType(returnVal->getCompileType()),
-               "Return type for function " + funcName + " is incorrect.");
+    GEN_ASSERT(
+        CompileType::isTypeOrSubtype(returnVal->getCompileType(), returnType),
+        "Return type for function " + funcName + " is incorrect.");
     createReturn(returnVal);
   }
 
@@ -746,8 +749,8 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
   std::vector<llvm::Value *> argsV;
   int numListItems = jsonNode.size();
   CompileVal *list =
-      createConstObject(CompileType::CommonType::LIST,
-                        codeGenHelper->getConstInt64(numListItems, false));
+      createLiteral(CompileType::CommonType::LIST,
+                    codeGenHelper->getConstInt64(numListItems, false));
   CompileType *listType = nullptr;
   for (unsigned i = 0; i < jsonNode.size(); i++) {
     argsV.clear();
@@ -761,9 +764,9 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
                "Types in list are inconsistent!");
     argsV.push_back(list->getRawValue());
     // index
-    argsV.push_back(createConstObject(CompileType::CommonType::INT,
-                                      codeGenHelper->getConstInt64(i, false))
-                        ->getRawValue());
+    argsV.push_back(
+        createLiteral(CompileType::CommonType::INT,
+                      codeGenHelper->getConstInt64(i, false))->getRawValue());
     // value
     argsV.push_back(list_el->getRawValue());
     createNativeCall("set_List", argsV);
@@ -791,14 +794,9 @@ CompileVal *AstWalker::codeGen_UnOp(Json::Value &jsonNode) {
   } else {
     GEN_FAIL("Unimplemented unary operator type " + op);
   }
-
   CompileVal *atomExpr = codeGen_AtomOp(jsonNode["atom"]);
-  std::string opFuncName =
-      opFuncPrefix + "_" + atomExpr->getCompileType()->getTypeName();
-  llvm::Value *result_val =
-      createNativeCall(opFuncName, {atomExpr->getRawValue()});
-
-  return new CompileVal(result_val, atomExpr->getCompileType());
+  CompileVal *vtableFunc = createVtableAccess(atomExpr, opFuncPrefix);
+  return createLangCall(vtableFunc, {atomExpr});
 }
 
 CompileVal *AstWalker::codeGen_ListGen(Json::Value &jsonNode) {
@@ -849,14 +847,13 @@ Json::Value AstWalker::generateFromJson(std::string jsonString) {
   return json_root;
 }
 
-CompileVal *AstWalker::createConstObject(CompileType::CommonType commonType,
-                                         llvm::Value *raw_value) {
-  return createConstObject(CompileType::getCommonTypeName(commonType),
-                           raw_value);
+CompileVal *AstWalker::createLiteral(CompileType::CommonType commonType,
+                                     llvm::Value *raw_value) {
+  return createLiteral(CompileType::getCommonTypeName(commonType), raw_value);
 }
 
-CompileVal *AstWalker::createConstObject(const std::string &typeName,
-                                         llvm::Value *raw_value) {
+CompileVal *AstWalker::createLiteral(const std::string &typeName,
+                                     llvm::Value *raw_value) {
   const std::string init_func_name = "init_" + typeName;
 
   llvm::BasicBlock *originalBlock = Builder.GetInsertBlock();

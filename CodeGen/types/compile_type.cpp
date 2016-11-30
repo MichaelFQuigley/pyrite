@@ -136,6 +136,11 @@ bool CompileType::isEqualToType(CompileType *testType) {
   return true;
 }
 
+bool CompileType::isTypeOrSubtype(CompileType *typeA, CompileType *typeB) {
+  return (typeA != nullptr) && (typeA->isEqualToType(typeB) ||
+                                isTypeOrSubtype(typeA->getParent(), typeB));
+}
+
 bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
   if (incompleteType == nullptr) {
     return true;
