@@ -9,21 +9,43 @@ int CompileType::VTABLE_STRUCT_LOCATION = 3;
 std::string CompileType::BASE_TYPE_STRUCT_NAME = "Base";
 
 CompileType::CompileType() {}
-
-CompileType::CompileType(const std::string &typeName) : CompileType() {
+/*
+CompileType::CompileType(const CompileType& compileType) {
+  // TODO copy generic types.
+  this->typeName = compileType.typeName;
+  this->parent = compileType.parent;
+}
+*/
+CompileType::CompileType(const std::string &typeName, bool isGeneric)
+    : CompileType() {
   this->typeName = typeName;
+  this->isGeneric = isGeneric;
 }
 
-CompileType::CompileType(CommonType commonType) : CompileType() {
-  this->typeName = CompileType::getCommonTypeName(commonType);
+CompileType::CompileType(const std::string &typeName)
+    : CompileType(typeName, false) {}
+
+CompileType::CompileType(CommonType commonType)
+    : CompileType(CompileType::getCommonTypeName(commonType)) {}
+
+CompileType *CompileType::makeGenericParam(const std::string &name,
+                                           CompileType *parent) {
+  CompileType *result = new CompileType(name, true /* isGeneric */);
+  result->setParent(parent);
+  return result;
 }
 
 void CompileType::addMethod(const std::string &name, CompileType *funcType) {
-  this->methods.push_back(std::make_tuple(name, funcType));
+  this->methods.push_back(new TypeMember(name, funcType));
 }
 
 void CompileType::addField(const std::string &name, CompileType *fieldType) {
-  this->fields.push_back(std::make_tuple(name, fieldType));
+  this->fields.push_back(new TypeMember(name, fieldType));
+}
+
+void CompileType::addGeneric(const std::string &genericName,
+                             CompileType *parent) {
+  this->insertArgumentsList(CompileType::makeGenericParam(genericName, parent));
 }
 
 int CompileType::getMethodIndex(const std::string &name,
@@ -32,20 +54,35 @@ int CompileType::getMethodIndex(const std::string &name,
   for (auto method : this->methods) {
     // TODO allow for overloading.
     // TODO Check method type for compatibility.
-    if (std::get<0>(method) == name) {
+    if (method->getMemberName() == name) {
       return i;
     }
     i++;
   }
+  if (this->parent != nullptr) {
+    // Check parent for method if it isn't found in current class.
+    return getMethodIndex(name, methodType);
+  }
+
   return -1;
 }
 
-CompileType *CompileType::getMethodType(const std::string &name) const {
+CompileType *CompileType::getGenericType(const std::string &genericName) const {
+  for (auto genericType : this->typeArgumentsList) {
+    if (genericType->getTypeName() == genericName) {
+      return genericType;
+    }
+  }
+
+  return nullptr;
+}
+
+CompileType const *CompileType::getMethodType(const std::string &name) const {
   int methodIndex = getMethodIndex(name, nullptr);
   if (methodIndex == -1) {
     return nullptr;
   }
-  return std::get<1>(methods[methodIndex]);
+  return methods[methodIndex]->getMemberType();
 }
 
 int CompileType::getFieldIndex(const std::string &name,
@@ -53,7 +90,7 @@ int CompileType::getFieldIndex(const std::string &name,
   int i = 0;
   for (auto field : this->fields) {
     // TODO Check field type for compatibility.
-    if (std::get<0>(field) == name) {
+    if (field->getMemberName() == name) {
       return i;
     }
     i++;
@@ -89,7 +126,7 @@ bool CompileType::isVoidType(const std::string &typeName) {
          typeName;
 }
 
-bool CompileType::isVoidType(CompileType *compileType) {
+bool CompileType::isVoidType(CompileType const *compileType) {
   return CompileType::getCommonTypeName(CompileType::CommonType::VOID) ==
          compileType->getTypeName();
 }
@@ -98,9 +135,9 @@ bool CompileType::isVoidType(CommonType commonType) {
   return CompileType::CommonType::VOID == commonType;
 }
 
-std::string CompileType::getTypeName() { return typeName; }
+std::string CompileType::getTypeName() const { return typeName; }
 
-std::vector<CompileType *> *CompileType::getArgumentsList() {
+std::vector<CompileType *> const *CompileType::getArgumentsList() const {
   return &typeArgumentsList;
 }
 
@@ -114,7 +151,7 @@ void CompileType::setArgumentsList(std::vector<CompileType *> *argsList) {
   typeArgumentsList = *argsList;
 }
 
-bool CompileType::isEqualToType(CompileType *testType) {
+bool CompileType::isEqualToType(CompileType const *testType) const {
   if (testType == nullptr) {
     return false;
   }
@@ -122,8 +159,8 @@ bool CompileType::isEqualToType(CompileType *testType) {
   if (this->typeName != testType->typeName) {
     return false;
   }
-  std::vector<CompileType *> *argsTypeA = this->getArgumentsList();
-  std::vector<CompileType *> *argsTypeB = testType->getArgumentsList();
+  std::vector<CompileType *> const *argsTypeA = this->getArgumentsList();
+  std::vector<CompileType *> const *argsTypeB = testType->getArgumentsList();
   if (argsTypeA->size() != argsTypeB->size()) {
     return false;
   }
@@ -136,9 +173,21 @@ bool CompileType::isEqualToType(CompileType *testType) {
   return true;
 }
 
-bool CompileType::isTypeOrSubtype(CompileType *typeA, CompileType *typeB) {
+bool CompileType::isTypeOrSubtype(CompileType const *typeA,
+                                  CompileType const *typeB) {
   return (typeA != nullptr) && (typeA->isEqualToType(typeB) ||
                                 isTypeOrSubtype(typeA->getParent(), typeB));
+}
+
+bool CompileType::typeImplementsGeneric(CompileType const *typeA,
+                                        CompileType const *typeB) {
+  if (typeA->isGenericType()) {
+    throw std::runtime_error("First argument is a generic type!");
+  }
+  if (!typeB->isGenericType()) {
+    throw std::runtime_error("Second argument is not a generic type!");
+  }
+  return CompileType::isTypeOrSubtype(typeA, typeB->getParent());
 }
 
 bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
@@ -147,8 +196,9 @@ bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
   }
 
   if (incompleteType->typeName == this->typeName) {
-    std::vector<CompileType *> *completeTypeArgs = this->getArgumentsList();
-    std::vector<CompileType *> *incompleteTypeArgs =
+    std::vector<CompileType *> const *completeTypeArgs =
+        this->getArgumentsList();
+    std::vector<CompileType *> const *incompleteTypeArgs =
         incompleteType->getArgumentsList();
     size_t completeTypeNumArgs = completeTypeArgs->size();
     size_t incompleteTypeNumArgs = incompleteTypeArgs->size();
@@ -165,8 +215,6 @@ bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
 
     bool result = true;
     for (int i = 0; i < incompleteTypeNumArgs; i++) {
-      std::cout << ((*completeTypeArgs)[i])->typeName << std::endl;
-      std::cout << ((*incompleteTypeArgs)[i])->typeName << std::endl;
       result &= ((*completeTypeArgs)[i])
                     ->isCompatibleWithType((*incompleteTypeArgs)[i]);
     }
@@ -177,32 +225,36 @@ bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
   }
 }
 
-CompileType *CompileType::getFunctionReturnType() {
-  std::vector<CompileType *> *arguments = this->getArgumentsList();
+CompileType const *CompileType::getFunctionReturnType() const {
+  std::vector<CompileType *> const *arguments = this->getArgumentsList();
 
   // last argument in CompileType is return type
   return (*arguments)[arguments->size() - 1];
 }
 
-CompileType *CompileType::getFunctionReturnType(CompileType *functionType) {
-  std::vector<CompileType *> *arguments = functionType->getArgumentsList();
+CompileType const *CompileType::getFunctionReturnType(
+    CompileType const *functionType) {
+  std::vector<CompileType *> const *arguments =
+      functionType->getArgumentsList();
 
   // last argument in CompileType is return type
   return (*arguments)[arguments->size() - 1];
 }
 
-bool CompileType::isFunctionType() {
+bool CompileType::isFunctionType() const {
   return this->typeName ==
          CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION);
 }
 
-CompileType *CompileType::getParent() { return this->parent; }
+bool CompileType::isGenericType() const { return isGeneric; }
+
+CompileType const *CompileType::getParent() const { return this->parent; }
 
 void CompileType::setParent(CompileType *parent) { this->parent = parent; }
 
-llvm::FunctionType *CompileType::asRawFunctionType(CompileType *compileType,
-                                                   llvm::Type *voidStarTy,
-                                                   bool includeThisPointer) {
+llvm::FunctionType *CompileType::asRawFunctionType(
+    CompileType const *compileType, llvm::Type *voidStarTy,
+    llvm::LLVMContext &currContext, bool includeThisPointer) {
   int argListSize = compileType->getArgumentsList()->size();
   int paramCount = argListSize;
   // subtract one to avoid counting return type as a parameter.
@@ -217,7 +269,7 @@ llvm::FunctionType *CompileType::asRawFunctionType(CompileType *compileType,
           CompileType::getFunctionReturnType(compileType))) {
     return llvm::FunctionType::get(voidStarTy, argTypes, false);
   }
-  return llvm::FunctionType::get(nullptr /* indicates void return */, argTypes,
+  return llvm::FunctionType::get(llvm::Type::getVoidTy(currContext), argTypes,
                                  false);
 }
 
@@ -227,7 +279,7 @@ CompileVal::CompileVal(llvm::Value *rawValue, std::string typeName)
   this->rawValue = rawValue;
 }
 
-CompileVal::CompileVal(llvm::Value *rawValue, CompileType *compileType)
+CompileVal::CompileVal(llvm::Value *rawValue, CompileType const *compileType)
     : compileType(*compileType) {
   this->rawValue = rawValue;
 }
@@ -239,6 +291,34 @@ CompileVal::CompileVal(llvm::Value *rawValue,
 }
 
 CompileType *CompileVal::getCompileType() { return &compileType; }
+
+std::string CompileType::to_string(const CompileType &compileType) {
+  return compileType.to_string();
+}
+
+std::string CompileType::to_string() const {
+  // TODO maybe make this more efficient.
+  std::string result = this->getTypeName();
+  if (!this->typeArgumentsList.empty()) {
+    result += "<";
+    for (CompileType *typeArg : this->typeArgumentsList) {
+      result += CompileType::to_string(*typeArg);
+    }
+    result += ">";
+  }
+  if (!this->methods.empty()) {
+    result += "{methods: ";
+    for (auto method : this->methods) {
+      result += method->getMemberName() + "(...), ";
+    }
+    result += "}";
+  }
+  return result;
+}
+
+std::string CompileType::to_string(CompileType *compileType) {
+  return CompileType::to_string(*compileType);
+}
 
 void CompileVal::setCompileType(CompileType *compileType) {
   this->compileType = *compileType;
@@ -258,4 +338,20 @@ bool CompileVal::typesAreEqual(CompileVal *valB) {
   return this->getCompileType()->isEqualToType(valB->getCompileType());
 }
 
+TypeMember::TypeMember(const std::string &memberName,
+                       CompileType const *compileType) {
+  this->memberName = memberName;
+  this->memberType = compileType;
+  this->flags = FlagBit::NONE;
+}
+
+// TODO add constructor which sets flags.
+
+std::string TypeMember::getMemberName() const { return memberName; }
+
+CompileType const *TypeMember::getMemberType() const { return memberType; }
+
+void TypeMember::setMemberType(CompileType const *compileType) {
+  this->memberType = compileType;
+}
 }  // namespace codegen

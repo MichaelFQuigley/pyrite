@@ -202,32 +202,14 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
 
         result = createLangCall(result, *fcallArgs);
       } else if (jsonNode_has(trailers[i], "Index", &currNode)) {
-        // TODO typecheking on indexVal
         CompileVal *indexVal = codeGen_initial(currNode);
 
         if (i < trailers.size() - 1) {
-          std::string lhsTypename = result->getCompileType()->getTypeName();
-          // The type of return value from the call to 'get_*' will always be
-          // the
-          // first argument in the compile type's argument list.
-          CompileType *returnedType =
-              (*(result->getCompileType()->getArgumentsList()))[0];
-          result = new CompileVal(
-              createNativeCall("get_" + lhsTypename, {result->getRawValue(),
-                                                      indexVal->getRawValue()}),
-              returnedType);
+          result = createLangCall(createVtableAccess(result, "get"),
+                                  {result, indexVal});
         } else {
-          // XXX For now, assumes result type is complete.
-          CompileType *resultGenericType =
-              (*(result->getCompileType()->getArgumentsList()))[0];
-          GEN_ASSERT(
-              resultGenericType->isCompatibleWithType(rhs->getCompileType()),
-              "Type on rhs is not compatible with lhs in assignment of " +
-                  var_val->getCompileType()->getTypeName() + " " + id_name +
-                  ".");
-          createNativeCall("set_" + result->getCompileType()->getTypeName(),
-                           {result->getRawValue(), indexVal->getRawValue(),
-                            rhs->getRawValue()});
+          createLangCall(createVtableAccess(result, "set"),
+                         {result, indexVal, rhs});
         }
       } else if (jsonNode_has(trailers[i], "Dot", &currNode)) {
         GEN_FAIL("Assignment to fields not implemented yet.");
@@ -404,17 +386,9 @@ CompileVal *AstWalker::handleTrailers(Json::Value &trailers,
       result = createLangCall(result, *fcallArgs);
       containingObject = nullptr;
     } else if (jsonNode_has(trailer, "Index", &currNode)) {
-      std::vector<llvm::Value *> argsV;
       CompileVal *indexVal = codeGen_initial(currNode);
-      argsV.push_back(result->getRawValue());
-      argsV.push_back(indexVal->getRawValue());
-      std::string lhsTypename = result->getCompileType()->getTypeName();
-      // The type of return value from the call to 'get_*' will always be the
-      // first argument in the compile type's argument list.
-      CompileType *returnedType =
-          (*(result->getCompileType()->getArgumentsList()))[0];
-      result = new CompileVal(createNativeCall("get_" + lhsTypename, argsV),
-                              returnedType);
+      result =
+          createLangCall(createVtableAccess(result, "get"), {result, indexVal});
       containingObject = nullptr;
     } else if (jsonNode_has(trailer, "Dot", &currNode)) {
       int methodIndex = result->getCompileType()->getMethodIndex(
@@ -457,17 +431,18 @@ CompileVal *AstWalker::createVtableAccess(CompileVal *obj,
                                           const std::string &functionName) {
   int methodVtableIndex =
       obj->getCompileType()->getMethodIndex(functionName, nullptr);
-  CompileType *methodType = obj->getCompileType()->getMethodType(functionName);
   GEN_ASSERT(methodVtableIndex != -1,
              "Method " + obj->getCompileType()->getTypeName() + "." +
                  functionName + " is not found!");
+  CompileType const *methodType =
+      obj->getCompileType()->getMethodType(functionName);
   llvm::Value *irMethodIndex = codeGenHelper->getConstInt64(methodVtableIndex);
   llvm::Value *methodHandle =
       createNativeCall("indexIntoVtable", {obj->getRawValue(), irMethodIndex});
   // TODO typecheck args vs method contract.
   llvm::Value *castedValue = Builder.CreatePointerCast(
       methodHandle, llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
-                        methodType, Builder.getInt8PtrTy())));
+                        methodType, Builder.getInt8PtrTy(), currContext)));
   // XXX handle null return type.
   return new CompileVal(castedValue, methodType);
 }
@@ -479,7 +454,7 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
   std::vector<llvm::Value *> nativeArgs;
   const std::vector<CompileType *> &funcProtoArgs =
       *(func->getCompileType()->getArgumentsList());
-  CompileType *retType = func->getCompileType()->getFunctionReturnType();
+  CompileType const *retType = func->getCompileType()->getFunctionReturnType();
 
   GEN_ASSERT(argsV.size() == funcProtoArgs.size() - 1,
              string("Number of arguments in function call must match.\n") +
@@ -488,15 +463,17 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
 
   for (int i = 0; i < argsV.size(); i++) {
     // TODO handle generics here
+    const CompileType *funcProtoArgType = funcProtoArgs[i]->isGenericType()
+                                              ? funcProtoArgs[i]->getParent()
+                                              : funcProtoArgs[i];
     GEN_ASSERT(
-        CompileType::isTypeOrSubtype(argsV[i]->getCompileType(), funcProtoArgs[i]),
+        CompileType::isTypeOrSubtype(argsV[i]->getCompileType(), funcProtoArgType),
         (std::string)"Types used in call to function do not match function prototype."
         + "\nExpected " + funcProtoArgs[i]->getTypeName()
         + "\nGot " + argsV[i]->getCompileType()->getTypeName());
 
     nativeArgs.push_back(argsV[i]->getRawValue());
   }
-
   llvm::Value *retVal = Builder.CreateCall(func->getRawValue(), nativeArgs);
 
   return new CompileVal(retVal, retType);
@@ -706,7 +683,7 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
   Builder.SetInsertPoint(entry);
   Builder.CreateBr(funcBody);
   Builder.SetInsertPoint(funcBody);
-  CompileType *returnType =
+  CompileType const *returnType =
       compileFunc->getCompileType()->getFunctionReturnType();
   CompileVal *returnVal = codeGen_initial(funcDefNode["simple_stmt"]);
 
@@ -746,30 +723,23 @@ CompileVal *AstWalker::createReturn(CompileVal *val) {
 }
 
 CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
-  std::vector<llvm::Value *> argsV;
   int numListItems = jsonNode.size();
   CompileVal *list =
       createLiteral(CompileType::CommonType::LIST,
                     codeGenHelper->getConstInt64(numListItems, false));
-  CompileType *listType = nullptr;
+  CompileType const *listType = nullptr;
   for (unsigned i = 0; i < jsonNode.size(); i++) {
-    argsV.clear();
     CompileVal *list_el = codeGen_initial(jsonNode[i]);
     // Initialize list type.
     if (i == 0) {
       listType = list_el->getCompileType();
-      list->insertArgumentType(listType);
+      // list->insertArgumentType(listType);
+      // XXX generic type needs to be made concrete here.
     }
-    GEN_ASSERT(listType->isEqualToType(list_el->getCompileType()),
-               "Types in list are inconsistent!");
-    argsV.push_back(list->getRawValue());
-    // index
-    argsV.push_back(
-        createLiteral(CompileType::CommonType::INT,
-                      codeGenHelper->getConstInt64(i, false))->getRawValue());
-    // value
-    argsV.push_back(list_el->getRawValue());
-    createNativeCall("set_List", argsV);
+    createLangCall(createVtableAccess(list, "set"),
+                   {list, createLiteral(CompileType::CommonType::INT,
+                                        codeGenHelper->getConstInt64(i, false)),
+                    list_el});
   }
 
   return list;
@@ -801,14 +771,8 @@ CompileVal *AstWalker::codeGen_UnOp(Json::Value &jsonNode) {
 
 CompileVal *AstWalker::codeGen_ListGen(Json::Value &jsonNode) {
   CompileVal *itt = codeGen_AtomOp(jsonNode["itt"]);
-  std::vector<CompileType *> *typeArgs =
-      itt->getCompileType()->getArgumentsList();
-  // TODO Improve checking for iterable values.
-  GEN_ASSERT(typeArgs->size() >= 1, "Not a valid iterable value.");
-
-  CompileType *elementType = (*typeArgs)[0];
-
   GEN_FAIL("List gen not implemented.");
+  return nullptr;
 }
 
 CompileVal *AstWalker::codeGen_initial(Json::Value &jsonNode) {

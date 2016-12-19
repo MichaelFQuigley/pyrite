@@ -54,6 +54,7 @@ void TypeReader::compileTypesFromFile(std::ifstream& inFile) {
 
   initializeClasses(classLines);
   initializeSuperclasses(classLines);
+  initializeClassGenerics(classLines);
 
   initializeMethods(methodLines);
 
@@ -62,8 +63,7 @@ void TypeReader::compileTypesFromFile(std::ifstream& inFile) {
 
 void TypeReader::initializeClasses(const std::vector<std::string>& lines) {
   for (auto line : lines) {
-    std::string canonicalName =
-        getClassName(line, TypeReader::SUPERCLASS_START);
+    std::string canonicalName = getIdentifier(line);
     CompileType* compileType = new CompileType(canonicalName);
     if (compileTypes.find(canonicalName) == compileTypes.end()) {
       compileTypes[canonicalName] = compileType;
@@ -76,8 +76,7 @@ void TypeReader::initializeClasses(const std::vector<std::string>& lines) {
 
 void TypeReader::initializeSuperclasses(const std::vector<std::string>& lines) {
   for (auto line : lines) {
-    CompileType* derivedClass =
-        compileTypes[getClassName(line, TypeReader::SUPERCLASS_START)];
+    CompileType* derivedClass = compileTypes[getIdentifier(line)];
     std::string superclassName = getSuperclassName(line);
     if (superclassName.empty()) {
       derivedClass->setParent(nullptr);
@@ -89,10 +88,28 @@ void TypeReader::initializeSuperclasses(const std::vector<std::string>& lines) {
   }
 }
 
+void TypeReader::initializeClassGenerics(
+    const std::vector<std::string>& lines) {
+  for (const auto& classString : lines) {
+    const std::string& canonicalClassName = getIdentifier(classString);
+    CompileType* canonicalClass = compileTypes[canonicalClassName];
+    if (canonicalClassName.length() < classString.length() &&
+        classString[canonicalClassName.length()] == TypeReader::GENERIC_START) {
+      const std::string& genericName =
+          getIdentifier(classString, canonicalClassName.length() + 1);
+      CompileType* genericParent = compileTypes["Base"];
+      canonicalClass->addGeneric(genericName, genericParent);
+      /*
+       * XXX currently this only supports a single generic that
+       * inherits from Base. This will need to be changed.
+       */
+    }
+  }
+}
+
 void TypeReader::initializeMethods(const std::vector<std::string>& lines) {
-  for (auto methodString : lines) {
-    std::string canonicalClassName =
-        getClassName(methodString, TypeReader::CONTAINING_CLASS_END);
+  for (const auto& methodString : lines) {
+    const std::string& canonicalClassName = getIdentifier(methodString);
     std::string methodName = getMemberName(methodString);
     CompileType* methodType = parseMethodType(methodString);
     if (!canonicalClassName.empty()) {  // Class method.
@@ -109,9 +126,8 @@ void TypeReader::initializeMethods(const std::vector<std::string>& lines) {
 }
 
 void TypeReader::initializeFields(const std::vector<std::string>& lines) {
-  for (auto fieldString : lines) {
-    std::string canonicalClassName =
-        getClassName(fieldString, TypeReader::CONTAINING_CLASS_END);
+  for (const auto& fieldString : lines) {
+    const std::string& canonicalClassName = getIdentifier(fieldString);
     std::string fieldName = getMemberName(fieldString);
     std::size_t fieldTypeIndex =
         fieldString.find(TypeReader::MEMBER_TYPE_START);
@@ -136,15 +152,23 @@ CompileType* TypeReader::accessTypeFromFullTypeName(
     std::string containingClassName, const std::string& typeName) {
   std::size_t canonicalNameIndex = typeName.find(TypeReader::GENERIC_START);
   std::string canonicalTypeName = typeName;
+  CompileType* containingClass = compileTypes[containingClassName];
   if (canonicalNameIndex != std::string::npos) {
     canonicalTypeName = typeName.substr(0, canonicalNameIndex);
   }
-  assertHasClass(canonicalTypeName);
 
   if (canonicalTypeName == typeName) {
-    return compileTypes[canonicalTypeName];
+    CompileType* genericType =
+        containingClass->getGenericType(canonicalTypeName);
+    if (genericType !=
+        nullptr) {  // Generic names shadow other type names within a class.
+      return genericType;
+    } else {  // Find type.
+      assertHasClass(canonicalTypeName);
+      return compileTypes[canonicalTypeName];
+    }
   } else {
-    throw std::runtime_error("No support for generic arguments.");
+    throw std::runtime_error("No support for types that contain generics.");
   }
   // TODO handle containingClassName.
 }
@@ -153,8 +177,7 @@ CompileType* TypeReader::parseMethodType(const std::string& methodString) {
   CompileType* resultType = new CompileType(CompileType::CommonType::FUNCTION);
   std::size_t methodArgsStartIndex =
       methodString.find(TypeReader::MEMBER_TYPE_START);
-  std::string containingClassName =
-      getClassName(methodString, TypeReader::CONTAINING_CLASS_END);
+  std::string containingClassName = getIdentifier(methodString);
   assertStringIndexExists("Invalid method string: " + methodString,
                           methodArgsStartIndex);
 
@@ -217,18 +240,12 @@ std::string TypeReader::getSuperclassName(const std::string& classString) {
   return classString.substr(derivedClassIndex + 1);
 }
 
-std::string TypeReader::getClassName(const std::string& classString,
-                                     char endChar) {
-  std::size_t derivedClassIndex = classString.find(endChar);
-  assertStringIndexExists("Invalid class string: " + classString,
-                          derivedClassIndex);
-  std::string derivedClassName = classString.substr(0, derivedClassIndex);
-  std::size_t canonicalNameIndex =
-      derivedClassName.find(TypeReader::GENERIC_START);
-  if (canonicalNameIndex != std::string::npos) {
-    return derivedClassName.substr(0, canonicalNameIndex);
-  }
-  return derivedClassName;
+std::string TypeReader::getIdentifier(const std::string& line, int startInd) {
+  int endInd = startInd;
+  while (endInd < line.length() &&
+         (isalnum(line[endInd]) || line[endInd] == '_'))
+    endInd++;
+  return line.substr(startInd, endInd - startInd);
 }
 
 std::map<std::string, CompileType*> TypeReader::getCompileTypesMap() const {

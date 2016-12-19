@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MAX_STACK_SIZE (1 << 22)  // 4M objects
+#define MAX_STACK_SIZE (1 << 22)   // 4M objects
 #define MAX_SCOPE_DEPTH (1 << 10)  // 1024
 
 #define GC_DEBUG
@@ -39,7 +39,7 @@ static bits_t flags_num_bits_size =
 static bits_t is_marked_mask = 0x1;
 static bits_t size_mask = ~(is_marked_mask);
 
-// XXX gc_base should be word aligned
+// gc_base should be word aligned
 typedef struct gc_base {
   /*
    * flags layout

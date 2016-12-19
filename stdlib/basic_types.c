@@ -279,6 +279,7 @@ void* init_List(uint64_t initial_size) {
   result->capacity = initial_size;  //(initial_size + 1) * 2;
   result->raw_value = fast_malloc(result->capacity * sizeof(void*));
   result->next_itt_index = 0;
+  result->vtable = vtable_List;
 
   return result;
 }
