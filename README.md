@@ -30,8 +30,6 @@ More examples are in the Parser/tests directory.
 ###Building/Running
 This has just been tested on Ubuntu 14.04.  
 ####Prerequisites
- 0. The [jsoncpp](https://github.com/open-source-parsers/jsoncpp) headers.
- 0. libtinfo
  0. llvm-config-3.6 and lli-3.6
  0. OCaml
  0. clang/++ version 3.6.x
