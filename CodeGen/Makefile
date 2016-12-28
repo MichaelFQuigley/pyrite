@@ -9,7 +9,7 @@ LLVM_FLAGS=`llvm-config-3.6 --cppflags --libs all`
 LLVM_FLAGS+=`llvm-config-3.6 --ldflags`
 
 all: libjson libtypes
-	clang++ -std=c++11 $(CPP_FILES) $(LIBS) -I$(INCLUDETYPES) -I$(INCLUDELLVM) -fno-rtti $(CPP_FLAGS) $(LD_FLAGS) $(LLVM_FLAGS) -o codeGen.o
+	clang++ -std=c++11 $(CPP_FILES) $(LIBS) -I$(INCLUDETYPES) -I$(INCLUDELLVM) $(CPP_FLAGS) $(LD_FLAGS) $(LLVM_FLAGS) -o codeGen.o
 
 libjson:
 	make -C jsoncpp/

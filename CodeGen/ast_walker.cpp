@@ -349,10 +349,9 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
 
     GEN_ASSERT(start->typesAreEqual(end),
                "Start and end type for range must be the same.");
-    // XXX For now, RangeOp is assumed to iterate over Ints.
     CompileType *iteratedType = start->getCompileType();
-    CompileType *rangeType =
-        new CompileType(iteratedType->getTypeName() + "Range");
+    // XXX assumes only IntRange for now.
+    CompileType *rangeType = getCompileType(iteratedType->getTypeName() + "Range");
     rangeType->insertArgumentsList(iteratedType);
 
     llvm::Value *init_RangeResult = createNativeCall(

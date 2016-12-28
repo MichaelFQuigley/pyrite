@@ -10,6 +10,7 @@ CFloat:Base
 CInt:Base
 CString:Base
 CList<T>:Base
+CIntRange:Base
 
 # Base methods
 MBase.init$Int
@@ -65,6 +66,7 @@ MBool.xor$Bool$Bool$Bool
 FInt.fieldName$Int
 FInt.fieldName$Int
 
+# List methods
 MList.init$List
 MList.str$List$String
 MList.hasNext$List$Bool
@@ -76,5 +78,9 @@ MList.get$List$Int$T
 MList.add$List$List$List
 MList.size$List$Int
 
-# TODO: IntRange
-
+# IntRange methods
+MIntRange.init$IntRange
+MIntRange.str$IntRange$String
+MIntRange.hasNext$IntRange$Bool
+MIntRange.next$IntRange$Int
+MIntRange.begin$IntRange$Int

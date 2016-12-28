@@ -116,6 +116,8 @@ std::string CompileType::getCommonTypeName(CommonType commonType) {
       return "String";
     case CompileType::CommonType::VOID:
       return "Void";
+    case CompileType::CommonType::INT_RANGE:
+      return "IntRange";
     default:
       throw std::runtime_error("Unknown common type!");
   }

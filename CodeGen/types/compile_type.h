@@ -42,6 +42,7 @@ class CompileType {
     FUNCTION,
     INT,
     LIST,
+    INT_RANGE,
     STRING,
     VOID,
   };

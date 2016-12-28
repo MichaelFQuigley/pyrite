@@ -220,6 +220,7 @@ void* init_IntRange(void* start_obj, void* step_obj, void* end_obj) {
   result->start = start;
   result->step = step;
   result->end = end;
+  result->vtable = vtable_IntRange;
   /*
       assert( (((start->raw_value < end->raw_value) && (step->raw_value > 0))
             || ((start->raw_value > end->raw_value) && (step->raw_value < 0))
