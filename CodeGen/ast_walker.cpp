@@ -628,7 +628,7 @@ llvm::Value *AstWalker::createGlobalFunctionConst(const std::string &funcName,
       scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE); 
 
   llvm::GlobalVariable *result = new llvm::GlobalVariable(
-      *currModule, initValue->getType(), false,
+      *currModule, initValue->getType(), true /* is constant */,
       llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName); 
   globalScope->setNamedVal(funcName,
                            new CompileVal(result, func->getCompileType()), 0);
@@ -806,7 +806,8 @@ CompileVal *AstWalker::createLiteral(CompileType::CommonType commonType,
   return createLiteral(CompileType::getCommonTypeName(commonType), raw_value);
 }
 
-CompileVal *AstWalker::createClassMethodCall(const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args) {
+CompileVal *AstWalker::createClassMethodCall(
+    const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args) {
   CompileVal* func = createVtableAccess(thisObj, methodName);
   std::vector<CompileVal*> newArgs = {thisObj};
   for(auto el : args) {
@@ -839,4 +840,4 @@ CompileType *AstWalker::getCompileType(const std::string &typeName) {
              "Type " + typeName + " not found.");
   return moduleTypes[typeName];
 }
-}
+} // namespace codegen
