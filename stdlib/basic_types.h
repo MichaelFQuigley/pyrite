@@ -222,4 +222,6 @@ void* next_List(void* this);
 
 void* begin_List(void* this);
 
+void* size_List(void* this);
+
 #endif

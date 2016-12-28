@@ -74,6 +74,7 @@ MList.set$List$Int$T$Void
 MList.get$List$Int$T
 # TODO make add typesafe by allowing List<T> as parameter.
 MList.add$List$List$List
+MList.size$List$Int
 
 # TODO: IntRange
 

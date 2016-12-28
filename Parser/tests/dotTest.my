@@ -9,14 +9,17 @@ func main() {
   let baseInt:Base = 1.0
   let d = -1
   let m = [0,"s", 1.0]
-  print(m[0])
+ print(m[0])
   print(m[1])
   print(m[2])
-  print(c.or(true))
+ print(c.or(true))
   print(1 + 3)
-  print(4 <= 3)
+print(false)
   print(b)
   print(baseInt)
   print(getBase(1))
   print(d)
+print("Size of m is: " + m.size().str())
+for(i in m)
+  print(i)
 }

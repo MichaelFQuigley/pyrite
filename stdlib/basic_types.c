@@ -42,7 +42,7 @@ void* vtable_IntRange[] = {
 
 void* vtable_List[] = {
     VTABLE_BASE(List), hasNext_List, next_List, begin_List,
-    set_List,          get_List,     add_List,
+    set_List,          get_List,     add_List, size_List
 };
 
 void* indexIntoVtable(void* obj, int64_t vtableIndex) {
@@ -93,7 +93,7 @@ void* String_Int(void* int_val) {
   size_t buffer_size = 32;
   char* buffer = (char*)malloc(buffer_size);
   // TODO error checking for sprintf, maybe
-  snprintf(buffer, buffer_size, "%ld", ((Int*)int_val)->raw_value);
+  snprintf(buffer, buffer_size, "%lld", ((Int*)int_val)->raw_value);
 
   String* result = init_String(buffer);
   result->raw_is_on_heap = true;
@@ -193,7 +193,7 @@ CREATE_NUM_ARITH_FN(Bool, bool, or, | )
 CREATE_NUM_ARITH_FN(Bool, bool, xor, ^)
 
 void* String_Bool(void* bool_val) {
-  size_t buffer_size = 5;
+  size_t buffer_size = 6;
   char* buffer = (char*)malloc(buffer_size);
   buffer[buffer_size - 1] = '\0';
   // TODO error checking for sprintf, maybe
@@ -234,7 +234,7 @@ void* String_IntRange(void* this) {
   size_t buffer_size = 64;
   char* buffer = (char*)malloc(buffer_size);
   // TODO error checking for sprintf, maybe
-  snprintf(buffer, buffer_size, "%ld..%ld..%ld",
+  snprintf(buffer, buffer_size, "%lld..%lld..%lld",
            ((Int*)(((IntRange*)this)->start))->raw_value,
            ((Int*)(((IntRange*)this)->step))->raw_value,
            ((Int*)(((IntRange*)this)->end))->raw_value);
@@ -348,3 +348,8 @@ void* begin_List(void* this) {
     return NULL;
   }
 }
+
+void* size_List(void* this) {
+  return init_Int(((List*)this)->size);
+}
+

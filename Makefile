@@ -5,7 +5,8 @@ all: codegen parser standardlib
 
 codegen:
 	printf '${GREEN}Building code gen utilities...\n${END_GREEN}'
-	cd CodeGen && $(MAKE)
+	$(MAKE) -C Codegen/types
+	$(MAKE) -C Codegen
 
 parser:
 	printf '${GREEN}Building parser...\n${END_GREEN}'
@@ -13,6 +14,6 @@ parser:
 
 standardlib:
 	printf '${GREEN}Building stdlib...\n${END_GREEN}'
-	cd stdlib && $(MAKE) && $(MAKE)
+	$(MAKE) -C stdlib && $(MAKE) -C stdlib
 
 .PHONY : all codegen parser standardlib

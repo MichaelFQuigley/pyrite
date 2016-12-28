@@ -1,5 +1,5 @@
 C_FILES=$(wildcard *.c)
-LL_FILES=$(wildcard *.ll)
+LL_FILES=$(patsubst %.c, %.ll,$(C_FILES))
 STDLIB=stdlib
 C_FLAGS=-fno-strict-aliasing -Wall -S -O0 -emit-llvm -c
 

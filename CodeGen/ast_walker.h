@@ -6,7 +6,7 @@
  * It takes the JSON output provided by the parser, and generates LLVM code.
  */
 
-#include <json/json.h>
+#include "jsoncpp/json/json.h"
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
@@ -19,6 +19,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Value.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -49,6 +52,8 @@ class AstWalker {
   CompileVal* createLiteral(const std::string& type_name, llvm::Value* value);
   CompileVal* createLiteral(CompileType::CommonType commonType,
                             llvm::Value* value);
+  llvm::Value* createGlobalFunctionConst(const std::string& funcName,
+                                         CompileVal* func);
   bool jsonNode_has(Json::Value& jsonNode, const std::string& name,
                     Json::Value* out_node);
   // jsonNodeMustHave fails if there is not a node for the provided name.
@@ -63,6 +68,9 @@ class AstWalker {
   // existent in the file being compiled
   CompileVal* createLangCall(CompileVal* func,
                              const std::vector<CompileVal*>& argsV);
+  // Creates method call on class represented by thisObj. The this pointer is inserted into the args list automatically.
+  CompileVal* createClassMethodCall(
+      const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args={});
   void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid = false);
   void popScope();
   CompileVal* makeFuncProto(Json::Value& jsonNode);
@@ -84,10 +92,8 @@ class AstWalker {
   // stdlib),
   // extracts the raw boolean value, and creates a conditional branch based on
   // that.
-  void createBoolCondBr(llvm::Value* Bool, llvm::BasicBlock* trueBlock,
+  void createBoolCondBr(CompileVal* Bool, llvm::BasicBlock* trueBlock,
                         llvm::BasicBlock* falseBlock);
-  llvm::Value* createGlobalFunctionConst(const std::string& funcName,
-                                         CompileVal* func);
   void addFuncPtr(std::string funcName, CompileVal* func);
   void handleAssignLhs(Json::Value& assignLhs, CompileVal* rhs);
   CompileVal* createReturn(CompileVal* val);

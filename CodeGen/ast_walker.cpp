@@ -205,11 +205,9 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
         CompileVal *indexVal = codeGen_initial(currNode);
 
         if (i < trailers.size() - 1) {
-          result = createLangCall(createVtableAccess(result, "get"),
-                                  {result, indexVal});
+          result = createClassMethodCall("get", result, {indexVal});
         } else {
-          createLangCall(createVtableAccess(result, "set"),
-                         {result, indexVal, rhs});
+          createClassMethodCall("set", result, {indexVal, rhs});
         }
       } else if (jsonNode_has(trailers[i], "Dot", &currNode)) {
         GEN_FAIL("Assignment to fields not implemented yet.");
@@ -487,9 +485,9 @@ llvm::Value *AstWalker::createNativeCall(
   return ret_val;
 }
 
-void AstWalker::createBoolCondBr(llvm::Value *Bool, llvm::BasicBlock *trueBlock,
+void AstWalker::createBoolCondBr(CompileVal *Bool, llvm::BasicBlock *trueBlock,
                                  llvm::BasicBlock *falseBlock) {
-  llvm::Value *raw_bool = createNativeCall("rawVal_Bool", {Bool});
+  llvm::Value *raw_bool = createNativeCall("rawVal_Bool", {Bool->getRawValue()});
 
   Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
 }
@@ -504,31 +502,25 @@ CompileVal *AstWalker::codeGen_ForOp(Json::Value &jsonNode) {
   pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
   CompileVal *itt = codeGen_AtomOp(jsonNode["itt"]);
-  CompileType *iteratorType = itt->getCompileType();
-  std::string iteratorTypeName = iteratorType->getTypeName();
-  std::string itt_hasNextFuncName = "hasNext_" + iteratorTypeName;
-  std::string itt_nextFuncName = "next_" + iteratorTypeName;
-  std::string itt_beginFuncName = "begin_" + iteratorTypeName;
+  const std::string itt_hasNextFuncName = "hasNext";
+  const std::string itt_nextFuncName = "next";
+  const std::string itt_beginFuncName = "begin";
   std::string loop_var_name = jsonNode["loop_var"].asString();
 
-  llvm::Value *loop_var =
-      createNativeCall(itt_beginFuncName, {itt->getRawValue()});
-  CompileType *loopVarType = (*(iteratorType->getArgumentsList()))[0];
-  newVarInScope(loop_var_name, new CompileVal(loop_var, loopVarType));
+  // Call to indexVariable = itt.begin()
+  newVarInScope(loop_var_name, createClassMethodCall(itt_beginFuncName, itt));
 
   Builder.CreateBr(loopTop);
   Builder.SetInsertPoint(loopTop);
 
-  llvm::Value *hasNext =
-      createNativeCall(itt_hasNextFuncName, {itt->getRawValue()});
-
+  CompileVal* hasNext = createClassMethodCall(itt_hasNextFuncName, itt);
   createBoolCondBr(hasNext, loopBody, loopBottom);
   // loop body
   startBlock(loopBody);
   createNativeCall("gc_push_loop_scope", {});
   codeGen_initial(jsonNode["body"]);
   Builder.CreateStore(
-      createNativeCall(itt_nextFuncName, {itt->getRawValue()}),
+      createClassMethodCall(itt_nextFuncName, itt)->getRawValue(),
       scopeHelper->getNamedVal(loop_var_name, true)->getRawValue());
 
   createNativeCall("gc_pop_scope", {});
@@ -553,7 +545,7 @@ CompileVal *AstWalker::codeGen_WhileOp(Json::Value &jsonNode) {
   startBlock(loopTop);
 
   CompileVal *header = codeGen_initial(jsonNode["header"]);
-  createBoolCondBr(header->getRawValue(), loopBody, loopBottom);
+  createBoolCondBr(header, loopBody, loopBottom);
 
   startBlock(loopBody);
   codeGen_initial(jsonNode["body"]);
@@ -583,7 +575,7 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
   if (jsonNode["bodies"].size() == 1) {
     pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
     endIf = llvm::BasicBlock::Create(currContext, "endif");
-    createBoolCondBr(test->getRawValue(), ifTrue, endIf);
+    createBoolCondBr(test, ifTrue, endIf);
     Builder.SetInsertPoint(ifTrue);
     codeGen_initial(jsonNode["bodies"][0]);
     Builder.CreateBr(endIf);
@@ -595,7 +587,7 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
     llvm::BasicBlock *ifFalse =
         llvm::BasicBlock::Create(currContext, "ifFalse");
     endIf = llvm::BasicBlock::Create(currContext, "endif");
-    createBoolCondBr(test->getRawValue(), ifTrue, ifFalse);
+    createBoolCondBr(test, ifTrue, ifFalse);
     // if true codegen
     pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
     Builder.SetInsertPoint(ifTrue);
@@ -631,13 +623,13 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
 llvm::Value *AstWalker::createGlobalFunctionConst(const std::string &funcName,
                                                   CompileVal *func) {
   llvm::Function *initValue =
-      dynamic_cast<llvm::Function *>(func->getRawValue());
+      static_cast<llvm::Function *>(func->getRawValue());
   ScopeNode *globalScope =
-      scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE);
+      scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE); 
 
   llvm::GlobalVariable *result = new llvm::GlobalVariable(
       *currModule, initValue->getType(), false,
-      llvm::GlobalValue::PrivateLinkage, initValue, funcName);
+      llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName); 
   globalScope->setNamedVal(funcName,
                            new CompileVal(result, func->getCompileType()), 0);
 
@@ -736,10 +728,9 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
       // list->insertArgumentType(listType);
       // XXX generic type needs to be made concrete here.
     }
-    createLangCall(createVtableAccess(list, "set"),
-                   {list, createLiteral(CompileType::CommonType::INT,
-                                        codeGenHelper->getConstInt64(i, false)),
-                    list_el});
+    createClassMethodCall("set", list,
+        {createLiteral(CompileType::CommonType::INT, codeGenHelper->getConstInt64(i, false)),
+          list_el});
   }
 
   return list;
@@ -765,8 +756,7 @@ CompileVal *AstWalker::codeGen_UnOp(Json::Value &jsonNode) {
     GEN_FAIL("Unimplemented unary operator type " + op);
   }
   CompileVal *atomExpr = codeGen_AtomOp(jsonNode["atom"]);
-  CompileVal *vtableFunc = createVtableAccess(atomExpr, opFuncPrefix);
-  return createLangCall(vtableFunc, {atomExpr});
+  return createClassMethodCall(opFuncPrefix, atomExpr);
 }
 
 CompileVal *AstWalker::codeGen_ListGen(Json::Value &jsonNode) {
@@ -814,6 +804,15 @@ Json::Value AstWalker::generateFromJson(std::string jsonString) {
 CompileVal *AstWalker::createLiteral(CompileType::CommonType commonType,
                                      llvm::Value *raw_value) {
   return createLiteral(CompileType::getCommonTypeName(commonType), raw_value);
+}
+
+CompileVal *AstWalker::createClassMethodCall(const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args) {
+  CompileVal* func = createVtableAccess(thisObj, methodName);
+  std::vector<CompileVal*> newArgs = {thisObj};
+  for(auto el : args) {
+    newArgs.push_back(el);
+  }
+  return createLangCall(func, newArgs);
 }
 
 CompileVal *AstWalker::createLiteral(const std::string &typeName,
