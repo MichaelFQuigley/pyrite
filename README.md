@@ -28,11 +28,9 @@ func main()
 More examples are in the Parser/tests directory.
 
 ###Building/Running
-This has just been tested on Ubuntu 14.04.  
+This has just been tested on Ubuntu 14.04 and El Capitan.  
 ####Prerequisites
- 0. The [jsoncpp](https://github.com/open-source-parsers/jsoncpp) headers.
- 0. libtinfo
- 0. llvm-config-3.6 and lli-3.6
+ 0. llvm-config-3.6, lli-3.6, llvm-link-3.6, llvm-dis-3.6, opt-3.6
  0. OCaml
  0. clang/++ version 3.6.x
  
