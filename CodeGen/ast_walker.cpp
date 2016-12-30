@@ -74,10 +74,12 @@ CompileType *AstWalker::makeCompileType(Json::Value &jsonNode) {
   if (jsonNode["simple"] != Json::nullValue) {
     result = getCompileType(jsonNode["simple"].asString());
   } else if (jsonNode["list_type"] != Json::nullValue) {
-    // XXX compile type should be copied here.
     result = getCompileType(
         CompileType::getCommonTypeName(CompileType::CommonType::LIST));
-    result->insertArgumentsList(makeCompileType(jsonNode["list_type"]));
+    // Make list generic type concrete.
+    result = CompileType::implementGeneric("T",
+        makeCompileType(jsonNode["list_type"]),
+        result);
   } else {
     cout << jsonNode << endl;
     GEN_FAIL("Unimplemented compile type for makeCompileType");
@@ -117,7 +119,6 @@ CompileVal *AstWalker::makeFuncProto(Json::Value &jsonNode) {
 
   CompileVal *result = new CompileVal(func, CompileType::CommonType::FUNCTION);
   result->setArgumentsList(compileArgs);
-
   return result;
 }
 
@@ -220,7 +221,7 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
     GEN_ASSERT(
         result->getCompileType()->isCompatibleWithType(rhs->getCompileType()),
         "Type on rhs is not compatible with lhs in assignment of " +
-            var_val->getCompileType()->getTypeName() + " " + id_name + ".");
+            var_val->getCompileType()->getLongTypeName() + " " + id_name + ".");
     Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
     argsV.push_back(Builder.CreateLoad(var_val->getRawValue()));
     argsV.push_back(codeGenHelper->getConstInt64(varIndex, false));
@@ -456,18 +457,18 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
   GEN_ASSERT(argsV.size() == funcProtoArgs.size() - 1,
              string("Number of arguments in function call must match.\n") +
                  "Expected " + to_string(funcProtoArgs.size() - 1) +
-                 " arguments, but received " + to_string(argsV.size()) + ".");
+                 " arguments, but received " + to_string(argsV.size()) + "\n"
+                 "in function " + func->getCompileType()->getLongTypeName());
 
   for (int i = 0; i < argsV.size(); i++) {
-    // TODO handle generics here
     const CompileType *funcProtoArgType = funcProtoArgs[i]->isGenericType()
                                               ? funcProtoArgs[i]->getParent()
                                               : funcProtoArgs[i];
     GEN_ASSERT(
         CompileType::isTypeOrSubtype(argsV[i]->getCompileType(), funcProtoArgType),
         (std::string)"Types used in call to function do not match function prototype."
-        + "\nExpected " + funcProtoArgs[i]->getTypeName()
-        + "\nGot " + argsV[i]->getCompileType()->getTypeName());
+        + "\nExpected " + funcProtoArgType->getLongTypeName()
+        + "\nGot " + argsV[i]->getCompileType()->getLongTypeName());
 
     nativeArgs.push_back(argsV[i]->getRawValue());
   }
@@ -723,9 +724,10 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
     CompileVal *list_el = codeGen_initial(jsonNode[i]);
     // Initialize list type.
     if (i == 0) {
-      listType = list_el->getCompileType();
-      // list->insertArgumentType(listType);
-      // XXX generic type needs to be made concrete here.
+      // Make generic list parameter concrete here.
+      list->setCompileType(
+          CompileType::implementGeneric(
+            "T", list_el->getCompileType(), list->getCompileType()));
     }
     createClassMethodCall("set", list,
         {createLiteral(CompileType::CommonType::INT, codeGenHelper->getConstInt64(i, false)),

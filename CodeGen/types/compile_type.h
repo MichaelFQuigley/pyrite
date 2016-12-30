@@ -33,6 +33,23 @@ class CompileType {
   std::vector<CompileType*> typeArgumentsList;
   std::vector<TypeMember*> fields;
   std::vector<TypeMember*> methods;
+  /*
+   * findGeneric:
+   * Returns true iff there is a generic type in containingClass
+   * that matches name 'genericName'.
+   */
+  static bool hasGeneric(
+      CompileType const * containingClass, const std::string& genericName);
+
+  /*
+   * implementGenericHelper:
+   * See implementGeneric.
+   */
+  static CompileType * implementGenericHelper(
+    const std::string& genericName,
+    CompileType * concreteType,
+    CompileType const * containingClass,
+    std::map<std::string, CompileType*>* nameToImplementedType);
 
  public:
   enum class CommonType {
@@ -48,7 +65,7 @@ class CompileType {
   };
 
   CompileType();
-  //  CompileType(const CompileType& compileType);
+  CompileType(const CompileType& compileType);
   CompileType(const std::string& typeName);
   CompileType(const std::string& typeName, bool isGeneric);
   CompileType(CommonType commonType);
@@ -85,6 +102,25 @@ class CompileType {
    * exist.
    */
   CompileType* getGenericType(const std::string& genericName) const;
+
+  /*
+   * implementGeneric:
+   * Makes a generic type concrete in a given class. This should not be used during
+   * class creation since copies of types are made, so if a type isn't completed, then
+   * if a copy of the type is made, it would be incomplete.
+   * genericName - The name of the generic to replace with a concrete type.
+   * concreteType - The type that will replace the generic.
+   * containingClass - The class that contains the generic parameter.
+   * 
+   * Returns a new type with the generic parameter replaced with the concrete type.
+   * For example:
+   * If we have List<T>, then we could get a List<Int> by invoking
+   * implementGeneric("T", theIntType, theListType);
+   */
+  static CompileType * implementGeneric(
+      const std::string& genericName,
+      CompileType * concreteType,
+      CompileType const * containingClass);
 
   /*
    * getCommonTypeName:
@@ -166,6 +202,11 @@ class CompileType {
                                                llvm::LLVMContext& currContext,
                                                bool includeThisPointer = false);
 
+  /*
+   * getLongTypeName:
+   * Returns typename with generic parameters.
+   */
+  std::string getLongTypeName() const;
   std::string to_string() const;
   static std::string to_string(const CompileType& compileType);
   static std::string to_string(CompileType* compileType);

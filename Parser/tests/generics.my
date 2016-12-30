@@ -1,0 +1,15 @@
+func printList(obj: [Int]) {
+  let result = "["
+  let currInd = 0
+  for(el in obj) {
+    result += el.str() + (if(currInd < obj.size() - 1) ", " else "")
+    currInd += 1
+  }
+  result += "]"
+  println(result)
+}
+
+func main() {
+  let l:[Int] = [0,0] + [1]
+  printList(l)
+}

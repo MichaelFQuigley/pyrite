@@ -1,19 +1,17 @@
 func chainCount(n:Int) -> Int
     if( n == 1 ) 0 else 1 + chainCount( if(n%2 == 0) n/2 else n*3 + 1 )
 
-func collatz(min:Int, max:Int) -> [Base]
+func collatz(min:Int, max:Int) -> [Int]
 {
-    let mNumCount = [0,0]
-    for( curr_num in min..(max + 1) )
-        mNumCount      = if( chainCount(curr_num) > mNumCount[1] ) [curr_num, chainCount(curr_num)] 
-                         else mNumCount
+   let mNumCount = [0,0]
+   for( curr_num in min..(max + 1) )
+       mNumCount      = if( chainCount(curr_num) > mNumCount[1] ) [curr_num, chainCount(curr_num)] 
+                        else mNumCount
    mNumCount
 }
 
 func main()
 {
     let result = collatz(1, 1_000_000)
-    let neg = 0
-    println("Resulting number is " + result[0].str()
-            + ", max count is " + result[1].str())
+    println("Resulting number is " + result[0].str() + ", max count is " + result[1].str())
 }
