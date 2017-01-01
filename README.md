@@ -20,8 +20,8 @@ func collatz(min:Int, max:Int) -> [Int]
 func main()
 {
     let result = collatz(1, 1_000_000)
-    println("Resulting number is " + String_Int(result[0]) 
-            + ", max count is " + String_Int(result[1]))
+    println("Resulting number is " + result[0].str()
+            + ", max count is " + result[1].str())
 }
 ```
 
