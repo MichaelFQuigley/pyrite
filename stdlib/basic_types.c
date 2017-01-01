@@ -8,7 +8,7 @@
 #include "fast_malloc.h"
 #include "basic_types.h"
 
-#define NUM_PREALLOC_INTS 256
+#define NUM_PREALLOC_INTS 2048
 #define NUM_PREALLOC_BOOLS 2
 
 static void* prealloc_ints[NUM_PREALLOC_INTS];
@@ -16,34 +16,34 @@ static void* prealloc_bools[NUM_PREALLOC_BOOLS];
 
 #define VTABLE_BASE(TYPENAME) init_##TYPENAME, String_##TYPENAME
 
-void* vtable_Base[] = {VTABLE_BASE(Base)};
+static void* const vtable_Base[] = {VTABLE_BASE(Base)};
 
-void* vtable_Int[] = {
+static void* const vtable_Int[] = {
     VTABLE_BASE(Int), neg_Int,   add_Int,   sub_Int,   mul_Int,   div_Int,
     cmplt_Int,        cmple_Int, cmpne_Int, cmpgt_Int, cmpge_Int, cmpeq_Int,
     mod_Int,          and_Int,   or_Int,    xor_Int,
 };
 
-void* vtable_Float[] = {
+static void* const vtable_Float[] = {
     VTABLE_BASE(Float), neg_Float,   add_Float,   sub_Float,
     mul_Float,          div_Float,   cmplt_Float, cmple_Float,
     cmpne_Float,        cmpgt_Float, cmpge_Float, cmpeq_Float,
 };
 
-void* vtable_String[] = {
+static void* const vtable_String[] = {
     VTABLE_BASE(String), add_String,
 };
 
-void* vtable_Bool[] = {VTABLE_BASE(Bool), and_Bool, or_Bool, xor_Bool};
+static void* const vtable_Bool[] = {VTABLE_BASE(Bool), and_Bool, or_Bool,
+                                    xor_Bool};
 
-void* vtable_IntRange[] = {
+static void* const vtable_IntRange[] = {
     VTABLE_BASE(IntRange), hasNext_IntRange, next_IntRange, begin_IntRange,
 };
 
-void* vtable_List[] = {
-    VTABLE_BASE(List), hasNext_List, next_List, begin_List,
-    set_List,          get_List,     add_List, size_List
-};
+static void* const vtable_List[] = {VTABLE_BASE(List), hasNext_List, next_List,
+                                    begin_List,        set_List,     get_List,
+                                    add_List,          size_List};
 
 void* indexIntoVtable(void* obj, int64_t vtableIndex) {
   return (((Base*)obj)->vtable)[vtableIndex];
@@ -51,12 +51,14 @@ void* indexIntoVtable(void* obj, int64_t vtableIndex) {
 
 int initialize_types(void) {
   for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_INTS; raw_value++) {
-    CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, prealloced_int)
+    CREATE_PRIMITIVE_INIT_BLOCK_(Int, int64_t, prealloced_int,
+                                 true /* reserve */)
     prealloc_ints[raw_value] = prealloced_int;
   }
 
   for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_BOOLS; raw_value++) {
-    CREATE_PRIMITIVE_INIT_BLOCK(Bool, bool, prealloced_bool);
+    CREATE_PRIMITIVE_INIT_BLOCK_(Bool, bool, prealloced_bool,
+                                 true /* reserve */)
     prealloc_bools[raw_value] = prealloced_bool;
   }
 
@@ -315,7 +317,20 @@ void* add_List(void* this_obj, void* other_list) {
 }
 
 void* String_List(void* this) {
-  return init_String("String_List not implemented!");
+  List* list = (List*)this;
+  String* str = init_String("[");
+  String* comma = init_String(", ");
+
+  for (int i = 0; i < list->size; i++) {
+    void* list_el = get_List(list, init_Int(i));
+    str = add_String(str, ((void* (*)(void*))indexIntoVtable(
+                              list_el, TO_STRING_VTABLE_INDEX))(list_el));
+    if (i < list->size - 1) {
+      str = add_String(str, comma);
+    }
+  }
+  str = add_String(str, init_String("]"));
+  return str;
 }
 
 void uninit_List(void* this) { fast_free(((List*)this)->raw_value); }
@@ -350,7 +365,4 @@ void* begin_List(void* this) {
   }
 }
 
-void* size_List(void* this) {
-  return init_Int(((List*)this)->size);
-}
-
+void* size_List(void* this) { return init_Int(((List*)this)->size); }

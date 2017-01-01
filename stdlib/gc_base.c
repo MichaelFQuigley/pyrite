@@ -48,11 +48,6 @@ static inline void remove_node(gc_base_t* node, int generation) {
             "Trying to delete an object not in the list.");
 
   node->prev->next = node->next;
-
-  if (node->next) {
-    node->next->prev = node->prev;
-  }
-
   gc_list[generation].size--;
 }
 
@@ -135,6 +130,10 @@ static inline void sweep(int generation) {
       gc_list[generation].size = 0;
       old_gen_tail->prev = old_gen_head;
       old_gen_head->next = old_gen_tail;
+
+      if (should_garbage_collect(generation + 1)) {
+        sweep(generation + 1);
+      }
     }
   }
 }
@@ -157,12 +156,7 @@ static void gc_mark_and_sweep(void) {
     }
   }
 
-  sweep(0);
-  for (int i = 1; i < NUM_GENERATIONS; i++) {
-    if ((gc_count % (i * 2) == 0) && should_garbage_collect(i)) {
-      sweep(i);
-    }
-  }
+  sweep(0);  // Sweep starting at new generation.
 
   gc_count++;
 }
@@ -179,7 +173,19 @@ int gc_init(void) {
   return 0;
 }
 
-void* gc_malloc(size_t size) {
+// Checks the newest generation to see if a garbage collection job should
+// happen.
+// If so, then a job is initiated.
+static void gc_check(void) {
+  if (should_garbage_collect(0)) {
+    gc_mark_and_sweep();
+  }
+}
+
+void* gc_malloc(size_t size) { return gc_malloc_reserve(size, false); }
+
+void* gc_malloc_reserve(size_t size, bool is_reserved) {
+  gc_check();
   gc_base_t* base = (gc_base_t*)fast_malloc(sizeof(gc_base_t) + size);
   void* raw_obj = ((void*)base) + sizeof(gc_base_t);
   if (!base) {
@@ -188,18 +194,20 @@ void* gc_malloc(size_t size) {
 
   lang_core_set_obj_is_marked(base, 0);
 
-  // add to stack
-  GC_ASSERT(gc_stack.curr_index < MAX_STACK_SIZE &&
-            "Out of memory in virtual stack.");
-  GC_ASSERT(gc_stack.curr_index >= 0 && "Virtual stack underflow.");
-  gc_stack.stack[gc_stack.curr_index] = base;
-  gc_stack.curr_index++;
+  if (!is_reserved) {  // Only track object if it isn't in the reserved set.
+    // add to stack
+    GC_ASSERT(gc_stack.curr_index < MAX_STACK_SIZE &&
+              "Out of memory in virtual stack.");
+    GC_ASSERT(gc_stack.curr_index >= 0 && "Virtual stack underflow.");
+    gc_stack.stack[gc_stack.curr_index] = base;
+    gc_stack.curr_index++;
 
-  // update scope stack
-  gc_scope_stack.stack[gc_scope_stack.curr_index].num_anon_vars++;
+    // update scope stack
+    gc_scope_stack.stack[gc_scope_stack.curr_index].num_anon_vars++;
 
-  // add to linked list
-  add_node(base, 0);
+    // add to linked list
+    add_node(base, 0);
+  }
 
   return raw_obj;
 }
@@ -220,12 +228,6 @@ void gc_push_func_scope(uint64_t num_named_vars_in_scope) {
   }
 }
 
-void gc_check(void) {
-  if (should_garbage_collect(0)) {
-    gc_mark_and_sweep();
-  }
-}
-
 void gc_push_loop_scope(void) {
   GC_ASSERT(gc_scope_stack.curr_index < MAX_SCOPE_DEPTH - 1 &&
             gc_scope_stack.curr_index >= 0 && "Scope too deep!");
@@ -239,8 +241,6 @@ void gc_push_loop_scope(void) {
 
 void gc_pop_scope(void) {
   GC_ASSERT(gc_scope_stack.curr_index > 0 && "Scope stack undeflow!");
-
-  gc_check();
 
   gc_scope_stack_el_t* scope_el = get_scope_stack_top();
   uint64_t num_alloced_in_scope = scope_el->num_anon_vars;

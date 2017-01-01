@@ -77,9 +77,8 @@ CompileType *AstWalker::makeCompileType(Json::Value &jsonNode) {
     result = getCompileType(
         CompileType::getCommonTypeName(CompileType::CommonType::LIST));
     // Make list generic type concrete.
-    result = CompileType::implementGeneric("T",
-        makeCompileType(jsonNode["list_type"]),
-        result);
+    result = CompileType::implementGeneric(
+        "T", makeCompileType(jsonNode["list_type"]), result);
   } else {
     cout << jsonNode << endl;
     GEN_FAIL("Unimplemented compile type for makeCompileType");
@@ -134,13 +133,15 @@ CompileVal *AstWalker::codeGen_VarDef(Json::Value &jsonNode) {
     CompileType *annotatedType =
         makeCompileType(tempNode["var"]["TypedArg"]["type"]);
     CompileVal *rhs_expr = codeGen_initial(tempNode["expr"]);
-    GEN_ASSERT(
-        CompileType::isTypeOrSubtype(rhs_expr->getCompileType(), annotatedType),
-        "Annotated type is not compatible with type on right hand side!");
-    rhs_expr->setCompileType(annotatedType);
     GEN_ASSERT(rhs_expr != nullptr,
                "Invalid assignment to rhs of variable definition.");
-    newVarInScope(varName, rhs_expr);
+    GEN_ASSERT(CompileType::lhsTypeCanReplaceRhsType(
+                   annotatedType, rhs_expr->getCompileType()),
+               "Annotated type " + annotatedType->getLongTypeName() +
+                   " is not compatible with type on right hand side: " +
+                   rhs_expr->getCompileType()->getLongTypeName());
+    newVarInScope(varName,
+                  new CompileVal(rhs_expr->getRawValue(), annotatedType));
   } else if (jsonNode_has(jsonNode, "definition_infer", &tempNode)) {
     std::string varName = tempNode["name"].asString();
     CompileVal *rhs_expr = codeGen_initial(tempNode["expr"]);
@@ -218,10 +219,11 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
     std::vector<llvm::Value *> argsV;
     uint64_t varIndex = scopeHelper->getNamedValInd(id_name);
 
-    GEN_ASSERT(
-        result->getCompileType()->isCompatibleWithType(rhs->getCompileType()),
-        "Type on rhs is not compatible with lhs in assignment of " +
-            var_val->getCompileType()->getLongTypeName() + " " + id_name + ".");
+    GEN_ASSERT(CompileType::lhsTypeCanReplaceRhsType(result->getCompileType(),
+                                                     rhs->getCompileType()),
+               "Type on rhs is not compatible with lhs in assignment of " +
+                   var_val->getCompileType()->getLongTypeName() + " " +
+                   id_name + ".");
     Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
     argsV.push_back(Builder.CreateLoad(var_val->getRawValue()));
     argsV.push_back(codeGenHelper->getConstInt64(varIndex, false));
@@ -352,7 +354,8 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
                "Start and end type for range must be the same.");
     CompileType *iteratedType = start->getCompileType();
     // XXX assumes only IntRange for now.
-    CompileType *rangeType = getCompileType(iteratedType->getTypeName() + "Range");
+    CompileType *rangeType =
+        getCompileType(iteratedType->getTypeName() + "Range");
     rangeType->insertArgumentsList(iteratedType);
 
     llvm::Value *init_RangeResult = createNativeCall(
@@ -457,8 +460,10 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
   GEN_ASSERT(argsV.size() == funcProtoArgs.size() - 1,
              string("Number of arguments in function call must match.\n") +
                  "Expected " + to_string(funcProtoArgs.size() - 1) +
-                 " arguments, but received " + to_string(argsV.size()) + "\n"
-                 "in function " + func->getCompileType()->getLongTypeName());
+                 " arguments, but received " + to_string(argsV.size()) +
+                 "\n"
+                 "in function " +
+                 func->getCompileType()->getLongTypeName());
 
   for (int i = 0; i < argsV.size(); i++) {
     const CompileType *funcProtoArgType = funcProtoArgs[i]->isGenericType()
@@ -487,7 +492,8 @@ llvm::Value *AstWalker::createNativeCall(
 
 void AstWalker::createBoolCondBr(CompileVal *Bool, llvm::BasicBlock *trueBlock,
                                  llvm::BasicBlock *falseBlock) {
-  llvm::Value *raw_bool = createNativeCall("rawVal_Bool", {Bool->getRawValue()});
+  llvm::Value *raw_bool =
+      createNativeCall("rawVal_Bool", {Bool->getRawValue()});
 
   Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
 }
@@ -513,7 +519,7 @@ CompileVal *AstWalker::codeGen_ForOp(Json::Value &jsonNode) {
   Builder.CreateBr(loopTop);
   Builder.SetInsertPoint(loopTop);
 
-  CompileVal* hasNext = createClassMethodCall(itt_hasNextFuncName, itt);
+  CompileVal *hasNext = createClassMethodCall(itt_hasNextFuncName, itt);
   createBoolCondBr(hasNext, loopBody, loopBottom);
   // loop body
   startBlock(loopBody);
@@ -625,11 +631,11 @@ llvm::Value *AstWalker::createGlobalFunctionConst(const std::string &funcName,
   llvm::Function *initValue =
       static_cast<llvm::Function *>(func->getRawValue());
   ScopeNode *globalScope =
-      scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE); 
+      scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE);
 
   llvm::GlobalVariable *result = new llvm::GlobalVariable(
       *currModule, initValue->getType(), true /* is constant */,
-      llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName); 
+      llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName);
   globalScope->setNamedVal(funcName,
                            new CompileVal(result, func->getCompileType()), 0);
 
@@ -692,9 +698,12 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
     createReturn(nullptr);
   } else {
     // XXX Assumes return type specified in function proto is complete.
-    GEN_ASSERT(
-        CompileType::isTypeOrSubtype(returnVal->getCompileType(), returnType),
-        "Return type for function " + funcName + " is incorrect.");
+    GEN_ASSERT(CompileType::lhsTypeCanReplaceRhsType(
+                   returnType, returnVal->getCompileType()),
+               "Return type for function " + funcName + " is incorrect.\n" +
+                   "Expected: " + returnType->getLongTypeName() +
+                   "\nBut got: " +
+                   returnVal->getCompileType()->getLongTypeName());
     createReturn(returnVal);
   }
 
@@ -725,13 +734,13 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
     // Initialize list type.
     if (i == 0) {
       // Make generic list parameter concrete here.
-      list->setCompileType(
-          CompileType::implementGeneric(
-            "T", list_el->getCompileType(), list->getCompileType()));
+      list->setCompileType(CompileType::implementGeneric(
+          "T", list_el->getCompileType(), list->getCompileType()));
     }
-    createClassMethodCall("set", list,
-        {createLiteral(CompileType::CommonType::INT, codeGenHelper->getConstInt64(i, false)),
-          list_el});
+    createClassMethodCall(
+        "set", list, {createLiteral(CompileType::CommonType::INT,
+                                    codeGenHelper->getConstInt64(i, false)),
+                      list_el});
   }
 
   return list;
@@ -808,10 +817,11 @@ CompileVal *AstWalker::createLiteral(CompileType::CommonType commonType,
 }
 
 CompileVal *AstWalker::createClassMethodCall(
-    const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args) {
-  CompileVal* func = createVtableAccess(thisObj, methodName);
-  std::vector<CompileVal*> newArgs = {thisObj};
-  for(auto el : args) {
+    const std::string &methodName, CompileVal *thisObj,
+    const std::vector<CompileVal *> &args) {
+  CompileVal *func = createVtableAccess(thisObj, methodName);
+  std::vector<CompileVal *> newArgs = {thisObj};
+  for (auto el : args) {
     newArgs.push_back(el);
   }
   return createLangCall(func, newArgs);
@@ -841,4 +851,4 @@ CompileType *AstWalker::getCompileType(const std::string &typeName) {
              "Type " + typeName + " not found.");
   return moduleTypes[typeName];
 }
-} // namespace codegen
+}  // namespace codegen

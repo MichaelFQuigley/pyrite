@@ -10,7 +10,7 @@ std::string CompileType::BASE_TYPE_STRUCT_NAME = "Base";
 
 CompileType::CompileType() {}
 
-CompileType::CompileType(const CompileType& compileType) {
+CompileType::CompileType(const CompileType &compileType) {
   this->typeName = compileType.typeName;
   this->parent = compileType.parent;
   this->isGeneric = compileType.isGeneric;
@@ -46,74 +46,80 @@ void CompileType::addField(const std::string &name, CompileType *fieldType) {
   this->fields.push_back(new TypeMember(name, fieldType));
 }
 
-CompileType * CompileType::implementGenericHelper(
-    const std::string& genericName,
-    CompileType * concreteType,
-    CompileType const * containingClass,
-    std::map<std::string, CompileType*>* nameToImplementedType) {
-  // If there is no generic type to implement, just return original containing class
+CompileType *CompileType::implementGenericHelper(
+    const std::string &genericName, CompileType *concreteType,
+    CompileType const *containingClass,
+    std::map<std::string, CompileType *> *nameToImplementedType) {
+  // If there is no generic type to implement, just return original containing
+  // class
   // since nothing needs to be copied.
   if (!CompileType::hasGeneric(containingClass, genericName)) {
     // TODO use something better than const cast.
-    return const_cast<CompileType*>(containingClass);
+    return const_cast<CompileType *>(containingClass);
   }
   // Check map to see if we have already made this type concrete.
-  if (containingClass->getTypeName() != CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION)
-      && nameToImplementedType->find(containingClass->getTypeName()) != nameToImplementedType->end()) {
+  if (containingClass->getTypeName() !=
+          CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION) &&
+      nameToImplementedType->find(containingClass->getTypeName()) !=
+          nameToImplementedType->end()) {
     return (*nameToImplementedType)[containingClass->getTypeName()];
   }
-  // Copy containing class into class that will be returned. 
-  CompileType* resultType = new CompileType(*containingClass);
+  // Copy containing class into class that will be returned.
+  CompileType *resultType = new CompileType(*containingClass);
   (*nameToImplementedType)[resultType->getTypeName()] = resultType;
 
   // Find generics to replace with concrete type in type arguments.
   for (int i = 0; i < resultType->typeArgumentsList.size(); i++) {
-    CompileType* testType = resultType->typeArgumentsList[i]; 
+    CompileType *testType = resultType->typeArgumentsList[i];
     if (testType->getTypeName() == genericName) {
       // Concrete type must be able to implement generic parameter.
       if (!CompileType::typeImplementsGeneric(concreteType, testType)) {
-        throw std::runtime_error("Generic parameter " + genericName + " cannot be"
-            + " implemented by type: " + concreteType->to_string());
+        throw std::runtime_error("Generic parameter " + genericName +
+                                 " cannot be" + " implemented by type: " +
+                                 concreteType->to_string());
       }
       resultType->typeArgumentsList[i] = concreteType;
     } else if (CompileType::hasGeneric(testType, genericName)) {
       if (testType->getTypeName() == containingClass->getTypeName()) {
-        resultType->typeArgumentsList[i] = const_cast<CompileType*>(containingClass);
+        resultType->typeArgumentsList[i] =
+            const_cast<CompileType *>(containingClass);
       } else {
-        resultType->typeArgumentsList[i] = CompileType::implementGenericHelper(genericName, concreteType, testType, nameToImplementedType);
+        resultType->typeArgumentsList[i] = CompileType::implementGenericHelper(
+            genericName, concreteType, testType, nameToImplementedType);
       }
     }
   }
   // Find generics to replace in methods list.
   for (int i = 0; i < resultType->methods.size(); i++) {
-    TypeMember* testMember = resultType->methods[i];
-    if(CompileType::hasGeneric(testMember->getMemberType(), genericName)) {
-      resultType->methods[i]
-        = new TypeMember(testMember->getMemberName(),
-            CompileType::implementGenericHelper(
-              genericName, concreteType, testMember->getMemberType(), nameToImplementedType));
+    TypeMember *testMember = resultType->methods[i];
+    if (CompileType::hasGeneric(testMember->getMemberType(), genericName)) {
+      resultType->methods[i] = new TypeMember(
+          testMember->getMemberName(),
+          CompileType::implementGenericHelper(genericName, concreteType,
+                                              testMember->getMemberType(),
+                                              nameToImplementedType));
     }
   }
   // Find generics to replace in fields list.
   for (int i = 0; i < resultType->fields.size(); i++) {
-    TypeMember* testMember = resultType->fields[i];
-    if(CompileType::hasGeneric(testMember->getMemberType(), genericName)) {
-      resultType->fields[i]
-        = new TypeMember(testMember->getMemberName(),
-            CompileType::implementGenericHelper(
-              genericName, concreteType, testMember->getMemberType(), nameToImplementedType));
+    TypeMember *testMember = resultType->fields[i];
+    if (CompileType::hasGeneric(testMember->getMemberType(), genericName)) {
+      resultType->fields[i] = new TypeMember(
+          testMember->getMemberName(),
+          CompileType::implementGenericHelper(genericName, concreteType,
+                                              testMember->getMemberType(),
+                                              nameToImplementedType));
     }
   }
   return resultType;
 }
 
-CompileType* CompileType::implementGeneric(
-    const std::string& genericName,
-    CompileType * concreteType,
-    CompileType const * containingClass) {
-  std::map<std::string, CompileType*> nameToImplementedType;
-  return implementGenericHelper(
-      genericName, concreteType, containingClass, &nameToImplementedType);
+CompileType *CompileType::implementGeneric(const std::string &genericName,
+                                           CompileType *concreteType,
+                                           CompileType const *containingClass) {
+  std::map<std::string, CompileType *> nameToImplementedType;
+  return implementGenericHelper(genericName, concreteType, containingClass,
+                                &nameToImplementedType);
 }
 
 void CompileType::addGeneric(const std::string &genericName,
@@ -121,13 +127,13 @@ void CompileType::addGeneric(const std::string &genericName,
   this->insertArgumentsList(CompileType::makeGenericParam(genericName, parent));
 }
 
-bool CompileType::hasGeneric(
-    CompileType const * containingClass, const std::string& genericName) {
+bool CompileType::hasGeneric(CompileType const *containingClass,
+                             const std::string &genericName) {
   for (auto typeArg : containingClass->typeArgumentsList) {
     if (typeArg->getTypeName() == genericName && typeArg->isGenericType()) {
       return true;
     }
-    if(hasGeneric(typeArg, genericName)) {
+    if (hasGeneric(typeArg, genericName)) {
       return true;
     }
   }
@@ -240,7 +246,8 @@ void CompileType::setArgumentsList(std::vector<CompileType *> *argsList) {
   typeArgumentsList = *argsList;
 }
 
-bool CompileType::isEqualToType(CompileType const *testType) const {
+bool CompileType::isEqualToType(CompileType const *testType,
+                                bool checkGenericArgs) const {
   if (testType == nullptr) {
     return false;
   }
@@ -248,70 +255,71 @@ bool CompileType::isEqualToType(CompileType const *testType) const {
   if (this->typeName != testType->typeName) {
     return false;
   }
-  std::vector<CompileType *> const *argsTypeA = this->getArgumentsList();
-  std::vector<CompileType *> const *argsTypeB = testType->getArgumentsList();
-  if (argsTypeA->size() != argsTypeB->size()) {
-    return false;
-  }
-  for (int i = 0; i < argsTypeA->size(); i++) {
-    if (!((*argsTypeA)[i])->isEqualToType((*argsTypeB)[i])) {
+  if (checkGenericArgs) {
+    std::vector<CompileType *> const *argsTypeA = this->getArgumentsList();
+    std::vector<CompileType *> const *argsTypeB = testType->getArgumentsList();
+    if (argsTypeA->size() != argsTypeB->size()) {
       return false;
+    }
+    for (int i = 0; i < argsTypeA->size(); i++) {
+      if (!((*argsTypeA)[i])->isEqualToType((*argsTypeB)[i])) {
+        return false;
+      }
     }
   }
 
   return true;
 }
 
+bool CompileType::lhsTypeCanReplaceRhsType(CompileType const *lhsType,
+                                           CompileType const *rhsType) {
+  std::vector<CompileType *> const *lhsArgs = lhsType->getArgumentsList();
+  std::vector<CompileType *> const *rhsArgs = rhsType->getArgumentsList();
+  if (lhsArgs->size() !=
+      rhsArgs->size()) {  // Must have same number of generic parameters.
+    return false;
+  }
+  for (int i = 0; i < lhsArgs->size(); i++) {
+    CompileType *lhsArg = (*lhsArgs)[i];
+    CompileType *rhsArg = (*rhsArgs)[i];
+    if (rhsArg->isGenericType() && lhsArg->isGenericType() &&
+        !rhsArg->isEqualToType(
+            lhsArg)) {  // If both types are generic, they must be equal.
+      return false;
+    } else if (rhsArg->isGenericType()) {
+      // If just rhs is generic, lhs must implement it.
+      if (!CompileType::typeImplementsGeneric(lhsArg, rhsArg)) {
+        return false;
+      }
+    } else if (lhsArg->isGenericType()) {
+      // Rhs must also be generic if lhs is generic, so just return false.
+      return false;
+    } else if (!CompileType::lhsTypeCanReplaceRhsType(lhsArg, rhsArg)) {
+      // Else, neither type is generic, so check to see if
+      return false;
+    }
+  }
+  return CompileType::isTypeOrSubtype(rhsType, lhsType,
+                                      false /* checkGenericArgs */);
+}
+
 bool CompileType::isTypeOrSubtype(CompileType const *typeA,
-                                  CompileType const *typeB) {
-  return (typeA != nullptr) && (typeA->isEqualToType(typeB) ||
-                                isTypeOrSubtype(typeA->getParent(), typeB));
+                                  CompileType const *typeB,
+                                  bool checkGenericArgs) {
+  return (typeA != nullptr) &&
+         (typeA->isEqualToType(typeB, checkGenericArgs) ||
+          isTypeOrSubtype(typeA->getParent(), typeB, checkGenericArgs));
 }
 
 bool CompileType::typeImplementsGeneric(CompileType const *typeA,
                                         CompileType const *typeB) {
   if (typeA->isGenericType()) {
-    throw std::runtime_error("First argument is a generic type!");
-  }
-  if (!typeB->isGenericType()) {
-    throw std::runtime_error("Second argument is not a generic type!");
-  }
-  return CompileType::isTypeOrSubtype(typeA, typeB->getParent());
-}
-
-bool CompileType::isCompatibleWithType(CompileType *incompleteType) {
-  if (incompleteType == nullptr) {
-    return true;
-  }
-
-  if (incompleteType->typeName == this->typeName) {
-    std::vector<CompileType *> const *completeTypeArgs =
-        this->getArgumentsList();
-    std::vector<CompileType *> const *incompleteTypeArgs =
-        incompleteType->getArgumentsList();
-    size_t completeTypeNumArgs = completeTypeArgs->size();
-    size_t incompleteTypeNumArgs = incompleteTypeArgs->size();
-
-    // Function types must have same number of arguments.
-    if ((this->typeName == CompileType::getCommonTypeName(
-                               CompileType::CommonType::FUNCTION) &&
-         (completeTypeNumArgs != incompleteTypeNumArgs))
-        // Incomplete type should not be more complete than complete type.
-        ||
-        (incompleteTypeNumArgs > completeTypeNumArgs)) {
-      return false;
-    }
-
-    bool result = true;
-    for (int i = 0; i < incompleteTypeNumArgs; i++) {
-      result &= ((*completeTypeArgs)[i])
-                    ->isCompatibleWithType((*incompleteTypeArgs)[i]);
-    }
-
-    return result;
-  } else {
     return false;
   }
+  if (!typeB->isGenericType()) {
+    return false;
+  }
+  return CompileType::isTypeOrSubtype(typeA, typeB->getParent());
 }
 
 CompileType const *CompileType::getFunctionReturnType() const {
@@ -383,7 +391,7 @@ CompileType *CompileVal::getCompileType() { return &compileType; }
 
 std::string CompileType::getLongTypeName() const {
   std::string result = this->getTypeName();
-  if(!this->typeArgumentsList.empty()) {
+  if (!this->typeArgumentsList.empty()) {
     result += "<";
     for (CompileType *typeArg : this->typeArgumentsList) {
       result += typeArg->getLongTypeName() + ", ";
@@ -404,9 +412,9 @@ std::string CompileType::to_string() const {
   if (!this->methods.empty()) {
     result += "{methods: ";
     for (auto method : this->methods) {
-      CompileType const * methodProto = method->getMemberType();
+      CompileType const *methodProto = method->getMemberType();
       result += method->getMemberName() + "(";
-      for(auto typeArg : methodProto->typeArgumentsList) {
+      for (auto typeArg : methodProto->typeArgumentsList) {
         result += typeArg->getTypeName() + ", ";
       }
       result += "), ";

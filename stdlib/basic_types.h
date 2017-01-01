@@ -31,15 +31,19 @@
 #define CREATE_PRIMITIVE_INIT_FN_DECL(STRUCT_TYPE, RAW_TYPE) \
   void*(init_##STRUCT_TYPE)(RAW_TYPE raw_value);
 
-#define CREATE_PRIMITIVE_INIT_BLOCK(STRUCT_TYPE, RAW_TYPE, OBJ_OUT) \
-  STRUCT_TYPE* OBJ_OUT;                                             \
-  do {                                                              \
-    (OBJ_OUT) = (STRUCT_TYPE*)gc_malloc(sizeof(STRUCT_TYPE));       \
-    (OBJ_OUT)->raw_value = (RAW_TYPE)raw_value;                     \
-    (OBJ_OUT)->uninit = NULL;                                       \
-    (OBJ_OUT)->get_refs = NULL;                                     \
-    (OBJ_OUT)->vtable = vtable_##STRUCT_TYPE;                       \
+#define CREATE_PRIMITIVE_INIT_BLOCK_(STRUCT_TYPE, RAW_TYPE, OBJ_OUT, RESERVE) \
+  STRUCT_TYPE* OBJ_OUT;                                                       \
+  do {                                                                        \
+    (OBJ_OUT) =                                                               \
+        (STRUCT_TYPE*)gc_malloc_reserve(sizeof(STRUCT_TYPE), (RESERVE));      \
+    (OBJ_OUT)->raw_value = (RAW_TYPE)raw_value;                               \
+    (OBJ_OUT)->uninit = NULL;                                                 \
+    (OBJ_OUT)->get_refs = NULL;                                               \
+    (OBJ_OUT)->vtable = vtable_##STRUCT_TYPE;                                 \
   } while (0);
+
+#define CREATE_PRIMITIVE_INIT_BLOCK(STRUCT_TYPE, RAW_TYPE, OBJ_OUT) \
+  CREATE_PRIMITIVE_INIT_BLOCK_(STRUCT_TYPE, RAW_TYPE, OBJ_OUT, false)
 
 #define TO_STRING_VTABLE_INDEX 1
 
@@ -50,7 +54,7 @@
    * last element being a NULL value. It is the caller's responsibility \
    * to free the memory that is allocated by get_refs.*/                \
   void** (*get_refs)(void*);                                            \
-  void** vtable;
+  void* const* vtable;
 
 typedef struct Base { BASE_VALS } Base;
 

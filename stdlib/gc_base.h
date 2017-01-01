@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define MAX_STACK_SIZE (1 << 22)   // 4M objects
+#define MAX_STACK_SIZE (1 << 20)   // 1M objects
 #define MAX_SCOPE_DEPTH (1 << 10)  // 1024
 
 #define GC_DEBUG
@@ -95,7 +95,7 @@ static inline void lang_core_set_obj_is_marked(gc_base_t* this,
 /* gc_malloc
  *
  * Allocates sizeof(gc_base_t) gc wrapper around object and size bytes for
- *object
+ * object.
  * Adds new object into global linked list, and pushes pointer on stack.
  * Sets is_marked bit in flags field to 'false'.
  *
@@ -105,6 +105,14 @@ static inline void lang_core_set_obj_is_marked(gc_base_t* this,
  * Returns gc_base_t with raw_obj pointing to alloced memory
  */
 void* gc_malloc(size_t size);
+
+/*
+ * gc_malloc_reserve:
+ * Same as gc_malloc except a flag can be passed in to indicate
+ * whether an object is in the reserved set (i.e is_reserved = true
+ * if the object should never be garbage collected).
+ */
+void* gc_malloc_reserve(size_t size, bool is_reserved);
 
 // must be called externally before any other function
 int gc_init(void);
@@ -118,9 +126,4 @@ void gc_pop_scope(void);
 
 // sets value of var in scope
 void gc_set_named_var_in_scope(void* named_var, uint64_t index);
-
-// Checks the newest generation to see if a garbage collection job should
-// happen.
-// If so, then a job is initiated.
-void gc_check(void);
 #endif

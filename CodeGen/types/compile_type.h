@@ -38,18 +38,17 @@ class CompileType {
    * Returns true iff there is a generic type in containingClass
    * that matches name 'genericName'.
    */
-  static bool hasGeneric(
-      CompileType const * containingClass, const std::string& genericName);
+  static bool hasGeneric(CompileType const* containingClass,
+                         const std::string& genericName);
 
   /*
    * implementGenericHelper:
    * See implementGeneric.
    */
-  static CompileType * implementGenericHelper(
-    const std::string& genericName,
-    CompileType * concreteType,
-    CompileType const * containingClass,
-    std::map<std::string, CompileType*>* nameToImplementedType);
+  static CompileType* implementGenericHelper(
+      const std::string& genericName, CompileType* concreteType,
+      CompileType const* containingClass,
+      std::map<std::string, CompileType*>* nameToImplementedType);
 
  public:
   enum class CommonType {
@@ -104,23 +103,55 @@ class CompileType {
   CompileType* getGenericType(const std::string& genericName) const;
 
   /*
+   * lhsTypeCanReplaceRhsType:
+   * Returns true if the type passed in as lhsType can be used to replace
+   * the type passed in as rhsType. This is used for assignment and return
+   * values when the actual type is not totally figured out yet
+   * (for example when returning an empty list, it is not known
+   * what the type of the empty list would be unless we look at the
+   * return type of the method declaration.
+   * Ideally, we would want to treat the return type as the return type
+   * specified by the method declaration. If we wanted to know if this is
+   *possible,
+   * we could call lhsTypeCanReplaceRhsType(declarationReturnType,
+   *returnValueType)
+   * and replace the returnValueType with the declarationReturnType.)
+   * Examples that would return true:
+   *   lhsType = List<Int>
+   *   rhsType = List<T>
+   *   where 'T' is a generic parameter.
+   *
+   *   lhsType = SomeClass
+   *   rhsType = SomeDerivedClass
+   *   where SomeDerivedClass extends SomeClass.
+   *
+   * Examples that would return false:
+   *   lhsType = SomeDerivedClass
+   *   rhsType = SomeClass
+   */
+
+  static bool lhsTypeCanReplaceRhsType(CompileType const* lhsType,
+                                       CompileType const* rhsType);
+  /*
    * implementGeneric:
-   * Makes a generic type concrete in a given class. This should not be used during
-   * class creation since copies of types are made, so if a type isn't completed, then
+   * Makes a generic type concrete in a given class. This should not be used
+   *during
+   * class creation since copies of types are made, so if a type isn't
+   *completed, then
    * if a copy of the type is made, it would be incomplete.
    * genericName - The name of the generic to replace with a concrete type.
    * concreteType - The type that will replace the generic.
    * containingClass - The class that contains the generic parameter.
-   * 
-   * Returns a new type with the generic parameter replaced with the concrete type.
+   *
+   * Returns a new type with the generic parameter replaced with the concrete
+   *type.
    * For example:
    * If we have List<T>, then we could get a List<Int> by invoking
    * implementGeneric("T", theIntType, theListType);
    */
-  static CompileType * implementGeneric(
-      const std::string& genericName,
-      CompileType * concreteType,
-      CompileType const * containingClass);
+  static CompileType* implementGeneric(const std::string& genericName,
+                                       CompileType* concreteType,
+                                       CompileType const* containingClass);
 
   /*
    * getCommonTypeName:
@@ -147,31 +178,15 @@ class CompileType {
    * performs recursive type assertions to determine if
    * two types are the same.
    */
-  bool isEqualToType(CompileType const* testType) const;
-
-  /*
-   * isCompatibleWithType:
-   * Checks whether the incompleteType can be treated as the completeType
-   *(this).
-   * For example, if a complete type is List of Ints and the incomplete
-   * type is List, then this function will return true.
-   *
-   * If both types are complete and the same,
-   * then this function returns true.
-   *
-   * If the incomplete type itself is null, then this
-   * function returns true.
-   *
-   * If complete type is less complete than the incomplete type,
-   * this function returns false.
-   */
-  bool isCompatibleWithType(CompileType* incompleteType);
+  bool isEqualToType(CompileType const* testType,
+                     bool checkGenericArgs = true) const;
 
   /*
    * Returns true if typeA equals typeB, or if it is a subtype of typeB.
    */
   static bool isTypeOrSubtype(CompileType const* typeA,
-                              CompileType const* typeB);
+                              CompileType const* typeB,
+                              bool checkGenericArgs = true);
 
   /*
    * Returns true if typeA is an implemented type (not a generic type)
