@@ -50,7 +50,7 @@ Pyrite programs cannot link to other Pyrite files at the moment. All scoping is 
 Statements are not terminated by semicolons.
 
 ####Types
-There is currently no support for user-defined types. There is also currently no concept of inheritance or traits.
+There is currently no support for user-defined types.
  * Base - Base class
  * Bool : Base - Boolean (e.g. true)
  * Float : Base - Double precision floating point (e.g. 1.0)
