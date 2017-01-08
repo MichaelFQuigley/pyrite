@@ -20,8 +20,8 @@ func collatz(min:Int, max:Int) -> [Int]
 func main()
 {
     let result = collatz(1, 1_000_000)
-    println("Resulting number is " + String_Int(result[0]) 
-            + ", max count is " + String_Int(result[1]))
+    println("Resulting number is " + result[0].str()
+            + ", max count is " + result[1].str())
 }
 ```
 
@@ -50,13 +50,14 @@ Pyrite programs cannot link to other Pyrite files at the moment. All scoping is 
 Statements are not terminated by semicolons.
 
 ####Types
-There is currently no support for user-defined types. There is also currently no concept of inheritance or traits.
- * Bool - Boolean (e.g. true)
- * Float - Double precision floating point (e.g. 1.0)
- * Int - 64 bit signed integer (e.g. 1)
- * List - List of objects (e.g. [1,2])
- * String - ASCII string (e.g. "this is a string")
- * IntRange - An iterable int generator (e.g. 0..100)
+There is currently no support for user-defined types.
+ * Base - Base class
+ * Bool : Base - Boolean (e.g. true)
+ * Float : Base - Double precision floating point (e.g. 1.0)
+ * Int : Base - 64 bit signed integer (e.g. 1)
+ * List<T> : Base - List of objects (e.g. [1,2])
+ * String : Base - ASCII string (e.g. "this is a string")
+ * IntRange : Base - An iterable int generator (e.g. 0..100)
  * Void
 
 ####Functions
