@@ -49,6 +49,10 @@ void* indexIntoVtable(void* obj, int64_t vtableIndex) {
   return (((Base*)obj)->vtable)[vtableIndex];
 }
 
+void* indexIntoFields(void* obj, int64_t fieldIndex) {
+  return obj + sizeof(void*) * (fieldIndex + FIELD_START_INDEX);
+}
+
 int initialize_types(void) {
   for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_INTS; raw_value++) {
     CREATE_PRIMITIVE_INIT_BLOCK_(Int, int64_t, prealloced_int,
@@ -95,7 +99,7 @@ void* String_Int(void* int_val) {
   size_t buffer_size = 32;
   char* buffer = (char*)malloc(buffer_size);
   // TODO error checking for sprintf, maybe
-  snprintf(buffer, buffer_size, "%lld", ((Int*)int_val)->raw_value);
+  snprintf(buffer, buffer_size, "%ld", ((Int*)int_val)->raw_value);
 
   String* result = init_String(buffer);
   result->raw_is_on_heap = true;
@@ -237,7 +241,7 @@ void* String_IntRange(void* this) {
   size_t buffer_size = 64;
   char* buffer = (char*)malloc(buffer_size);
   // TODO error checking for sprintf, maybe
-  snprintf(buffer, buffer_size, "%lld..%lld..%lld",
+  snprintf(buffer, buffer_size, "%ld..%ld..%ld",
            ((Int*)(((IntRange*)this)->start))->raw_value,
            ((Int*)(((IntRange*)this)->step))->raw_value,
            ((Int*)(((IntRange*)this)->end))->raw_value);

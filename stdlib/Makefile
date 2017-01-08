@@ -4,12 +4,12 @@ STDLIB=stdlib
 C_FLAGS=-fno-strict-aliasing -Wall -S -O3 -emit-llvm -c
 
 all: | $(C_FILES) clean_ ll
-	llvm-link-3.6 $(LL_FILES) > $(STDLIB).bc;
-	llvm-dis-3.6 $(STDLIB).bc > $(STDLIB).ll;
+	llvm-link-3.9 $(LL_FILES) > $(STDLIB).bc;
+	llvm-dis-3.9 $(STDLIB).bc > $(STDLIB).ll;
 	rm *.bc
 
 ll:
-	clang $(C_FLAGS) $(C_FILES) 
+	clang-3.9 $(C_FLAGS) $(C_FILES) 
 
 
 clean_ :

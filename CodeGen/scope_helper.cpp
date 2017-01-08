@@ -51,18 +51,6 @@ void ScopeNode::setBlock(llvm::BasicBlock *block) { this->block = block; }
 
 ScopeNode::ScopeType ScopeNode::getScopeType() { return scopeType; }
 
-bool ScopeNode::isVoidReturn() {
-  assert(this->scopeType == ScopeNode::ScopeType::FUNC_SCOPE);
-
-  return funcScopeRetVoid;
-}
-
-void ScopeNode::setFuncScopeRetVoid(bool isVoid) {
-  assert(this->scopeType == ScopeNode::ScopeType::FUNC_SCOPE);
-
-  funcScopeRetVoid = isVoid;
-}
-
 uint64_t ScopeNode::getNumNamedVarsInScope() { return numNamedVarsInScope; }
 
 void ScopeNode::incFuncNamedVars() { numNamedVarsInScope++; }
@@ -75,11 +63,9 @@ ScopeHelper::ScopeHelper() {
 
 ScopeHelper::~ScopeHelper() {}
 
-void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType,
-                            bool funcScopeRetVoid) {
+void ScopeHelper::pushScope(ScopeNode::ScopeType scopeType) {
   ScopeNode *scopeNode = new ScopeNode(scopeType);
   scopeNode->setParent(currScope);
-  scopeNode->setFuncScopeRetVoid(funcScopeRetVoid);
   currScope = scopeNode;
 }
 
@@ -96,7 +82,11 @@ void ScopeHelper::setNamedVal(std::string name, CompileVal *value,
                "Variable " + name + " already declared in scope.");
     uint64_t numNamedVarsSinceFunc = getNumNamedVarsSinceFunc();
     currScope->setNamedVal(name, value, numNamedVarsSinceFunc);
-    incFuncNamedVars();
+    // Only increment gc vars for non-function types since memory that
+    // is pointed to by a Function variable is not dynamically allocated.
+    if (!value->getCompileType()->isFunctionType()) {
+      incFuncNamedVars();
+    }
   } else {
     ScopeNode *tempScope = currScope;
 
@@ -161,18 +151,6 @@ ScopeNode *ScopeHelper::getNearestScopeOfType(ScopeNode::ScopeType scopeType) {
   }
 
   return tempScope;
-}
-
-bool ScopeHelper::parentFuncReturnsVoid() {
-  ScopeNode *scopeNode =
-      getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
-  return scopeNode->isVoidReturn();
-}
-
-void ScopeHelper::setParentFuncReturnsVoid(bool isVoid) {
-  ScopeNode *scopeNode =
-      getNearestScopeOfType(ScopeNode::ScopeType::FUNC_SCOPE);
-  scopeNode->setFuncScopeRetVoid(isVoid);
 }
 
 uint64_t ScopeHelper::getNumNamedVarsSinceFunc() {

@@ -1,10 +1,14 @@
-func test()
-    println("got here")
+func test() println("got here")
 
 
-func main()
-    if( true )
-    {
-        let i:Int = 0
-            println("test")
-    }
+
+func main() {
+  println("fdgfg")
+  test()
+#    if( true )
+#    {
+#       let i:Int = 0
+#            println("test")
+#   }
+  
+}

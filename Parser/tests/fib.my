@@ -1,16 +1,13 @@
-func fib(n:Int, cache:[Int]) -> Int
-{
+func fib(n:Int, cache:[Int]) -> Int {
         if( n <= 1 ) 1
         else if( cache[n] != 0 ) cache[n]
-        else
-        {
+        else {
             cache[n] = fib(n - 1, cache) + fib(n - 2, cache)
             cache[n]
         }
 }
 
-func main()
-{
+func main() {
     let maxN  = 85
     let cache:[Int] = []
 
@@ -19,5 +16,5 @@ func main()
     fib(maxN, cache)
 
     for( i in 0..(maxN+1) )
-        println(String_Int(cache[i]))
+        println(cache[i].str())
 }

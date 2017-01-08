@@ -30,27 +30,6 @@ llvm::Value *CodeGenUtil::getConstInt64(int64_t val, bool is_signed) {
   return llvm::ConstantInt::get(*currContext, llvm::APInt(64, val, is_signed));
 }
 
-llvm::Value *CodeGenUtil::generateString(std::string str) {
-  llvm::ArrayType *ArrayTy = llvm::ArrayType::get(
-      llvm::IntegerType::get(*currContext, 8), str.length() + 1);
-  llvm::GlobalVariable *str_gvar = new llvm::GlobalVariable(
-      *currModule, ArrayTy, true, llvm::GlobalValue::PrivateLinkage, nullptr,
-      ".str");
-
-  llvm::Constant *str_arr =
-      llvm::ConstantDataArray::getString(*currContext, str);
-  llvm::ConstantInt *const_int64 =
-      llvm::ConstantInt::get(*currContext, llvm::APInt(64, 0, true));
-  std::vector<llvm::Constant *> indices;
-  indices.push_back(const_int64);
-  indices.push_back(const_int64);
-  llvm::Constant *result =
-      llvm::ConstantExpr::getGetElementPtr(str_gvar, indices);
-  str_gvar->setInitializer(str_arr);
-
-  return result;
-}
-
 llvm::Module *CodeGenUtil::createNewModule(
     const std::string &moduleName, const std::string &stdlibFilename,
     const std::string &stdlibTypesFilename, llvm::LLVMContext &context,
@@ -61,9 +40,9 @@ llvm::Module *CodeGenUtil::createNewModule(
       llvm::parseIRFile(stdlibFilename, Err, context);
 
   if (stdlibMod == nullptr) {
-    GEN_FAIL("Standard library does not exist at location " + stdlibFilename);
+    GEN_FAIL("Error loading standard library at location " + stdlibFilename);
   }
-  llvm::Linker::LinkModules(resultModule, stdlibMod.get());
+  llvm::Linker::linkModules(*resultModule, std::move(stdlibMod));
 
   TypeReader typeReader;
   std::ifstream inFile;

@@ -61,6 +61,7 @@ class AstWalker {
   bool load_stdlib(std::string stdlib_filename);
   llvm::BasicBlock* makeBasicBlock(std::string name = "");
   CompileType* makeCompileType(Json::Value& jsonNode);
+  CompileType* makeFuncCompileType(Json::Value& jsonNode);
   // createNativeCall will create a native function call
   llvm::Value* createNativeCall(std::string func_name,
                                 const std::vector<llvm::Value*>& argsV);
@@ -68,10 +69,12 @@ class AstWalker {
   // existent in the file being compiled
   CompileVal* createLangCall(CompileVal* func,
                              const std::vector<CompileVal*>& argsV);
-  // Creates method call on class represented by thisObj. The this pointer is inserted into the args list automatically.
-  CompileVal* createClassMethodCall(
-      const std::string& methodName, CompileVal* thisObj, const std::vector<CompileVal*>& args={});
-  void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid = false);
+  // Creates method call on class represented by thisObj.
+  // The this pointer is inserted into the args list automatically.
+  CompileVal* createClassMethodCall(const std::string& methodName,
+                                    CompileVal* thisObj,
+                                    const std::vector<CompileVal*>& args = {});
+  void pushScope(ScopeNode::ScopeType scopeType);
   void popScope();
   CompileVal* makeFuncProto(Json::Value& jsonNode);
   // startBlock adds block to back of function and starts insert point there.
@@ -111,6 +114,11 @@ class AstWalker {
    * from the currVal with the additional trailers.
    */
   CompileVal* handleTrailers(Json::Value& trailers, CompileVal* currVal);
+  /*
+   * rawTypeFromCompileType:
+   * Creates llvm compatible type from CompileType.
+   */
+  llvm::Type* rawTypeFromCompileType(CompileType const* compileType);
 
  public:
   void writeToFile(std::string filename);

@@ -230,6 +230,8 @@ bool CompileType::isVoidType(CommonType commonType) {
   return CompileType::CommonType::VOID == commonType;
 }
 
+bool CompileType::isVoidType() const { return CompileType::isVoidType(this); }
+
 std::string CompileType::getTypeName() const { return typeName; }
 
 std::vector<CompileType *> const *CompileType::getArgumentsList() const {

@@ -1,9 +1,10 @@
 func testReturn() -> [Int] []
 
 func main() {
-  let l:[Int] = []
-  l += [1]
-  l = testReturn()
-  l += [1,2,3,4]
-  println(l.str())
+  println({
+    let l:[Int] = []
+    l += [1]
+    l = testReturn()
+    l += [1,2,3,4]
+    l.str()})
 }

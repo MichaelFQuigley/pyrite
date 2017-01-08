@@ -162,6 +162,7 @@ class CompileType {
 
   static bool isVoidType(const std::string& typeName);
   static bool isVoidType(CommonType commonType);
+  bool isVoidType() const;
   static bool isVoidType(CompileType const* compileType);
   std::vector<CompileType*> const* getArgumentsList() const;
   /* getVtableLength: returns size of virtual method table in

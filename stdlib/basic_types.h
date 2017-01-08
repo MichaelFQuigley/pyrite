@@ -47,6 +47,10 @@
 
 #define TO_STRING_VTABLE_INDEX 1
 
+// FIELD_START_INDEX: Offset (assuming void*) at which fields in a struct would
+// start.
+#define FIELD_START_INDEX 3
+
 #define BASE_VALS                                                       \
   void (*uninit)(void*);                                                \
   /*get_refs returns an array of references that the object contains.   \
@@ -116,6 +120,8 @@ int uninitialize_types(void);
 
 // Returns function pointer at vtableIndex
 void* indexIntoVtable(void* obj, int64_t vtableIndex);
+
+void* indexIntoFields(void* obj, int64_t fieldIndex);
 
 // Base
 void* init_Base(void);

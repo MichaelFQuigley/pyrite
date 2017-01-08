@@ -29,8 +29,6 @@ class ScopeNode {
   CompileVal* getNamedVal(std::string name);
   uint64_t getNamedValInd(std::string name);
   void setBlock(llvm::BasicBlock* block);
-  bool isVoidReturn();
-  void setFuncScopeRetVoid(bool isVoid);
   ScopeType getScopeType();
   uint64_t getNumNamedVarsInScope();
   void incFuncNamedVars();
@@ -42,7 +40,6 @@ class ScopeNode {
   ScopeNode* parent;
   llvm::BasicBlock* block;
   ScopeType scopeType;
-  bool funcScopeRetVoid;
   uint64_t numNamedVarsInScope;
 };
 
@@ -50,7 +47,7 @@ class ScopeHelper {
  public:
   ScopeHelper();
   ~ScopeHelper();
-  void pushScope(ScopeNode::ScopeType scopeType, bool funcScopeRetVoid = false);
+  void pushScope(ScopeNode::ScopeType scopeType);
   void popScope();
   void setNamedVal(std::string name, CompileVal* value, bool isDecl);
   CompileVal* getNamedVal(std::string name, bool walkScopes);
@@ -60,8 +57,6 @@ class ScopeHelper {
    * returns nullptr if no scope of appropriate type is found
    */
   ScopeNode* getNearestScopeOfType(ScopeNode::ScopeType scopeType);
-  bool parentFuncReturnsVoid();
-  void setParentFuncReturnsVoid(bool isVoid);
   /*getNumNamedVarsSinceFunc:
    * returns number of named variables that have been declared starting
    * from the nearest scope of type FUNC_SCOPE

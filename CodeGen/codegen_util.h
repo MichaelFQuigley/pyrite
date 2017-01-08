@@ -11,6 +11,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
@@ -41,7 +42,6 @@ class CodeGenUtil {
                           llvm::Module* currModule);
   static void dumpIR(llvm::Module* currModule);
   llvm::Value* getConstInt64(int64_t val, bool is_signed = true);
-  llvm::Value* generateString(std::string str);
   /* getNewHiddenVarName:
    * Returns a new unique name that could be used as a temporary variable.
    */

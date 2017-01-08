@@ -1,11 +1,11 @@
 CPP_FILES=$(wildcard *.cpp)
 O_FILES=$(wildcard *.o)
 CPP_FLAGS+=-Wall -O3
-LD_FLAGS+=`llvm-config-3.6 --system-libs`
+LD_FLAGS+=`llvm-config-3.9 --system-libs`
 LIB_PATH=../libs/libpyritetypes.a
-LLVM_FLAGS=`llvm-config-3.6 --cppflags --libs all`
-LLVM_FLAGS+=`llvm-config-3.6 --ldflags`
-INCLUDELLVM=`llvm-config-3.6 --includedir`
+LLVM_FLAGS=`llvm-config-3.9 --cppflags --libs all`
+LLVM_FLAGS+=`llvm-config-3.9 --ldflags`
+INCLUDELLVM=`llvm-config-3.9 --includedir`
 SRCINCLUDEPATH=.
 
 all: build lib
