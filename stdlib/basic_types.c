@@ -353,6 +353,8 @@ void* String_List(void* this) {
         list_el, TO_STRING_VTABLE_INDEX))(list_el);
 
     size_t str_size = strlen(str->raw_value);
+    // + 4 to account for comma, space, right bracket and null character
+    // that could be appended.
     size_t new_size = buf_size + 4 + str_size;
     if (new_size > buf_cap) {
       void* old_buf = buf;
