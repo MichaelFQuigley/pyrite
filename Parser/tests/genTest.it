@@ -1,12 +1,14 @@
 func main()
 {
+  for(i in 0..1) {
+    println(i.str()) 
   let l =
     [{
-        println("number: " + a.str() + "\n")
         a
       }
-      for (a in 0..100)]
+      for (a in 0..1_000)]
 
   println(l.str())
+  }
 }
 

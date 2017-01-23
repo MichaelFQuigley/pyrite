@@ -372,8 +372,6 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
     CompileType *iteratedType = start->getCompileType();
     CompileType *rangeType =
         getCompileType(iteratedType->getTypeName() + "Range");
-    rangeType->insertArgumentsList(iteratedType);
-
     llvm::Value *init_RangeResult = createNativeCall(
         "init_" + rangeType->getTypeName(),
         {start->getRawValue(), step->getRawValue(), end->getRawValue()});

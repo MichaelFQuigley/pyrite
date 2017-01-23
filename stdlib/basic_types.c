@@ -333,6 +333,7 @@ void* append_List(void* this_obj, void* list_element) {
     void** old_raw_vals = this->raw_value;
     this->raw_value = fast_malloc(new_capacity * sizeof(void*));
     memcpy(this->raw_value, old_raw_vals, this->size * sizeof(void*));
+    fast_free(old_raw_vals);
   }
   this->raw_value[this->size] = list_element;
   this->size++;
@@ -341,19 +342,37 @@ void* append_List(void* this_obj, void* list_element) {
 
 void* String_List(void* this) {
   List* list = (List*)this;
-  String* str = init_String("[");
-  String* comma = init_String(", ");
+  size_t buf_cap = 16;
+  size_t buf_size = 0;
+  char* buf = fast_malloc(buf_cap);
+  buf[buf_size++] = '[';
 
   for (int i = 0; i < list->size; i++) {
-    void* list_el = get_List(list, init_Int(i));
-    str = add_String(str, ((void* (*)(void*))indexIntoVtable(
-                              list_el, TO_STRING_VTABLE_INDEX))(list_el));
+    void* list_el = list->raw_value[i];
+    String* str = (String*)((void* (*)(void*))indexIntoVtable(
+        list_el, TO_STRING_VTABLE_INDEX))(list_el);
+
+    size_t str_size = strlen(str->raw_value);
+    size_t new_size = buf_size + 4 + str_size;
+    if (new_size > buf_cap) {
+      void* old_buf = buf;
+      buf_cap = new_size * 2;
+      buf = fast_malloc(buf_cap);
+      strcpy(buf, old_buf);
+      fast_free(old_buf);
+    }
+    buf[buf_size] = '\0';
+    strcat(buf, str->raw_value);
+    buf_size += str_size;
     if (i < list->size - 1) {
-      str = add_String(str, comma);
+      buf[buf_size++] = ',';
+      buf[buf_size++] = ' ';
     }
   }
-  str = add_String(str, init_String("]"));
-  return str;
+  buf[buf_size++] = ']';
+  buf[buf_size] = '\0';
+
+  return init_String(buf);
 }
 
 void uninit_List(void* this) { fast_free(((List*)this)->raw_value); }
