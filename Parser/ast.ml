@@ -15,6 +15,7 @@ and expr_stmt =
     | IF of expr_stmt * simple_stmt array
     (*format of for loop, index_var * iterator * stmts*)
     | LIST of expr_stmt array
+    (* format of list gen, element value * iterater variable * iterator *)
     | LIST_GEN of expr_stmt * string * atom
     | ATOMOP of atom
     | FUNCDEF of func_def

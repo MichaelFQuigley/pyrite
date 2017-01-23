@@ -47,7 +47,7 @@ void CompileType::addField(const std::string &name, CompileType *fieldType) {
 }
 
 CompileType *CompileType::implementGenericHelper(
-    const std::string &genericName, CompileType *concreteType,
+    const std::string &genericName, CompileType const *concreteType,
     CompileType const *containingClass,
     std::map<std::string, CompileType *> *nameToImplementedType) {
   // If there is no generic type to implement, just return original containing
@@ -78,7 +78,8 @@ CompileType *CompileType::implementGenericHelper(
                                  " cannot be" + " implemented by type: " +
                                  concreteType->to_string());
       }
-      resultType->typeArgumentsList[i] = concreteType;
+      resultType->typeArgumentsList[i] =
+          const_cast<CompileType *>(concreteType);
     } else if (CompileType::hasGeneric(testType, genericName)) {
       if (testType->getTypeName() == containingClass->getTypeName()) {
         resultType->typeArgumentsList[i] =
@@ -115,7 +116,7 @@ CompileType *CompileType::implementGenericHelper(
 }
 
 CompileType *CompileType::implementGeneric(const std::string &genericName,
-                                           CompileType *concreteType,
+                                           CompileType const *concreteType,
                                            CompileType const *containingClass) {
   std::map<std::string, CompileType *> nameToImplementedType;
   return implementGenericHelper(genericName, concreteType, containingClass,
@@ -355,17 +356,23 @@ llvm::FunctionType *CompileType::asRawFunctionType(
     CompileType const *compileType, llvm::Type *voidStarTy,
     llvm::LLVMContext &currContext, bool includeThisPointer) {
   int argListSize = compileType->getArgumentsList()->size();
-  int paramCount = argListSize;
   // subtract one to avoid counting return type as a parameter.
-  paramCount--;
-  // Add extra argument for 'this' pointer if desired.
-  paramCount += (includeThisPointer ? 1 : 0);
+  int paramCount = argListSize - 1;
   std::vector<llvm::Type *> argTypes;
-  for (int i = 0; i < paramCount; i++) {
+  // Add extra argument for 'this' pointer if desired.
+  if (includeThisPointer) {
     argTypes.push_back(voidStarTy);
   }
-  if (!CompileType::isVoidType(
-          CompileType::getFunctionReturnType(compileType))) {
+  auto argsList = compileType->getArgumentsList();
+  for (int i = 0; i < paramCount; i++) {
+    if ((*argsList)[i]->isFunctionType()) {
+      argTypes.push_back(CompileType::asRawFunctionType(
+          (*argsList)[i], voidStarTy, currContext, includeThisPointer));
+    } else {
+      argTypes.push_back(voidStarTy);
+    }
+  }
+  if (!CompileType::getFunctionReturnType(compileType)->isVoidType()) {
     return llvm::FunctionType::get(voidStarTy, argTypes, false);
   }
   return llvm::FunctionType::get(llvm::Type::getVoidTy(currContext), argTypes,
@@ -430,7 +437,7 @@ std::string CompileType::to_string(CompileType *compileType) {
   return CompileType::to_string(*compileType);
 }
 
-void CompileVal::setCompileType(CompileType *compileType) {
+void CompileVal::setCompileType(CompileType const *compileType) {
   this->compileType = *compileType;
 }
 

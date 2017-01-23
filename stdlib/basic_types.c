@@ -8,7 +8,7 @@
 #include "fast_malloc.h"
 #include "basic_types.h"
 
-#define NUM_PREALLOC_INTS 2048
+#define NUM_PREALLOC_INTS 1024
 #define NUM_PREALLOC_BOOLS 2
 
 static void* prealloc_ints[NUM_PREALLOC_INTS];
@@ -43,17 +43,19 @@ static void* const vtable_IntRange[] = {
 
 static void* const vtable_List[] = {VTABLE_BASE(List), hasNext_List, next_List,
                                     begin_List,        set_List,     get_List,
-                                    add_List,          size_List};
+                                    add_List,          append_List,  size_List};
 
-void* indexIntoVtable(void* obj, int64_t vtableIndex) {
+__attribute__((always_inline)) void* indexIntoVtable(void* obj,
+                                                     int64_t vtableIndex) {
   return (((Base*)obj)->vtable)[vtableIndex];
 }
 
-void* indexIntoFields(void* obj, int64_t fieldIndex) {
+__attribute__((always_inline)) void* indexIntoFields(void* obj,
+                                                     int64_t fieldIndex) {
   return obj + sizeof(void*) * (fieldIndex + FIELD_START_INDEX);
 }
 
-int initialize_types(void) {
+__attribute__((always_inline)) int initialize_types(void) {
   for (int64_t raw_value = 0; raw_value < NUM_PREALLOC_INTS; raw_value++) {
     CREATE_PRIMITIVE_INIT_BLOCK_(Int, int64_t, prealloced_int,
                                  true /* reserve */)
@@ -69,7 +71,7 @@ int initialize_types(void) {
   return 0;
 }
 
-int uninitialize_types(void) { return 0; }
+__attribute__((always_inline)) int uninitialize_types(void) { return 0; }
 
 // Base
 void* init_Base(void) {
@@ -84,7 +86,7 @@ void* init_Base(void) {
 void* String_Base(void) { return init_String(""); }
 
 // Int
-void* init_Int(int64_t raw_value) {
+__attribute__((always_inline)) void* init_Int(int64_t raw_value) {
   if (raw_value >= NUM_PREALLOC_INTS || raw_value < 0) {
     CREATE_PRIMITIVE_INIT_BLOCK(Int, int64_t, obj);
     return obj;
@@ -126,7 +128,7 @@ CREATE_NUM_CMP_FN(Int, int64_t, cmpge, >= )
 CREATE_NUM_CMP_FN(Int, int64_t, cmpeq, == )
 
 // Float
-void* init_Float(double raw_value) {
+__attribute__((always_inline)) void* init_Float(double raw_value) {
   CREATE_PRIMITIVE_INIT_BLOCK(Float, double, obj);
 
   return obj;
@@ -160,7 +162,7 @@ CREATE_NUM_CMP_FN(Float, double, cmpge, >= )
 CREATE_NUM_CMP_FN(Float, double, cmpeq, == )
 
 // String
-void* init_String(char* raw_value) {
+__attribute__((always_inline)) void* init_String(char* raw_value) {
   CREATE_PRIMITIVE_INIT_BLOCK(String, char*, obj);
   obj->uninit = uninit_String;
   obj->raw_is_on_heap = false;
@@ -192,7 +194,9 @@ void* add_String(void* this, void* rhs_obj) {
 
 void* String_String(void* this) { return this; }
 // Bool
-void* init_Bool(bool raw_value) { return prealloc_bools[raw_value ? 1 : 0]; }
+__attribute__((always_inline)) void* init_Bool(bool raw_value) {
+  return prealloc_bools[raw_value ? 1 : 0];
+}
 
 CREATE_NUM_ARITH_FN(Bool, bool, and, &)
 CREATE_NUM_ARITH_FN(Bool, bool, or, | )
@@ -215,7 +219,9 @@ bool rawVal_Bool(void* this) { return ((Bool*)this)->raw_value; }
 void uninit_Bool(void* bool_val) { return; }
 
 // IntRange
-void* init_IntRange(void* start_obj, void* step_obj, void* end_obj) {
+__attribute__((always_inline)) void* init_IntRange(void* start_obj,
+                                                   void* step_obj,
+                                                   void* end_obj) {
   Int* start = start_obj;
   Int* step = step_obj;
   Int* end = end_obj;
@@ -278,12 +284,12 @@ void* begin_IntRange(void* range_obj) {
 void uninit_IntRange(void* this) { return; }
 
 // List
-void* init_List(uint64_t initial_size) {
+__attribute__((always_inline)) void* init_List(uint64_t initial_size) {
   List* result = (List*)gc_malloc(sizeof(List));
   result->uninit = uninit_List;
   result->get_refs = get_refs_List;
   result->size = initial_size;
-  result->capacity = initial_size;  //(initial_size + 1) * 2;
+  result->capacity = (initial_size + 1) * 2;
   result->raw_value = fast_malloc(result->capacity * sizeof(void*));
   result->next_itt_index = 0;
   result->vtable = vtable_List;
@@ -318,6 +324,19 @@ void* add_List(void* this_obj, void* other_list) {
   memcpy(new_list->raw_value + this->size, other->raw_value,
          other->size * sizeof(void*));
   return new_list;
+}
+
+void* append_List(void* this_obj, void* list_element) {
+  List* this = (List*)this_obj;
+  if (this->size >= this->capacity) {
+    uint64_t new_capacity = (this->size + 1) * 2;
+    void** old_raw_vals = this->raw_value;
+    this->raw_value = fast_malloc(new_capacity * sizeof(void*));
+    memcpy(this->raw_value, old_raw_vals, this->size * sizeof(void*));
+  }
+  this->raw_value[this->size] = list_element;
+  this->size++;
+  return this;
 }
 
 void* String_List(void* this) {

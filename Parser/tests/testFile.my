@@ -4,9 +4,11 @@ func chainCount(n:Int) -> Int
 func collatz(min:Int, max:Int) -> [Int]
 {
    let mNumCount = [0,0]
-   for( curr_num in min..(max + 1) )
-       mNumCount      = if( chainCount(curr_num) > mNumCount[1] ) [curr_num, chainCount(curr_num)] 
+   for( curr_num in min..(max + 1) ) {
+     let cCount = chainCount(curr_num)
+       mNumCount      = if(cCount > mNumCount[1] ) [curr_num, cCount] 
                         else mNumCount
+   }
    mNumCount
 }
 

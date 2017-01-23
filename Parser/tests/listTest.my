@@ -18,7 +18,7 @@ func testSetList()
    l[0] += [[1000,2000], [3000,4000]]
    l[0][0] = [2,4,6,8] + [8]
    l[0][0][4] += 2
-    println(String_Int(l[0][0][4]))
+    println(l[0][0][4].str())
    softAssert( l[0][0][4] == 10, "testSetList" )
 }
 

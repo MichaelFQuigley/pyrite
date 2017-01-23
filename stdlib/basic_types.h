@@ -220,6 +220,8 @@ void* get_List(void* this_obj, void* index_obj);
 
 void* add_List(void* this_obj, void* other_list);
 
+void* append_List(void* this_obj, void* list_element);
+
 void* String_List(void* this);
 
 void uninit_List(void* arr);

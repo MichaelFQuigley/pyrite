@@ -59,7 +59,7 @@ class AstWalker {
   // jsonNodeMustHave fails if there is not a node for the provided name.
   Json::Value jsonNodeGet(Json::Value& node, const std::string& name);
   bool load_stdlib(std::string stdlib_filename);
-  llvm::BasicBlock* makeBasicBlock(std::string name = "");
+  llvm::BasicBlock* makeBasicBlock(const std::string& name = "");
   CompileType* makeCompileType(Json::Value& jsonNode);
   CompileType* makeFuncCompileType(Json::Value& jsonNode);
   // createNativeCall will create a native function call
@@ -107,6 +107,7 @@ class AstWalker {
   CompileVal* createVtableAccess(CompileVal* obj,
                                  const std::string& functionName);
   CompileType* getCompileType(const std::string& typeName);
+  CompileType* getCompileType(CompileType::CommonType typeName);
   /*
    * handleTrailers:
    * Takes json list of possible trailer values and returns a result value
@@ -119,6 +120,25 @@ class AstWalker {
    * Creates llvm compatible type from CompileType.
    */
   llvm::Type* rawTypeFromCompileType(CompileType const* compileType);
+
+  /*
+   * startForLoop:
+   * Starts a for loop with the provided empty basic block pointers and a name
+   * for
+   * the loop variable. Note that this doesn't pop a ScopeHelper scope.
+   */
+  void startForLoop(CompileVal* iteratorVal, const std::string& loopVarName,
+                    llvm::BasicBlock* loopTop, llvm::BasicBlock* loopBody,
+                    llvm::BasicBlock* loopBottom);
+
+  /*
+   * endForLoop:
+   * Ends a for loop with the same basic block pointers that were used for
+   * the startForLoop call, and a name for the loop variable.
+   * Note that this doesn't pop a ScopeHelper scope.
+   */
+  void endForLoop(CompileVal* iteratorVal, const std::string& loopVarName,
+                  llvm::BasicBlock* loopTop, llvm::BasicBlock* loopBottom);
 
  public:
   void writeToFile(std::string filename);

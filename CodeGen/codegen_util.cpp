@@ -3,6 +3,12 @@
 
 namespace codegen {
 
+const std::string CodeGenUtil::LIST_GENERIC_PARAM = "T";
+const std::string CodeGenUtil::ITERATOR_BEGIN = "begin";
+const std::string CodeGenUtil::ITERATOR_NEXT = "next";
+const std::string CodeGenUtil::ITERATOR_HASNEXT = "hasNext";
+const std::string CodeGenUtil::NATIVE_INDEX_INTO_VTABLE = "indexIntoVtable";
+
 CodeGenUtil::CodeGenUtil(llvm::Module *currModule,
                          llvm::LLVMContext *currContext) {
   this->currModule = currModule;

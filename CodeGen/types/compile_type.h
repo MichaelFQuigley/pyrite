@@ -46,7 +46,7 @@ class CompileType {
    * See implementGeneric.
    */
   static CompileType* implementGenericHelper(
-      const std::string& genericName, CompileType* concreteType,
+      const std::string& genericName, CompileType const* concreteType,
       CompileType const* containingClass,
       std::map<std::string, CompileType*>* nameToImplementedType);
 
@@ -150,7 +150,7 @@ class CompileType {
    * implementGeneric("T", theIntType, theListType);
    */
   static CompileType* implementGeneric(const std::string& genericName,
-                                       CompileType* concreteType,
+                                       CompileType const* concreteType,
                                        CompileType const* containingClass);
 
   /*
@@ -238,7 +238,7 @@ class CompileVal {
   CompileVal(llvm::Value* rawValue, CompileType const* compileType);
   CompileVal(llvm::Value* rawValue, CompileType::CommonType commonType);
   CompileType* getCompileType();
-  void setCompileType(CompileType* compileType);
+  void setCompileType(CompileType const* compileType);
   void insertArgumentType(CompileType* compileType);
   void setArgumentsList(std::vector<CompileType*>* argsList);
   llvm::Value* getRawValue();

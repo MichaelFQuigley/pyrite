@@ -1,0 +1,12 @@
+func main()
+{
+  let l =
+    [{
+        println("number: " + a.str() + "\n")
+        a
+      }
+      for (a in 0..100)]
+
+  println(l.str())
+}
+

@@ -140,7 +140,6 @@ static inline void sweep(int generation) {
 
 static void gc_mark_and_sweep(void) {
   static uint64_t gc_count = 0;
-
   // mark all anon vars
   for (int i = gc_start_stack_index; i < gc_stack.curr_index; i++) {
     mark(gc_stack.stack[i]);
@@ -212,7 +211,8 @@ void* gc_malloc_reserve(size_t size, bool is_reserved) {
   return raw_obj;
 }
 
-void gc_push_func_scope(uint64_t num_named_vars_in_scope) {
+__attribute__((always_inline)) void gc_push_func_scope(
+    uint64_t num_named_vars_in_scope) {
   GC_ASSERT(gc_scope_stack.curr_index < MAX_SCOPE_DEPTH - 1 &&
             gc_scope_stack.curr_index >= 0 && "Scope too deep!");
   gc_scope_stack.curr_index++;
@@ -228,7 +228,7 @@ void gc_push_func_scope(uint64_t num_named_vars_in_scope) {
   }
 }
 
-void gc_push_loop_scope(void) {
+__attribute__((always_inline)) void gc_push_loop_scope(void) {
   GC_ASSERT(gc_scope_stack.curr_index < MAX_SCOPE_DEPTH - 1 &&
             gc_scope_stack.curr_index >= 0 && "Scope too deep!");
   gc_scope_stack_el_t* last_scope = get_scope_stack_top();
@@ -239,7 +239,7 @@ void gc_push_loop_scope(void) {
   scope_el->func_scope_offset = last_scope->func_scope_offset + 1;
 }
 
-void gc_pop_scope(void) {
+__attribute__((always_inline)) void gc_pop_scope(void) {
   GC_ASSERT(gc_scope_stack.curr_index > 0 && "Scope stack undeflow!");
 
   gc_scope_stack_el_t* scope_el = get_scope_stack_top();
@@ -264,7 +264,8 @@ void gc_pop_scope(void) {
   gc_scope_stack.curr_index--;
 }
 
-void gc_set_named_var_in_scope(void* named_var, uint64_t index) {
+__attribute__((always_inline)) void gc_set_named_var_in_scope(void* named_var,
+                                                              uint64_t index) {
   gc_scope_stack_el_t* func_scope = get_nearest_func_scope();
   GC_ASSERT(index < func_scope->num_named_vars && "Out of bounds var index!");
   func_scope->named_vars[index] = get_gc_base_ptr(named_var);

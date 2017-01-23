@@ -73,11 +73,11 @@ CompileType *AstWalker::makeCompileType(Json::Value &jsonNode) {
   if (jsonNode["simple"] != Json::nullValue) {
     result = getCompileType(jsonNode["simple"].asString());
   } else if (jsonNode["list_type"] != Json::nullValue) {
-    result = getCompileType(
-        CompileType::getCommonTypeName(CompileType::CommonType::LIST));
+    result = getCompileType(CompileType::CommonType::LIST);
     // Make list generic type concrete.
     result = CompileType::implementGeneric(
-        "T", makeCompileType(jsonNode["list_type"]), result);
+        CodeGenUtil::LIST_GENERIC_PARAM, makeCompileType(jsonNode["list_type"]),
+        result);
   } else if (jsonNode["func_type"] != Json::nullValue)
     return makeFuncCompileType(jsonNode["func_type"]);
   else {
@@ -103,6 +103,7 @@ CompileType *AstWalker::makeFuncCompileType(Json::Value &jsonNode) {
 
   CompileType *result = new CompileType(CompileType::CommonType::FUNCTION);
   result->setArgumentsList(compileArgs);
+  result->setParent(getCompileType(CompileType::CommonType::BASE));
   return result;
 }
 
@@ -424,7 +425,7 @@ CompileVal *AstWalker::handleTrailers(Json::Value &trailers,
   return result;
 }
 
-llvm::BasicBlock *AstWalker::makeBasicBlock(std::string name) {
+llvm::BasicBlock *AstWalker::makeBasicBlock(const std::string &name) {
   return llvm::BasicBlock::Create(currContext, name,
                                   Builder.GetInsertBlock()->getParent());
 }
@@ -454,7 +455,8 @@ CompileVal *AstWalker::createVtableAccess(CompileVal *obj,
       obj->getCompileType()->getMethodType(functionName);
   llvm::Value *irMethodIndex = codeGenHelper->getConstInt64(methodVtableIndex);
   llvm::Value *methodHandle =
-      createNativeCall("indexIntoVtable", {obj->getRawValue(), irMethodIndex});
+      createNativeCall(CodeGenUtil::NATIVE_INDEX_INTO_VTABLE,
+                       {obj->getRawValue(), irMethodIndex});
   // TODO typecheck args vs method contract.
   llvm::Value *castedValue = Builder.CreatePointerCast(
       methodHandle, llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
@@ -492,7 +494,12 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
 
     nativeArgs.push_back(argsV[i]->getRawValue());
   }
-  llvm::Value *retVal = Builder.CreateCall(func->getRawValue(), nativeArgs);
+  llvm::Value *rawFunc = Builder.CreatePointerCast(
+      func->getRawValue(),
+      llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
+          func->getCompileType(), Builder.getInt8PtrTy(), currContext,
+          false /* includeThisPointer */)));
+  llvm::Value *retVal = Builder.CreateCall(rawFunc, nativeArgs);
 
   return new CompileVal(retVal, retType);
 }
@@ -523,34 +530,48 @@ CompileVal *AstWalker::codeGen_ForOp(Json::Value &jsonNode) {
   pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
 
   CompileVal *itt = codeGen_AtomOp(jsonNode["itt"]);
-  const std::string itt_hasNextFuncName = "hasNext";
-  const std::string itt_nextFuncName = "next";
-  const std::string itt_beginFuncName = "begin";
-  std::string loop_var_name = jsonNode["loop_var"].asString();
+  std::string loopVarName = jsonNode["loop_var"].asString();
 
-  // Call to indexVariable = itt.begin()
-  newVarInScope(loop_var_name, createClassMethodCall(itt_beginFuncName, itt));
-
-  Builder.CreateBr(loopTop);
-  Builder.SetInsertPoint(loopTop);
-
-  CompileVal *hasNext = createClassMethodCall(itt_hasNextFuncName, itt);
-  createBoolCondBr(hasNext, loopBody, loopBottom);
-  // loop body
-  startBlock(loopBody);
-  createNativeCall("gc_push_loop_scope", {});
+  startForLoop(itt, loopVarName, loopTop, loopBody, loopBottom);
   codeGen_initial(jsonNode["body"]);
-  Builder.CreateStore(
-      createClassMethodCall(itt_nextFuncName, itt)->getRawValue(),
-      scopeHelper->getNamedVal(loop_var_name, true)->getRawValue());
-
-  createNativeCall("gc_pop_scope", {});
-  Builder.CreateBr(loopTop);
-  startBlock(loopBottom);
+  endForLoop(itt, loopVarName, loopTop, loopBottom);
 
   popScope();
 
   return nullptr;
+}
+
+void AstWalker::startForLoop(CompileVal *iteratorVal,
+                             const std::string &loopVarName,
+                             llvm::BasicBlock *loopTop,
+                             llvm::BasicBlock *loopBody,
+                             llvm::BasicBlock *loopBottom) {
+  // Call to indexVariable = itt.begin()
+  newVarInScope(loopVarName, createClassMethodCall(CodeGenUtil::ITERATOR_BEGIN,
+                                                   iteratorVal));
+  Builder.CreateBr(loopTop);
+  Builder.SetInsertPoint(loopTop);
+
+  CompileVal *hasNext =
+      createClassMethodCall(CodeGenUtil::ITERATOR_HASNEXT, iteratorVal);
+  createBoolCondBr(hasNext, loopBody, loopBottom);
+  // loop body
+  startBlock(loopBody);
+  createNativeCall("gc_push_loop_scope", {});
+}
+
+void AstWalker::endForLoop(CompileVal *iteratorVal,
+                           const std::string &loopVarName,
+                           llvm::BasicBlock *loopTop,
+                           llvm::BasicBlock *loopBottom) {
+  Builder.CreateStore(
+      createClassMethodCall(CodeGenUtil::ITERATOR_NEXT, iteratorVal)
+          ->getRawValue(),
+      scopeHelper->getNamedVal(loopVarName, true)->getRawValue());
+
+  createNativeCall("gc_pop_scope", {});
+  Builder.CreateBr(loopTop);
+  startBlock(loopBottom);
 }
 
 CompileVal *AstWalker::codeGen_WhileOp(Json::Value &jsonNode) {
@@ -649,7 +670,7 @@ llvm::Value *AstWalker::createGlobalFunctionConst(const std::string &funcName,
       scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE);
 
   llvm::GlobalVariable *result = new llvm::GlobalVariable(
-      *currModule, initValue->getType(), true /* is constant */,
+      *currModule, func->getRawValue()->getType(), true /* is constant */,
       llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName);
   globalScope->setNamedVal(funcName,
                            new CompileVal(result, func->getCompileType()), 0);
@@ -750,7 +771,8 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
     if (i == 0) {
       // Make generic list parameter concrete here.
       list->setCompileType(CompileType::implementGeneric(
-          "T", list_el->getCompileType(), list->getCompileType()));
+          CodeGenUtil::LIST_GENERIC_PARAM, list_el->getCompileType(),
+          list->getCompileType()));
     }
     createClassMethodCall(
         "set", list, {createLiteral(CompileType::CommonType::INT,
@@ -785,9 +807,35 @@ CompileVal *AstWalker::codeGen_UnOp(Json::Value &jsonNode) {
 }
 
 CompileVal *AstWalker::codeGen_ListGen(Json::Value &jsonNode) {
+  // TODO This could make use of a desugaring pass that just uses
+  // the ForOp node.
+  llvm::BasicBlock *loopTop = makeBasicBlock("loopTop");
+  llvm::BasicBlock *loopBody =
+      llvm::BasicBlock::Create(currContext, "loopBody");
+  llvm::BasicBlock *loopBottom =
+      llvm::BasicBlock::Create(currContext, "loopBottom");
+
+  pushScope(ScopeNode::ScopeType::SIMPLE_SCOPE);
+
   CompileVal *itt = codeGen_AtomOp(jsonNode["itt"]);
-  GEN_FAIL("List gen not implemented.");
-  return nullptr;
+  std::string loopVarName = jsonNode["loop_var"].asString();
+  CompileVal *list = createLiteral(CompileType::CommonType::LIST,
+                                   codeGenHelper->getConstInt64(0, false));
+
+  startForLoop(itt, loopVarName, loopTop, loopBody, loopBottom);
+  CompileVal *expr = codeGen_ExprOp(jsonNode["element_expr"]);
+  // Make list generic type concrete.
+  list->setCompileType(CompileType::implementGeneric(
+      CodeGenUtil::LIST_GENERIC_PARAM, expr->getCompileType(),
+      list->getCompileType()));
+  // Body of loop. Add result of expr to list.
+  createClassMethodCall("append", list, {expr});
+
+  endForLoop(itt, loopVarName, loopTop, loopBottom);
+
+  popScope();
+
+  return list;
 }
 
 CompileVal *AstWalker::codeGen_initial(Json::Value &jsonNode) {
@@ -886,4 +934,9 @@ CompileType *AstWalker::getCompileType(const std::string &typeName) {
              "Type " + typeName + " not found.");
   return moduleTypes[typeName];
 }
+
+CompileType *AstWalker::getCompileType(CompileType::CommonType typeName) {
+  return getCompileType(CompileType::getCommonTypeName(typeName));
+}
+
 }  // namespace codegen

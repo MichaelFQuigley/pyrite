@@ -56,6 +56,14 @@ class CodeGenUtil {
       const std::string& stdlibTypesFilename, llvm::LLVMContext& context,
       std::map<std::string, CompileType*>* typesMapOut);
 
+  const static std::string LIST_GENERIC_PARAM;
+  // Iterator method names for iterable types.
+  const static std::string ITERATOR_BEGIN;
+  const static std::string ITERATOR_NEXT;
+  const static std::string ITERATOR_HASNEXT;
+  // Function in c runtime that accesses vtable of an object.
+  const static std::string NATIVE_INDEX_INTO_VTABLE;
+
  private:
   llvm::LLVMContext* currContext;
   llvm::Module* currModule;
