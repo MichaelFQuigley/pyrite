@@ -104,10 +104,11 @@ let boolToInt:Int = if(condition) 1 else 0
 ```
 Is valid.
 
-#####List generators
+####List generators
 ```swift
 let listy = [a for (a in 0..100)]
 ```
+In the example above, listy would be a list of ints from 0 to 99.
 
 ####Variables
 Variables are declared using the 'let' keyword.
