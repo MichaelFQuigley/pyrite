@@ -104,6 +104,11 @@ let boolToInt:Int = if(condition) 1 else 0
 ```
 Is valid.
 
+#####List generators
+```swift
+let listy = [a for (a in 0..100)]
+```
+
 ####Variables
 Variables are declared using the 'let' keyword.
 The type annotation for a variable declaration is optional if the type can be inferred
