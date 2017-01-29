@@ -346,6 +346,16 @@ bool CompileType::isFunctionType() const {
          CompileType::getCommonTypeName(CompileType::CommonType::FUNCTION);
 }
 
+bool CompileType::isIntType() const {
+  return this->typeName ==
+         CompileType::getCommonTypeName(CompileType::CommonType::INT);
+}
+
+bool CompileType::isBoolType() const {
+  return this->typeName ==
+         CompileType::getCommonTypeName(CompileType::CommonType::BOOL);
+}
+
 bool CompileType::isGenericType() const { return isGeneric; }
 
 CompileType const *CompileType::getParent() const { return this->parent; }

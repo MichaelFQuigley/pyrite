@@ -94,6 +94,18 @@ class CodeGenUtil {
   CompileVal* unboxValue(CompileVal* compileVal);
 
   /*
+   * boxIfNot:
+   * Returns boxed value always.
+   */
+  CompileVal* boxIfNot(CompileVal* compileVal);
+
+  /*
+   * unboxIfNot:
+   * Returns unboxed value always.
+   */
+  CompileVal* unboxIfNot(CompileVal* compileVal);
+
+  /*
    * createInitCall:
    * Creates call to low level initialization routine for type indicated by
    * typeName.
@@ -110,12 +122,31 @@ class CodeGenUtil {
   CompileType* getCompileType(const std::string& typeName);
   CompileType* getCompileType(CompileType::CommonType typeName);
 
+  CompileVal* generateUnboxedIntBinOp(CompileVal* lhs, CompileVal* rhs,
+                                      const std::string& op);
   // Name of the single generic parameter in a List.
   const static std::string LIST_GENERIC_PARAM;
   // Iterator method names for iterable types.
   const static std::string ITERATOR_BEGIN;
   const static std::string ITERATOR_NEXT;
   const static std::string ITERATOR_HASNEXT;
+
+  // Binary operator function names.
+  const static std::string ADD_FUNC;
+  const static std::string SUB_FUNC;
+  const static std::string MUL_FUNC;
+  const static std::string DIV_FUNC;
+  const static std::string MOD_FUNC;
+  const static std::string AND_FUNC;
+  const static std::string OR_FUNC;
+  const static std::string XOR_FUNC;
+  const static std::string CMPLT_FUNC;
+  const static std::string CMPLE_FUNC;
+  const static std::string CMPEQ_FUNC;
+  const static std::string CMPGT_FUNC;
+  const static std::string CMPGE_FUNC;
+  const static std::string CMPNE_FUNC;
+
   // Function in c runtime that accesses vtable of an object.
   const static std::string NATIVE_INDEX_INTO_VTABLE;
   // End of base values offset (divided by 8) in Base struct.

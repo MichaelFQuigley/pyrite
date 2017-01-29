@@ -174,6 +174,8 @@ class CompileType {
   void setArgumentsList(std::vector<CompileType*>* argsList);
   bool isGenericType() const;
   bool isFunctionType() const;
+  bool isIntType() const;
+  bool isBoolType() const;
   /*
    * isEqualoType:
    * performs recursive type assertions to determine if

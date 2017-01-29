@@ -155,9 +155,9 @@ CompileVal *AstWalker::codeGen_VarDef(Json::Value &jsonNode) {
                "Annotated type " + annotatedType->getLongTypeName() +
                    " is not compatible with type on right hand side: " +
                    rhs_expr->getCompileType()->getLongTypeName());
-    newVarInScope(varName,
-                  new CompileVal(rhs_expr->getRawValue(), annotatedType,
-                                 rhs_expr->getIsBoxed()));
+    CompileVal *varVal = new CompileVal(rhs_expr->getRawValue(), annotatedType,
+                                        rhs_expr->getIsBoxed());
+    newVarInScope(varName, varVal);
   } else if (jsonNode_has(jsonNode, "definition_infer", &tempNode)) {
     std::string varName = tempNode["name"].asString();
     CompileVal *rhs_expr = codeGen_initial(tempNode["expr"]);
@@ -177,6 +177,7 @@ CompileVal *AstWalker::codeGen_VarDef(Json::Value &jsonNode) {
 
 CompileVal *AstWalker::newVarInScope(const std::string &varName,
                                      CompileVal *value, bool is_definition) {
+  value = codeGenHelper->boxIfNot(value);
   llvm::BasicBlock *originalBlock = Builder.GetInsertBlock();
   llvm::BasicBlock &func_block = originalBlock->getParent()->getEntryBlock();
 
@@ -206,7 +207,10 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
   GEN_ASSERT(var_val != nullptr, "Variable " + id_name + " is undefined.");
 
   result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()),
-                          var_val->getCompileType());
+                          var_val->getCompileType(), var_val->getIsBoxed());
+  if (!result->getIsBoxed()) {
+    result = codeGenHelper->boxValue(result);
+  }
 
   if (trailers.size() > 0) {
     Json::Value currNode;
@@ -240,22 +244,22 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
                "Type on rhs is not compatible with lhs in assignment of " +
                    var_val->getCompileType()->getLongTypeName() + " " +
                    id_name + ".");
-    Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
-    // Only track non-Function type variables for gc since
-    // Function variables do not point to dynamically allocated memory.
-    if (!var_val->getCompileType()->isFunctionType()) {
-      codeGenHelper->createNativeCall(
-          "gc_set_named_var_in_scope",
-          {Builder.CreateLoad(var_val->getRawValue()),
-           codeGenHelper->getConstInt64(varIndex, false)});
+    if (!rhs->getIsBoxed()) {
+      rhs = codeGenHelper->boxValue(rhs);
     }
+    Builder.CreateStore(rhs->getRawValue(), var_val->getRawValue());
+    codeGenHelper->createNativeCall(
+        "gc_set_named_var_in_scope",
+        {Builder.CreateLoad(var_val->getRawValue()),
+         codeGenHelper->getConstInt64(varIndex, false)});
   }
 }
 
 CompileVal *AstWalker::codeGen_BinOp(Json::Value &jsonNode) {
   std::string op = jsonNode["op"].asString();
   std::string opFuncPrefix = "";
-  bool isCompare = false;
+  CompileVal *lhs = codeGen_initial(jsonNode["lhs"]);
+  CompileVal *rhs = codeGen_initial(jsonNode["rhs"]);
 
   if (op == "=") {
     Json::Value lhs_node;
@@ -271,49 +275,50 @@ CompileVal *AstWalker::codeGen_BinOp(Json::Value &jsonNode) {
     } else {
       GEN_FAIL("Invalid lhs of assignment.");
     }
-  } else if (op == "+") {
-    opFuncPrefix = "add";
+  }
+  // If both sides are Int and at least one side is unboxed, use unboxed
+  // instructions.
+  if (lhs->getCompileType()->isIntType() &&
+      lhs->getCompileType()->isIntType() &&
+      (!lhs->getIsBoxed() || !rhs->getIsBoxed())) {
+    lhs = codeGenHelper->unboxIfNot(lhs);
+    rhs = codeGenHelper->unboxIfNot(rhs);
+
+    return codeGenHelper->generateUnboxedIntBinOp(lhs, rhs, op);
+  }
+  if (op == "+") {
+    opFuncPrefix = CodeGenUtil::ADD_FUNC;
   } else if (op == "-") {
-    opFuncPrefix = "sub";
+    opFuncPrefix = CodeGenUtil::SUB_FUNC;
   } else if (op == "*") {
-    opFuncPrefix = "mul";
+    opFuncPrefix = CodeGenUtil::MUL_FUNC;
   } else if (op == "/") {
-    opFuncPrefix = "div";
+    opFuncPrefix = CodeGenUtil::DIV_FUNC;
   } else if (op == "%") {
-    opFuncPrefix = "mod";
+    opFuncPrefix = CodeGenUtil::MOD_FUNC;
   } else if (op == "&") {
-    opFuncPrefix = "and";
+    opFuncPrefix = CodeGenUtil::AND_FUNC;
   } else if (op == "|") {
-    opFuncPrefix = "or";
+    opFuncPrefix = CodeGenUtil::OR_FUNC;
   } else if (op == "^") {
-    opFuncPrefix = "xor";
+    opFuncPrefix = CodeGenUtil::XOR_FUNC;
   } else if (op == "<") {
-    opFuncPrefix = "cmplt";
+    opFuncPrefix = CodeGenUtil::CMPLT_FUNC;
   } else if (op == "<=") {
-    opFuncPrefix = "cmple";
-    isCompare = true;
+    opFuncPrefix = CodeGenUtil::CMPLE_FUNC;
   } else if (op == "==") {
-    opFuncPrefix = "cmpeq";
-    isCompare = true;
+    opFuncPrefix = CodeGenUtil::CMPEQ_FUNC;
   } else if (op == ">") {
-    opFuncPrefix = "cmpgt";
-    isCompare = true;
+    opFuncPrefix = CodeGenUtil::CMPGT_FUNC;
   } else if (op == ">=") {
-    opFuncPrefix = "cmpge";
-    isCompare = true;
+    opFuncPrefix = CodeGenUtil::CMPGE_FUNC;
   } else if (op == "!=") {
-    opFuncPrefix = "cmpne";
-    isCompare = true;
+    opFuncPrefix = CodeGenUtil::CMPNE_FUNC;
   } else {
     GEN_FAIL("Unimplemented operator type!");
   }
 
-  CompileVal *lhs = codeGen_initial(jsonNode["lhs"]);
-  CompileVal *rhs = codeGen_initial(jsonNode["rhs"]);
-
-  CompileVal *vtableFunc = codeGenHelper->createVtableAccess(lhs, opFuncPrefix);
-
-  return createLangCall(vtableFunc, {lhs, rhs});
+  return createClassMethodCall(opFuncPrefix, lhs, {rhs});
 }
 
 CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
@@ -367,11 +372,12 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
     return handleTrailers(val_node["trailers"],
                           codeGen_ExprOp(val_node["expr"]));
   } else if (jsonNode_has(jsonNode, "RangeOp", &val_node)) {
-    CompileVal *start = codeGen_AtomOp(val_node["start"]);
-    CompileVal *step = codeGenHelper->createLiteral(
+    CompileVal *start =
+        codeGenHelper->boxIfNot(codeGen_AtomOp(val_node["start"]));
+    CompileVal *step = codeGenHelper->boxIfNot(codeGenHelper->createLiteral(
         CompileType::CommonType::INT,
-        llvm::ConstantInt::get(currContext, llvm::APInt(64, 1, true)));
-    CompileVal *end = codeGen_AtomOp(val_node["end"]);
+        llvm::ConstantInt::get(currContext, llvm::APInt(64, 1, true))));
+    CompileVal *end = codeGenHelper->boxIfNot(codeGen_AtomOp(val_node["end"]));
 
     GEN_ASSERT(start->typesAreEqual(end),
                "Start and end type for range must be the same.");
@@ -439,9 +445,7 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
   GEN_ASSERT(func->getCompileType()->isFunctionType(),
              "Error: Trying to call something that is not a function! (i.e. " +
                  func->getCompileType()->getLongTypeName() + ")");
-  if (func->getIsBoxed()) {
-    func = codeGenHelper->unboxValue(func);
-  }
+  func = codeGenHelper->unboxIfNot(func);
 
   std::vector<llvm::Value *> nativeArgs;
   const std::vector<CompileType *> &funcProtoArgs =
@@ -466,9 +470,7 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
         + "\nExpected " + funcProtoArgType->getLongTypeName()
         + "\nGot " + argsV[i]->getCompileType()->getLongTypeName());
     CompileVal *param = argsV[i];
-    if (!param->getIsBoxed()) {
-      param = codeGenHelper->boxValue(param);
-    }
+    param = codeGenHelper->boxIfNot(param);
     nativeArgs.push_back(param->getRawValue());
   }
   // Since functions are all stored as void stars, it must be casted to the
@@ -485,10 +487,12 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
 
 void AstWalker::createBoolCondBr(CompileVal *Bool, llvm::BasicBlock *trueBlock,
                                  llvm::BasicBlock *falseBlock) {
-  llvm::Value *raw_bool =
-      codeGenHelper->createNativeCall("rawVal_Bool", {Bool->getRawValue()});
+  GEN_ASSERT(Bool->getCompileType()->isBoolType(),
+             "Expected type Bool, but got type: " +
+                 Bool->getCompileType()->getLongTypeName());
+  llvm::Value *rawBool = codeGenHelper->unboxIfNot(Bool)->getRawValue();
 
-  Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
+  Builder.CreateCondBr(rawBool, trueBlock, falseBlock);
 }
 
 CompileVal *AstWalker::codeGen_ForOp(Json::Value &jsonNode) {

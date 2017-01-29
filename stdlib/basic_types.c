@@ -216,7 +216,9 @@ void* String_Bool(void* bool_val) {
   return result;
 }
 
-bool rawVal_Bool(void* this) { return ((Bool*)this)->raw_value; }
+__attribute__((always_inline)) bool rawVal_Bool(void* this) {
+  return ((Bool*)this)->raw_value;
+}
 
 void uninit_Bool(void* bool_val) { return; }
 
