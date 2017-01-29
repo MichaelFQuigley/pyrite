@@ -112,6 +112,12 @@ typedef struct List {
   void** raw_value;
 } List;
 
+typedef struct Function {
+  BASE_VALS
+  // raw_value is the function pointer.
+  void* raw_value;
+} Function;
+
 // initialize_types should be called before any other
 // function from this file
 int initialize_types(void);
@@ -125,7 +131,7 @@ void* indexIntoFields(void* obj, int64_t fieldIndex);
 
 // Base
 void* init_Base(void);
-void* String_Base(void);
+void* String_Base(void* this);
 
 // Int
 CREATE_PRIMITIVE_INIT_FN_DECL(Int, int64_t)
@@ -235,5 +241,10 @@ void* next_List(void* this);
 void* begin_List(void* this);
 
 void* size_List(void* this);
+
+// Function
+CREATE_PRIMITIVE_INIT_FN_DECL(Function, void*)
+
+void* String_Function(void* this);
 
 #endif

@@ -45,6 +45,8 @@ static void* const vtable_List[] = {VTABLE_BASE(List), hasNext_List, next_List,
                                     begin_List,        set_List,     get_List,
                                     add_List,          append_List,  size_List};
 
+static void* const vtable_Function[] = {VTABLE_BASE(Function)};
+
 __attribute__((always_inline)) void* indexIntoVtable(void* obj,
                                                      int64_t vtableIndex) {
   return (((Base*)obj)->vtable)[vtableIndex];
@@ -83,7 +85,7 @@ void* init_Base(void) {
   return obj;
 }
 
-void* String_Base(void) { return init_String(""); }
+void* String_Base(void* this) { return init_String(""); }
 
 // Int
 __attribute__((always_inline)) void* init_Int(int64_t raw_value) {
@@ -410,3 +412,11 @@ void* begin_List(void* this) {
 }
 
 void* size_List(void* this) { return init_Int(((List*)this)->size); }
+
+// Function
+void* init_Function(void* raw_value) {
+  CREATE_PRIMITIVE_INIT_BLOCK(Function, void*, obj);
+  return obj;
+}
+
+void* String_Function(void* this) { return String_Base(this); }

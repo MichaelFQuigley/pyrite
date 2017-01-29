@@ -1,0 +1,35 @@
+func getBoxedFn1() -> (s:String) -> Void {
+  println
+}
+
+func getBoxedFn2() -> (s:String) -> Void {
+  getBoxedFn1()
+}
+
+
+func test(iii:(i:String) -> Void, s:String) {
+   iii(s)
+
+  let im = (if(true) iii else println)
+  im("a")
+  let im2 = (if(true) println else iii)
+  im2("b")
+  let im3 = println
+  im3("c")
+  let im4 = iii
+  im4("d")
+  getBoxedFn1()("e")
+  getBoxedFn2()("f")
+
+  let list = [im, im2, im3, im4, getBoxedFn1(), getBoxedFn2()]
+
+  let i = 0
+  for(f in list) {
+    f(i.str())
+    i += 1
+  }
+}
+
+func main() {
+  test(println, "Hello world")
+}

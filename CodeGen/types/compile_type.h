@@ -232,17 +232,27 @@ class CompileVal {
  private:
   llvm::Value* rawValue;
   CompileType compileType;
+  bool isBoxed;
 
  public:
-  CompileVal(llvm::Value* rawValue, std::string typeName);
-  CompileVal(llvm::Value* rawValue, CompileType const* compileType);
-  CompileVal(llvm::Value* rawValue, CompileType::CommonType commonType);
+  CompileVal(llvm::Value* rawValue, std::string typeName, bool isBoxed = true);
+  CompileVal(llvm::Value* rawValue, CompileType const* compileType,
+             bool isBoxed = true);
+  CompileVal(llvm::Value* rawValue, CompileType::CommonType commonType,
+             bool isBoxed = true);
   CompileType* getCompileType();
   void setCompileType(CompileType const* compileType);
   void insertArgumentType(CompileType* compileType);
   void setArgumentsList(std::vector<CompileType*>* argsList);
   llvm::Value* getRawValue();
+  CompileVal* box(llvm::Value* boxedValue);
+  CompileVal* unbox(llvm::Value* unboxedValue);
   bool typesAreEqual(CompileVal* valB);
+  /*
+   * isBoxed:
+   * True if the raw value represents a boxed value (i.e. has a void* type).
+   */
+  bool getIsBoxed() const;
 };
 
 class TypeMember {

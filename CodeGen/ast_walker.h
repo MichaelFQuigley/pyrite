@@ -140,6 +140,30 @@ class AstWalker {
   void endForLoop(CompileVal* iteratorVal, const std::string& loopVarName,
                   llvm::BasicBlock* loopTop, llvm::BasicBlock* loopBottom);
 
+  /*
+   * boxValue:
+   * Boxes rawValue of the provided compileVal. For example, a raw function
+   * pointer would be boxed inside of a Function object.
+   * The resulting object is a new CompileVal object.
+   */
+  CompileVal* boxValue(CompileVal* compileVal);
+
+  /*
+   * unboxValue:
+   * Unboxes rawValue of the provided compileVal.
+   */
+  CompileVal* unboxValue(CompileVal* compileVal);
+
+  /*
+   * createInitCall:
+   * Creates call to low level initialization routine for type indicated by
+   * typeName.
+   * rawValue is the single raw parameter to the init routine.
+   * Returns the result of the init routine.
+   */
+  llvm::Value* createInitCall(const std::string& typeName,
+                              llvm::Value* rawValue);
+
  public:
   void writeToFile(std::string filename);
   AstWalker(llvm::Module* output_module,

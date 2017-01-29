@@ -8,6 +8,7 @@ const std::string CodeGenUtil::ITERATOR_BEGIN = "begin";
 const std::string CodeGenUtil::ITERATOR_NEXT = "next";
 const std::string CodeGenUtil::ITERATOR_HASNEXT = "hasNext";
 const std::string CodeGenUtil::NATIVE_INDEX_INTO_VTABLE = "indexIntoVtable";
+const int64_t CodeGenUtil::END_OF_BASE_VALS = 3;
 
 CodeGenUtil::CodeGenUtil(llvm::Module *currModule,
                          llvm::LLVMContext *currContext) {

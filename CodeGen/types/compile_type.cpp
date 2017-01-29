@@ -363,14 +363,8 @@ llvm::FunctionType *CompileType::asRawFunctionType(
   if (includeThisPointer) {
     argTypes.push_back(voidStarTy);
   }
-  auto argsList = compileType->getArgumentsList();
   for (int i = 0; i < paramCount; i++) {
-    if ((*argsList)[i]->isFunctionType()) {
-      argTypes.push_back(CompileType::asRawFunctionType(
-          (*argsList)[i], voidStarTy, currContext, includeThisPointer));
-    } else {
-      argTypes.push_back(voidStarTy);
-    }
+    argTypes.push_back(voidStarTy);
   }
   if (!CompileType::getFunctionReturnType(compileType)->isVoidType()) {
     return llvm::FunctionType::get(voidStarTy, argTypes, false);
@@ -380,20 +374,25 @@ llvm::FunctionType *CompileType::asRawFunctionType(
 }
 
 // CompileVal
-CompileVal::CompileVal(llvm::Value *rawValue, std::string typeName)
+CompileVal::CompileVal(llvm::Value *rawValue, std::string typeName,
+                       bool isBoxed)
     : compileType(typeName) {
   this->rawValue = rawValue;
+  this->isBoxed = isBoxed;
 }
 
-CompileVal::CompileVal(llvm::Value *rawValue, CompileType const *compileType)
+CompileVal::CompileVal(llvm::Value *rawValue, CompileType const *compileType,
+                       bool isBoxed)
     : compileType(*compileType) {
   this->rawValue = rawValue;
+  this->isBoxed = isBoxed;
 }
 
 CompileVal::CompileVal(llvm::Value *rawValue,
-                       CompileType::CommonType commonType)
+                       CompileType::CommonType commonType, bool isBoxed)
     : compileType(commonType) {
   this->rawValue = rawValue;
+  this->isBoxed = isBoxed;
 }
 
 CompileType *CompileVal::getCompileType() { return &compileType; }
@@ -453,6 +452,20 @@ llvm::Value *CompileVal::getRawValue() { return rawValue; }
 
 bool CompileVal::typesAreEqual(CompileVal *valB) {
   return this->getCompileType()->isEqualToType(valB->getCompileType());
+}
+
+bool CompileVal::getIsBoxed() const { return isBoxed; }
+
+CompileVal *CompileVal::box(llvm::Value *boxedValue) {
+  rawValue = boxedValue;
+  isBoxed = true;
+  return this;
+}
+
+CompileVal *CompileVal::unbox(llvm::Value *unboxedValue) {
+  rawValue = unboxedValue;
+  isBoxed = false;
+  return this;
 }
 
 TypeMember::TypeMember(const std::string &memberName,

@@ -17,9 +17,9 @@ AstWalker::AstWalker(
   codeGenHelper = new CodeGenUtil(currModule, &currContext);
 
   // TODO automate this process...
-  CompileVal *printlnVal =
-      new CompileVal(tryGetFunction("println"),
-                     new CompileType(CompileType::CommonType::FUNCTION));
+  CompileVal *printlnVal = new CompileVal(
+      tryGetFunction("println"),
+      new CompileType(CompileType::CommonType::FUNCTION), /*isBoxed=*/false);
   printlnVal->setArgumentsList(new std::vector<CompileType *>(
       {new CompileType(CompileType::CommonType::STRING),
        new CompileType(CompileType::CommonType::VOID)}));
@@ -132,7 +132,7 @@ CompileVal *AstWalker::makeFuncProto(Json::Value &jsonNode) {
                       .asString());
   }
 
-  CompileVal *result = new CompileVal(func, resultType);
+  CompileVal *result = new CompileVal(func, resultType, /*isBoxed=*/false);
   return result;
 }
 
@@ -156,7 +156,8 @@ CompileVal *AstWalker::codeGen_VarDef(Json::Value &jsonNode) {
                    " is not compatible with type on right hand side: " +
                    rhs_expr->getCompileType()->getLongTypeName());
     newVarInScope(varName,
-                  new CompileVal(rhs_expr->getRawValue(), annotatedType));
+                  new CompileVal(rhs_expr->getRawValue(), annotatedType,
+                                 rhs_expr->getIsBoxed()));
   } else if (jsonNode_has(jsonNode, "definition_infer", &tempNode)) {
     std::string varName = tempNode["name"].asString();
     CompileVal *rhs_expr = codeGen_initial(tempNode["expr"]);
@@ -188,7 +189,8 @@ CompileVal *AstWalker::newVarInScope(const std::string &varName,
     Builder.CreateStore(value->getRawValue(), allocaRes);
   }
 
-  CompileVal *result = new CompileVal(allocaRes, value->getCompileType());
+  CompileVal *result =
+      new CompileVal(allocaRes, value->getCompileType(), value->getIsBoxed());
   scopeHelper->setNamedVal(varName, result, true);
 
   return result;
@@ -355,7 +357,8 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
     GEN_ASSERT(var_val != nullptr, "Variable " + id_name + " is undefined.");
 
     result = new CompileVal(Builder.CreateLoad(var_val->getRawValue()),
-                            var_val->getCompileType());
+                            var_val->getCompileType(),
+                            /*isBoxed=*/var_val->getIsBoxed());
     return handleTrailers(val_node["trailers"], result);
   } else if (jsonNode_has(jsonNode, "ParenExpr", &val_node)) {
     return handleTrailers(val_node["trailers"],
@@ -460,13 +463,18 @@ CompileVal *AstWalker::createVtableAccess(CompileVal *obj,
       methodHandle, llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
                         methodType, Builder.getInt8PtrTy(), currContext)));
   // XXX handle null return type.
-  return new CompileVal(castedValue, methodType);
+  return new CompileVal(castedValue, methodType, /*isBoxed=*/false);
 }
 
 CompileVal *AstWalker::createLangCall(CompileVal *func,
                                       const std::vector<CompileVal *> &argsV) {
   GEN_ASSERT(func->getCompileType()->isFunctionType(),
-             "Error: Trying to call something that is not a function!");
+             "Error: Trying to call something that is not a function! (i.e. " +
+                 func->getCompileType()->getLongTypeName() + ")");
+  if (func->getIsBoxed()) {
+    func = unboxValue(func);
+  }
+
   std::vector<llvm::Value *> nativeArgs;
   const std::vector<CompileType *> &funcProtoArgs =
       *(func->getCompileType()->getArgumentsList());
@@ -489,9 +497,14 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
         (std::string)"Types used in call to function do not match function prototype."
         + "\nExpected " + funcProtoArgType->getLongTypeName()
         + "\nGot " + argsV[i]->getCompileType()->getLongTypeName());
-
-    nativeArgs.push_back(argsV[i]->getRawValue());
+    CompileVal *param = argsV[i];
+    if (!param->getIsBoxed()) {
+      param = boxValue(param);
+    }
+    nativeArgs.push_back(param->getRawValue());
   }
+  // Since functions are all stored as void stars, it must be casted to the
+  // proper function type.
   llvm::Value *rawFunc = Builder.CreatePointerCast(
       func->getRawValue(),
       llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
@@ -639,6 +652,12 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
     ifTrue = Builder.GetInsertBlock();
     startBlock(ifFalse);
     CompileVal *ifFalseLastStmt = codeGen_initial(jsonNode["bodies"][1]);
+    // Make phi inputs either both boxed or both unboxed.
+    if (ifTrueLastStmt->getIsBoxed() && !ifFalseLastStmt->getIsBoxed()) {
+      ifFalseLastStmt = boxValue(ifFalseLastStmt);
+    } else if (!ifTrueLastStmt->getIsBoxed() && ifFalseLastStmt->getIsBoxed()) {
+      ifFalseLastStmt = unboxValue(ifFalseLastStmt);
+    }
     Builder.CreateBr(endIf);
     ifFalse = Builder.GetInsertBlock();
     startBlock(endIf);
@@ -649,9 +668,11 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
         !(CompileType::isVoidType(ifFalseLastStmt->getCompileType()))) {
       llvm::PHINode *phi = Builder.CreatePHI(
           ifTrueLastStmt->getRawValue()->getType(), 2, "ifPhi");
+
       phi->addIncoming(ifTrueLastStmt->getRawValue(), ifTrue);
       phi->addIncoming(ifFalseLastStmt->getRawValue(), ifFalse);
-      result = new CompileVal(phi, ifTrueLastStmt->getCompileType());
+      result = new CompileVal(phi, ifTrueLastStmt->getCompileType(),
+                              ifTrueLastStmt->getIsBoxed());
     } else {
       result = nullptr;
     }
@@ -668,10 +689,15 @@ llvm::Value *AstWalker::createGlobalFunctionConst(const std::string &funcName,
       scopeHelper->getNearestScopeOfType(ScopeNode::ScopeType::TOP_SCOPE);
 
   llvm::GlobalVariable *result = new llvm::GlobalVariable(
-      *currModule, func->getRawValue()->getType(), true /* is constant */,
+      *currModule, func->getRawValue()->getType(), /*isConstant=*/true,
       llvm::GlobalValue::LinkageTypes::PrivateLinkage, initValue, funcName);
-  globalScope->setNamedVal(funcName,
-                           new CompileVal(result, func->getCompileType()), 0);
+  // Cast from function type to void* type.
+  llvm::Value *castedResult = Builder.CreatePointerCast(
+      result, llvm::PointerType::getUnqual(Builder.getInt8PtrTy()));
+  globalScope->setNamedVal(
+      funcName,
+      new CompileVal(castedResult, func->getCompileType(), /*isBoxed=*/false),
+      0);
 
   return result;
 }
@@ -749,6 +775,10 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
 
 CompileVal *AstWalker::createReturn(CompileVal *val) {
   createNativeCall("gc_pop_scope", {});
+  // All return values must be of boxed type.
+  if (val != nullptr && !val->getIsBoxed()) {
+    val = boxValue(val);
+  }
   if (val == nullptr || CompileType::isVoidType(val->getCompileType())) {
     return new CompileVal(Builder.CreateRetVoid(),
                           CompileType::CommonType::VOID);
@@ -891,33 +921,62 @@ CompileVal *AstWalker::createClassMethodCall(
 llvm::Type *AstWalker::rawTypeFromCompileType(CompileType const *compileType) {
   if (compileType->isVoidType()) {
     return llvm::Type::getVoidTy(currContext);
-  }
-  if (compileType->isFunctionType()) {
-    auto protoFuncArgs = compileType->getArgumentsList();
-    std::vector<llvm::Type *> rawArgs;
-    for (int i = 0; i < protoFuncArgs->size() - 1; i++) {
-      CompileType *funcArg = (*protoFuncArgs)[i];
-      rawArgs.push_back(AstWalker::rawTypeFromCompileType(funcArg));
-    }
-    llvm::Type *rawRetType =
-        AstWalker::rawTypeFromCompileType(compileType->getFunctionReturnType());
-    return llvm::PointerType::getUnqual(
-        llvm::FunctionType::get(rawRetType, rawArgs, false /* isVarArg */));
   } else {
     return Builder.getInt8PtrTy();
   }
 }
 
 CompileVal *AstWalker::createLiteral(const std::string &typeName,
-                                     llvm::Value *raw_value) {
+                                     llvm::Value *rawValue) {
+  llvm::Value *objectVal = createInitCall(typeName, rawValue);
+  return new CompileVal(objectVal, getCompileType(typeName));
+}
+
+llvm::Value *AstWalker::createInitCall(const std::string &typeName,
+                                       llvm::Value *rawValue) {
   const std::string init_func_name = "init_" + typeName;
 
   llvm::BasicBlock *originalBlock = Builder.GetInsertBlock();
-  llvm::Value *result = createNativeCall(init_func_name, {raw_value});
+  llvm::Value *result = createNativeCall(init_func_name, {rawValue});
 
   Builder.SetInsertPoint(originalBlock);
+  return result;
+}
 
-  return new CompileVal(result, getCompileType(typeName));
+CompileVal *AstWalker::boxValue(CompileVal *compileVal) {
+  GEN_ASSERT(!compileVal->getIsBoxed(), "Tried to box an already boxed value.")
+  CompileType *compileType = compileVal->getCompileType();
+  if (compileType->isFunctionType()) {
+    llvm::Value *castedValue = Builder.CreatePointerCast(
+        compileVal->getRawValue(), Builder.getInt8PtrTy());
+    return new CompileVal(
+        createInitCall(compileVal->getCompileType()->getTypeName(),
+                       castedValue),
+        compileVal->getCompileType(), /*isBoxed=*/true);
+  } else {
+    GEN_FAIL("Only functions can be boxed.");
+  }
+}
+
+CompileVal *AstWalker::unboxValue(CompileVal *compileVal) {
+  GEN_ASSERT(compileVal->getIsBoxed(),
+             "Tried to unbox an already unboxed value.")
+  CompileType *compileType = compileVal->getCompileType();
+
+  if (compileType->isFunctionType()) {
+    // Casts raw value to void**
+    llvm::Value *rawCompileValPtr = Builder.CreatePointerCast(
+        compileVal->getRawValue(),
+        llvm::PointerType::getUnqual(Builder.getInt8PtrTy()));
+    // Gets element pointer and loads value at end of base vals offset.
+    llvm::Value *rawUncastFuncVal =
+        Builder.CreateLoad(Builder.CreateInBoundsGEP(
+            rawCompileValPtr, {codeGenHelper->getConstInt64(
+                                  CodeGenUtil::END_OF_BASE_VALS, false)}));
+    return new CompileVal(rawUncastFuncVal, compileType, /*isBoxed=*/false);
+  } else {
+    GEN_FAIL("Only functions can be unboxed.");
+  }
 }
 
 llvm::Module *AstWalker::getModule() { return currModule; }

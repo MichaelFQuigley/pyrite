@@ -63,6 +63,8 @@ class CodeGenUtil {
   const static std::string ITERATOR_HASNEXT;
   // Function in c runtime that accesses vtable of an object.
   const static std::string NATIVE_INDEX_INTO_VTABLE;
+  // End of base values offset (divided by 8) in Base struct.
+  const static int64_t END_OF_BASE_VALS;
 
  private:
   llvm::LLVMContext* currContext;
