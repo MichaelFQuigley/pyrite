@@ -47,11 +47,7 @@ class AstWalker {
   llvm::IRBuilder<> Builder;
   CodeGenUtil* codeGenHelper;
   llvm::Module* currModule;
-  std::map<std::string, CompileType*> moduleTypes;
   llvm::Value* createObject(llvm::Type* obj_type, bool restore_insert_point);
-  CompileVal* createLiteral(const std::string& type_name, llvm::Value* value);
-  CompileVal* createLiteral(CompileType::CommonType commonType,
-                            llvm::Value* value);
   llvm::Value* createGlobalFunctionConst(const std::string& funcName,
                                          CompileVal* func);
   bool jsonNode_has(Json::Value& jsonNode, const std::string& name,
@@ -62,9 +58,7 @@ class AstWalker {
   llvm::BasicBlock* makeBasicBlock(const std::string& name = "");
   CompileType* makeCompileType(Json::Value& jsonNode);
   CompileType* makeFuncCompileType(Json::Value& jsonNode);
-  // createNativeCall will create a native function call
-  llvm::Value* createNativeCall(std::string func_name,
-                                const std::vector<llvm::Value*>& argsV);
+
   // createLangCall will create a function call that was
   // existent in the file being compiled
   CompileVal* createLangCall(CompileVal* func,
@@ -79,11 +73,7 @@ class AstWalker {
   CompileVal* makeFuncProto(Json::Value& jsonNode);
   // startBlock adds block to back of function and starts insert point there.
   void startBlock(llvm::BasicBlock* block);
-  // tryGetFunction tries to get the function based on func_name from the
-  // current module
-  llvm::Function* tryGetFunction(std::string func_name,
-                                 bool raise_fail_exception = true,
-                                 std::string error_msg = "Undefined function");
+
   std::string createConstructorName(std::string func_name,
                                     std::vector<llvm::Value*> argsV);
   // newVarInScope allocates space for a new variable at the top of a function
@@ -100,14 +90,7 @@ class AstWalker {
   void addFuncPtr(std::string funcName, CompileVal* func);
   void handleAssignLhs(Json::Value& assignLhs, CompileVal* rhs);
   CompileVal* createReturn(CompileVal* val);
-  /*
-   * createVtableAccess:
-   * Creates function access from provided object.
-   */
-  CompileVal* createVtableAccess(CompileVal* obj,
-                                 const std::string& functionName);
-  CompileType* getCompileType(const std::string& typeName);
-  CompileType* getCompileType(CompileType::CommonType typeName);
+
   /*
    * handleTrailers:
    * Takes json list of possible trailer values and returns a result value
@@ -139,30 +122,6 @@ class AstWalker {
    */
   void endForLoop(CompileVal* iteratorVal, const std::string& loopVarName,
                   llvm::BasicBlock* loopTop, llvm::BasicBlock* loopBottom);
-
-  /*
-   * boxValue:
-   * Boxes rawValue of the provided compileVal. For example, a raw function
-   * pointer would be boxed inside of a Function object.
-   * The resulting object is a new CompileVal object.
-   */
-  CompileVal* boxValue(CompileVal* compileVal);
-
-  /*
-   * unboxValue:
-   * Unboxes rawValue of the provided compileVal.
-   */
-  CompileVal* unboxValue(CompileVal* compileVal);
-
-  /*
-   * createInitCall:
-   * Creates call to low level initialization routine for type indicated by
-   * typeName.
-   * rawValue is the single raw parameter to the init routine.
-   * Returns the result of the init routine.
-   */
-  llvm::Value* createInitCall(const std::string& typeName,
-                              llvm::Value* rawValue);
 
  public:
   void writeToFile(std::string filename);

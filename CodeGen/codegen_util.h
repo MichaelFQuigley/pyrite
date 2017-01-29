@@ -37,7 +37,9 @@ namespace codegen {
 
 class CodeGenUtil {
  public:
-  CodeGenUtil(llvm::Module* currModule, llvm::LLVMContext* currContext);
+  CodeGenUtil(llvm::Module* currModule, llvm::LLVMContext* currContext,
+              llvm::IRBuilder<>& Builder,
+              std::map<std::string, CompileType*> moduleTypes);
   static void writeToFile(const std::string& filename,
                           llvm::Module* currModule);
   static void dumpIR(llvm::Module* currModule);
@@ -56,6 +58,59 @@ class CodeGenUtil {
       const std::string& stdlibTypesFilename, llvm::LLVMContext& context,
       std::map<std::string, CompileType*>* typesMapOut);
 
+  /*
+   * createVtableAccess:
+   * Creates function access from provided object.
+   */
+  CompileVal* createVtableAccess(CompileVal* obj,
+                                 const std::string& functionName);
+
+  /* tryGetFunction:
+   * Tries to get the function based on func_name from the
+   * current module.
+   */
+  llvm::Function* tryGetFunction(std::string func_name,
+                                 bool raise_fail_exception = true,
+                                 std::string error_msg = "Undefined function");
+
+  /* createNativeCall:
+   * Will create a native function call.
+   */
+  llvm::Value* createNativeCall(std::string func_name,
+                                const std::vector<llvm::Value*>& argsV);
+
+  /*
+   * boxValue:
+   * Boxes rawValue of the provided compileVal. For example, a raw function
+   * pointer would be boxed inside of a Function object.
+   * The resulting object is a new CompileVal object.
+   */
+  CompileVal* boxValue(CompileVal* compileVal);
+
+  /*
+   * unboxValue:
+   * Unboxes rawValue of the provided compileVal.
+   */
+  CompileVal* unboxValue(CompileVal* compileVal);
+
+  /*
+   * createInitCall:
+   * Creates call to low level initialization routine for type indicated by
+   * typeName.
+   * rawValue is the single raw parameter to the init routine.
+   * Returns the result of the init routine.
+   */
+  llvm::Value* createInitCall(const std::string& typeName,
+                              llvm::Value* rawValue);
+
+  CompileVal* createLiteral(const std::string& type_name, llvm::Value* value);
+  CompileVal* createLiteral(CompileType::CommonType commonType,
+                            llvm::Value* value);
+
+  CompileType* getCompileType(const std::string& typeName);
+  CompileType* getCompileType(CompileType::CommonType typeName);
+
+  // Name of the single generic parameter in a List.
   const static std::string LIST_GENERIC_PARAM;
   // Iterator method names for iterable types.
   const static std::string ITERATOR_BEGIN;
@@ -69,6 +124,8 @@ class CodeGenUtil {
  private:
   llvm::LLVMContext* currContext;
   llvm::Module* currModule;
+  llvm::IRBuilder<>& Builder;
+  std::map<std::string, CompileType*> moduleTypes;
   int64_t hidden_var_count;
 };
 }

@@ -9,16 +9,15 @@ using namespace std;
 AstWalker::AstWalker(
     llvm::Module *outputModule,
     std::map<std::string, CompileType *> const *currModuleTypes)
-    : currContext(outputModule->getContext()),
-      Builder(currContext),
-      moduleTypes(*currModuleTypes) {
+    : currContext(outputModule->getContext()), Builder(currContext) {
   currModule = outputModule;
   scopeHelper = new ScopeHelper();
-  codeGenHelper = new CodeGenUtil(currModule, &currContext);
+  codeGenHelper =
+      new CodeGenUtil(currModule, &currContext, Builder, *currModuleTypes);
 
   // TODO automate this process...
   CompileVal *printlnVal = new CompileVal(
-      tryGetFunction("println"),
+      codeGenHelper->tryGetFunction("println"),
       new CompileType(CompileType::CommonType::FUNCTION), /*isBoxed=*/false);
   printlnVal->setArgumentsList(new std::vector<CompileType *>(
       {new CompileType(CompileType::CommonType::STRING),
@@ -71,9 +70,9 @@ void AstWalker::popScope() { scopeHelper->popScope(); }
 CompileType *AstWalker::makeCompileType(Json::Value &jsonNode) {
   CompileType *result = nullptr;
   if (jsonNode["simple"] != Json::nullValue) {
-    result = getCompileType(jsonNode["simple"].asString());
+    result = codeGenHelper->getCompileType(jsonNode["simple"].asString());
   } else if (jsonNode["list_type"] != Json::nullValue) {
-    result = getCompileType(CompileType::CommonType::LIST);
+    result = codeGenHelper->getCompileType(CompileType::CommonType::LIST);
     // Make list generic type concrete.
     result = CompileType::implementGeneric(
         CodeGenUtil::LIST_GENERIC_PARAM, makeCompileType(jsonNode["list_type"]),
@@ -103,7 +102,8 @@ CompileType *AstWalker::makeFuncCompileType(Json::Value &jsonNode) {
 
   CompileType *result = new CompileType(CompileType::CommonType::FUNCTION);
   result->setArgumentsList(compileArgs);
-  result->setParent(getCompileType(CompileType::CommonType::BASE));
+  result->setParent(
+      codeGenHelper->getCompileType(CompileType::CommonType::BASE));
   return result;
 }
 
@@ -244,9 +244,10 @@ void AstWalker::handleAssignLhs(Json::Value &assignLhs, CompileVal *rhs) {
     // Only track non-Function type variables for gc since
     // Function variables do not point to dynamically allocated memory.
     if (!var_val->getCompileType()->isFunctionType()) {
-      createNativeCall("gc_set_named_var_in_scope",
-                       {Builder.CreateLoad(var_val->getRawValue()),
-                        codeGenHelper->getConstInt64(varIndex, false)});
+      codeGenHelper->createNativeCall(
+          "gc_set_named_var_in_scope",
+          {Builder.CreateLoad(var_val->getRawValue()),
+           codeGenHelper->getConstInt64(varIndex, false)});
     }
   }
 }
@@ -310,7 +311,8 @@ CompileVal *AstWalker::codeGen_BinOp(Json::Value &jsonNode) {
   CompileVal *lhs = codeGen_initial(jsonNode["lhs"]);
   CompileVal *rhs = codeGen_initial(jsonNode["rhs"]);
 
-  CompileVal *vtableFunc = createVtableAccess(lhs, opFuncPrefix);
+  CompileVal *vtableFunc = codeGenHelper->createVtableAccess(lhs, opFuncPrefix);
+
   return createLangCall(vtableFunc, {lhs, rhs});
 }
 
@@ -329,22 +331,23 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
       // Float
       case 'f':
         double_val = stod(lit_val);
-        return createLiteral(
+        return codeGenHelper->createLiteral(
             CompileType::CommonType::FLOAT,
             llvm::ConstantFP::get(currContext, llvm::APFloat(double_val)));
       // Int
       case 'i':
         int_val = stol(lit_val);
-        return createLiteral(CompileType::CommonType::INT,
-                             Builder.getInt64(int_val));
+        return codeGenHelper->createLiteral(CompileType::CommonType::INT,
+                                            Builder.getInt64(int_val));
       // String
       case 's':
-        return createLiteral(CompileType::CommonType::STRING,
-                             Builder.CreateGlobalStringPtr(lit_val));
+        return codeGenHelper->createLiteral(
+            CompileType::CommonType::STRING,
+            Builder.CreateGlobalStringPtr(lit_val));
       // Bool
       case 'b':
-        return createLiteral(CompileType::CommonType::BOOL,
-                             Builder.getInt1(lit_val == "true"));
+        return codeGenHelper->createLiteral(CompileType::CommonType::BOOL,
+                                            Builder.getInt1(lit_val == "true"));
       default:
         GEN_FAIL("Unimplemented literal type");
     }
@@ -365,7 +368,7 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
                           codeGen_ExprOp(val_node["expr"]));
   } else if (jsonNode_has(jsonNode, "RangeOp", &val_node)) {
     CompileVal *start = codeGen_AtomOp(val_node["start"]);
-    CompileVal *step = createLiteral(
+    CompileVal *step = codeGenHelper->createLiteral(
         CompileType::CommonType::INT,
         llvm::ConstantInt::get(currContext, llvm::APInt(64, 1, true)));
     CompileVal *end = codeGen_AtomOp(val_node["end"]);
@@ -374,8 +377,8 @@ CompileVal *AstWalker::codeGen_AtomOp(Json::Value &jsonNode) {
                "Start and end type for range must be the same.");
     CompileType *iteratedType = start->getCompileType();
     CompileType *rangeType =
-        getCompileType(iteratedType->getTypeName() + "Range");
-    llvm::Value *init_RangeResult = createNativeCall(
+        codeGenHelper->getCompileType(iteratedType->getTypeName() + "Range");
+    llvm::Value *init_RangeResult = codeGenHelper->createNativeCall(
         "init_" + rangeType->getTypeName(),
         {start->getRawValue(), step->getRawValue(), end->getRawValue()});
     return new CompileVal(init_RangeResult, rangeType);
@@ -405,8 +408,8 @@ CompileVal *AstWalker::handleTrailers(Json::Value &trailers,
       containingObject = nullptr;
     } else if (jsonNode_has(trailer, "Index", &currNode)) {
       CompileVal *indexVal = codeGen_initial(currNode);
-      result =
-          createLangCall(createVtableAccess(result, "get"), {result, indexVal});
+      result = createLangCall(codeGenHelper->createVtableAccess(result, "get"),
+                              {result, indexVal});
       containingObject = nullptr;
     } else if (jsonNode_has(trailer, "Dot", &currNode)) {
       int methodIndex = result->getCompileType()->getMethodIndex(
@@ -420,7 +423,7 @@ CompileVal *AstWalker::handleTrailers(Json::Value &trailers,
         GEN_FAIL("Field access not implemented yet.");
       }
       containingObject = result;
-      result = createVtableAccess(result, currNode.asString());
+      result = codeGenHelper->createVtableAccess(result, currNode.asString());
     }
   }
   return result;
@@ -431,48 +434,13 @@ llvm::BasicBlock *AstWalker::makeBasicBlock(const std::string &name) {
                                   Builder.GetInsertBlock()->getParent());
 }
 
-llvm::Function *AstWalker::tryGetFunction(std::string func_name,
-                                          bool raise_fail_exception,
-                                          std::string error_msg) {
-  std::string full_func_name = func_name;
-
-  auto func = currModule->getFunction(full_func_name);
-
-  if (raise_fail_exception) {
-    GEN_ASSERT(func != nullptr, full_func_name + " " + error_msg);
-  }
-
-  return func;
-}
-
-CompileVal *AstWalker::createVtableAccess(CompileVal *obj,
-                                          const std::string &functionName) {
-  int methodVtableIndex =
-      obj->getCompileType()->getMethodIndex(functionName, nullptr);
-  GEN_ASSERT(methodVtableIndex != -1,
-             "Method " + obj->getCompileType()->getTypeName() + "." +
-                 functionName + " is not found!");
-  CompileType const *methodType =
-      obj->getCompileType()->getMethodType(functionName);
-  llvm::Value *irMethodIndex = codeGenHelper->getConstInt64(methodVtableIndex);
-  llvm::Value *methodHandle =
-      createNativeCall(CodeGenUtil::NATIVE_INDEX_INTO_VTABLE,
-                       {obj->getRawValue(), irMethodIndex});
-  // TODO typecheck args vs method contract.
-  llvm::Value *castedValue = Builder.CreatePointerCast(
-      methodHandle, llvm::PointerType::getUnqual(CompileType::asRawFunctionType(
-                        methodType, Builder.getInt8PtrTy(), currContext)));
-  // XXX handle null return type.
-  return new CompileVal(castedValue, methodType, /*isBoxed=*/false);
-}
-
 CompileVal *AstWalker::createLangCall(CompileVal *func,
                                       const std::vector<CompileVal *> &argsV) {
   GEN_ASSERT(func->getCompileType()->isFunctionType(),
              "Error: Trying to call something that is not a function! (i.e. " +
                  func->getCompileType()->getLongTypeName() + ")");
   if (func->getIsBoxed()) {
-    func = unboxValue(func);
+    func = codeGenHelper->unboxValue(func);
   }
 
   std::vector<llvm::Value *> nativeArgs;
@@ -499,7 +467,7 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
         + "\nGot " + argsV[i]->getCompileType()->getLongTypeName());
     CompileVal *param = argsV[i];
     if (!param->getIsBoxed()) {
-      param = boxValue(param);
+      param = codeGenHelper->boxValue(param);
     }
     nativeArgs.push_back(param->getRawValue());
   }
@@ -515,18 +483,10 @@ CompileVal *AstWalker::createLangCall(CompileVal *func,
   return new CompileVal(retVal, retType);
 }
 
-llvm::Value *AstWalker::createNativeCall(
-    std::string func_name, const std::vector<llvm::Value *> &argsV) {
-  auto func = tryGetFunction(func_name);
-  llvm::Value *ret_val = Builder.CreateCall(func, argsV);
-
-  return ret_val;
-}
-
 void AstWalker::createBoolCondBr(CompileVal *Bool, llvm::BasicBlock *trueBlock,
                                  llvm::BasicBlock *falseBlock) {
   llvm::Value *raw_bool =
-      createNativeCall("rawVal_Bool", {Bool->getRawValue()});
+      codeGenHelper->createNativeCall("rawVal_Bool", {Bool->getRawValue()});
 
   Builder.CreateCondBr(raw_bool, trueBlock, falseBlock);
 }
@@ -568,7 +528,7 @@ void AstWalker::startForLoop(CompileVal *iteratorVal,
   createBoolCondBr(hasNext, loopBody, loopBottom);
   // loop body
   startBlock(loopBody);
-  createNativeCall("gc_push_loop_scope", {});
+  codeGenHelper->createNativeCall("gc_push_loop_scope", {});
 }
 
 void AstWalker::endForLoop(CompileVal *iteratorVal,
@@ -580,7 +540,7 @@ void AstWalker::endForLoop(CompileVal *iteratorVal,
           ->getRawValue(),
       scopeHelper->getNamedVal(loopVarName, true)->getRawValue());
 
-  createNativeCall("gc_pop_scope", {});
+  codeGenHelper->createNativeCall("gc_pop_scope", {});
   Builder.CreateBr(loopTop);
   startBlock(loopBottom);
 }
@@ -654,9 +614,9 @@ CompileVal *AstWalker::codeGen_IfOp(Json::Value &jsonNode) {
     CompileVal *ifFalseLastStmt = codeGen_initial(jsonNode["bodies"][1]);
     // Make phi inputs either both boxed or both unboxed.
     if (ifTrueLastStmt->getIsBoxed() && !ifFalseLastStmt->getIsBoxed()) {
-      ifFalseLastStmt = boxValue(ifFalseLastStmt);
+      ifFalseLastStmt = codeGenHelper->boxValue(ifFalseLastStmt);
     } else if (!ifTrueLastStmt->getIsBoxed() && ifFalseLastStmt->getIsBoxed()) {
-      ifFalseLastStmt = unboxValue(ifFalseLastStmt);
+      ifFalseLastStmt = codeGenHelper->unboxValue(ifFalseLastStmt);
     }
     Builder.CreateBr(endIf);
     ifFalse = Builder.GetInsertBlock();
@@ -723,7 +683,7 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
   createGlobalFunctionConst(funcName, compileFunc);
 
   if (funcName == "main") {
-    createNativeCall("initialize_core", {});
+    codeGenHelper->createNativeCall("initialize_core", {});
   }
 
   int arg_index = 0;
@@ -751,8 +711,9 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
 
   uint64_t numVarsInFunc = scopeHelper->getNumNamedVarsSinceFunc();
   Builder.SetInsertPoint(&func_block);
-  createNativeCall("gc_push_func_scope",
-                   {codeGenHelper->getConstInt64(numVarsInFunc, false)});
+  codeGenHelper->createNativeCall(
+      "gc_push_func_scope",
+      {codeGenHelper->getConstInt64(numVarsInFunc, false)});
   Builder.SetInsertPoint(originalBlock);
 
   if (CompileType::isVoidType(returnType)) {
@@ -774,10 +735,10 @@ CompileVal *AstWalker::codeGen_FuncDef(Json::Value &jsonNode) {
 }
 
 CompileVal *AstWalker::createReturn(CompileVal *val) {
-  createNativeCall("gc_pop_scope", {});
+  codeGenHelper->createNativeCall("gc_pop_scope", {});
   // All return values must be of boxed type.
   if (val != nullptr && !val->getIsBoxed()) {
-    val = boxValue(val);
+    val = codeGenHelper->boxValue(val);
   }
   if (val == nullptr || CompileType::isVoidType(val->getCompileType())) {
     return new CompileVal(Builder.CreateRetVoid(),
@@ -790,9 +751,9 @@ CompileVal *AstWalker::createReturn(CompileVal *val) {
 
 CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
   int numListItems = jsonNode.size();
-  CompileVal *list =
-      createLiteral(CompileType::CommonType::LIST,
-                    codeGenHelper->getConstInt64(numListItems, false));
+  CompileVal *list = codeGenHelper->createLiteral(
+      CompileType::CommonType::LIST,
+      codeGenHelper->getConstInt64(numListItems, false));
   for (unsigned i = 0; i < jsonNode.size(); i++) {
     CompileVal *list_el = codeGen_initial(jsonNode[i]);
     // Initialize list type.
@@ -803,9 +764,10 @@ CompileVal *AstWalker::codeGen_ListOp(Json::Value &jsonNode) {
           list->getCompileType()));
     }
     createClassMethodCall(
-        "set", list, {createLiteral(CompileType::CommonType::INT,
-                                    codeGenHelper->getConstInt64(i, false)),
-                      list_el});
+        "set", list,
+        {codeGenHelper->createLiteral(CompileType::CommonType::INT,
+                                      codeGenHelper->getConstInt64(i, false)),
+         list_el});
   }
 
   return list;
@@ -847,8 +809,8 @@ CompileVal *AstWalker::codeGen_ListGen(Json::Value &jsonNode) {
 
   CompileVal *itt = codeGen_AtomOp(jsonNode["itt"]);
   std::string loopVarName = jsonNode["loop_var"].asString();
-  CompileVal *list = createLiteral(CompileType::CommonType::LIST,
-                                   codeGenHelper->getConstInt64(0, false));
+  CompileVal *list = codeGenHelper->createLiteral(
+      CompileType::CommonType::LIST, codeGenHelper->getConstInt64(0, false));
 
   startForLoop(itt, loopVarName, loopTop, loopBody, loopBottom);
   CompileVal *expr = codeGen_ExprOp(jsonNode["element_expr"]);
@@ -902,15 +864,10 @@ Json::Value AstWalker::generateFromJson(std::string jsonString) {
   return json_root;
 }
 
-CompileVal *AstWalker::createLiteral(CompileType::CommonType commonType,
-                                     llvm::Value *raw_value) {
-  return createLiteral(CompileType::getCommonTypeName(commonType), raw_value);
-}
-
 CompileVal *AstWalker::createClassMethodCall(
     const std::string &methodName, CompileVal *thisObj,
     const std::vector<CompileVal *> &args) {
-  CompileVal *func = createVtableAccess(thisObj, methodName);
+  CompileVal *func = codeGenHelper->createVtableAccess(thisObj, methodName);
   std::vector<CompileVal *> newArgs = {thisObj};
   for (auto el : args) {
     newArgs.push_back(el);
@@ -926,74 +883,8 @@ llvm::Type *AstWalker::rawTypeFromCompileType(CompileType const *compileType) {
   }
 }
 
-CompileVal *AstWalker::createLiteral(const std::string &typeName,
-                                     llvm::Value *rawValue) {
-  llvm::Value *objectVal = createInitCall(typeName, rawValue);
-  return new CompileVal(objectVal, getCompileType(typeName));
-}
-
-llvm::Value *AstWalker::createInitCall(const std::string &typeName,
-                                       llvm::Value *rawValue) {
-  const std::string init_func_name = "init_" + typeName;
-
-  llvm::BasicBlock *originalBlock = Builder.GetInsertBlock();
-  llvm::Value *result = createNativeCall(init_func_name, {rawValue});
-
-  Builder.SetInsertPoint(originalBlock);
-  return result;
-}
-
-CompileVal *AstWalker::boxValue(CompileVal *compileVal) {
-  GEN_ASSERT(!compileVal->getIsBoxed(), "Tried to box an already boxed value.")
-  CompileType *compileType = compileVal->getCompileType();
-  if (compileType->isFunctionType()) {
-    llvm::Value *castedValue = Builder.CreatePointerCast(
-        compileVal->getRawValue(), Builder.getInt8PtrTy());
-    return new CompileVal(
-        createInitCall(compileVal->getCompileType()->getTypeName(),
-                       castedValue),
-        compileVal->getCompileType(), /*isBoxed=*/true);
-  } else {
-    GEN_FAIL("Only functions can be boxed.");
-  }
-}
-
-CompileVal *AstWalker::unboxValue(CompileVal *compileVal) {
-  GEN_ASSERT(compileVal->getIsBoxed(),
-             "Tried to unbox an already unboxed value.")
-  CompileType *compileType = compileVal->getCompileType();
-
-  if (compileType->isFunctionType()) {
-    // Casts raw value to void**
-    llvm::Value *rawCompileValPtr = Builder.CreatePointerCast(
-        compileVal->getRawValue(),
-        llvm::PointerType::getUnqual(Builder.getInt8PtrTy()));
-    // Gets element pointer and loads value at end of base vals offset.
-    llvm::Value *rawUncastFuncVal =
-        Builder.CreateLoad(Builder.CreateInBoundsGEP(
-            rawCompileValPtr, {codeGenHelper->getConstInt64(
-                                  CodeGenUtil::END_OF_BASE_VALS, false)}));
-    return new CompileVal(rawUncastFuncVal, compileType, /*isBoxed=*/false);
-  } else {
-    GEN_FAIL("Only functions can be unboxed.");
-  }
-}
-
 llvm::Module *AstWalker::getModule() { return currModule; }
 
 llvm::LLVMContext *AstWalker::getContext() { return &currContext; }
-
-CompileType *AstWalker::getCompileType(const std::string &typeName) {
-  GEN_ASSERT(typeName != CompileType::getCommonTypeName(
-                             CompileType::CommonType::FUNCTION),
-             "Function types should not be accessed this way.");
-  GEN_ASSERT(moduleTypes.find(typeName) != moduleTypes.end(),
-             "Type " + typeName + " not found.");
-  return moduleTypes[typeName];
-}
-
-CompileType *AstWalker::getCompileType(CompileType::CommonType typeName) {
-  return getCompileType(CompileType::getCommonTypeName(typeName));
-}
 
 }  // namespace codegen

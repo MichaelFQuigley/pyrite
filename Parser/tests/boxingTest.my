@@ -1,11 +1,6 @@
-func getBoxedFn1() -> (s:String) -> Void {
-  println
-}
+func getBoxedFn1() -> (s:String) -> Void println
 
-func getBoxedFn2() -> (s:String) -> Void {
-  getBoxedFn1()
-}
-
+func getBoxedFn2() -> (s:String) -> Void getBoxedFn1()
 
 func test(iii:(i:String) -> Void, s:String) {
    iii(s)
