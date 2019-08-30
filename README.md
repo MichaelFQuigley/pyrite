@@ -27,29 +27,29 @@ func main()
 
 More examples are in the Parser/tests directory.
 
-###Building/Running
+### Building/Running
 This has just been tested on Ubuntu 14.04 and El Capitan.  
-####Prerequisites
+#### Prerequisites
  0. llvm-config-3.9, lli-3.9, llvm-link-3.9, llvm-dis-3.9, opt-3.9
  0. OCaml
  0. clang/++ version 3.9.x
  
-####To Build
+#### To Build
  Run ```make```.
   
-####To Run
+### To Run
  Create a Pyrite file, and go into the Parser directory and run:  
  ```sh run_test.sh path/to/your/file.it```  
  This will compile and execute the file.
 
-##Loose Language Spec
+## Loose Language Spec
 
-####A Pyrite Program
+#### A Pyrite Program
 All Pyrite programs require a main function with no arguments that returns void.
 Pyrite programs cannot link to other Pyrite files at the moment. All scoping is lexical.
 Statements are not terminated by semicolons.
 
-####Types
+#### Types
 There is currently no support for user-defined types.
  * Base - Base class
  * Bool : Base - Boolean (e.g. true)
@@ -60,7 +60,7 @@ There is currently no support for user-defined types.
  * IntRange : Base - An iterable int generator (e.g. 0..100)
  * Void
 
-####Functions
+#### Functions
 Functions must be declared at file scope.  
 The prototype of a function looks like:    
 ```swift
@@ -71,26 +71,26 @@ If a function consists of only a single statement, then curly braces are optiona
 If a function returns Void, then specifying that the return type is Void is optional.
 There is no 'return' keyword and instead, the last statement in a function is used as the return value.
 
-####Loops
-#####A for loop
+#### Loops
+##### A for loop
 ```swift
 for(i in a)
 ```
 Where 'a' is an IntRange type or a List type.
 This is then followed by either a single statement or a block of statements.  
-#####A while loop
+##### A while loop
 ```swift
 while(cond)
 ```
 Followed by a statement or a block.
 
-####If-Else
-#####The 'if' form
+#### If-Else
+##### The 'if' form
 ```swift
 if(cond)
 ```
 Followed by a statement or block.  
-#####The 'if-else' form
+##### The 'if-else' form
 ```swift
 if(cond)
   stmt
@@ -104,18 +104,18 @@ let boolToInt:Int = if(condition) 1 else 0
 ```
 Is valid.
 
-####List generators
+#### List generators
 ```swift
 let listy = [a for (a in 0..100)]
 ```
 In the example above, listy would be a list of ints from 0 to 99.
 
-####Variables
+#### Variables
 Variables are declared using the 'let' keyword.
 The type annotation for a variable declaration is optional if the type can be inferred
 from the right hand side of the declaration. If a variable is used before it is initialized,
 then the result is currently undefined.
-#####Declarations
+##### Declarations
 ```swift
 let a = 1
 let b:Int = 1
@@ -124,16 +124,16 @@ let d:[Int] = []
 let e = [1]
 ```
 
-####Operators
-#####Binary
+#### Operators
+##### Binary
 ```swift
 +, -, *, /, %, |, &, ^
 ```
-#####Augmented assigns
+##### Augmented assigns
 ```swift
 +=, -=, *=, /=, %=, |=, &=, ^=
 ```
-#####Unary
+##### Unary
 ```swift
 -
 ```
